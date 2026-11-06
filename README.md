@@ -1,22 +1,24 @@
 # OSCAR — Orchestrated Secure Confidential Agent Runtime
 
-> **An enterprise-grade, spec-driven personal agent framework featuring local PII masking, Zero Data Retention orchestration, and real-time synchronization.**
+> **An enterprise-grade, spec-driven personal assistant and multi-agent runtime featuring local PII masking, Zero Data Retention orchestration, and real-time reactive synchronization.**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Methodology](https://img.shields.io/badge/Methodology-Spec--Driven%20Development-success.svg)](docs/spec/architecture.md)
-[![Test Coverage](https://img.shields.io/badge/Coverage-%E2%89%A590%25-brightgreen.svg)]()
+[![Test Coverage Target](https://img.shields.io/badge/Coverage%20Target-%E2%89%A595%25-brightgreen.svg)](docs/spec/privacy-guard-spec.md)
+[![AI Governance](https://img.shields.io/badge/Governance-PoLP%20%26%20HITL-purple.svg)](docs/spec/multi-agent-system.md)
 
 ---
 
-## 🌟 Key Features
+## 🌟 Core Highlights & Architectural Principles
 
-* 🛡️ **Confidentiality by Design (Local PII Masking):** Automatically strips personally identifiable information (emails, names, monetary amounts, phone numbers, API keys) locally before dispatching prompts to external LLMs.
-* 🤖 **Zero Data Retention Orchestration:** Built around the official Google GenAI SDK with strictly enforced `responseSchema` (Zod-driven Structured Outputs).
-* 📐 **Spec-Driven Development (SDD):** System specifications, data contracts, and verification plans exist in `docs/spec/` before any line of production code is written.
-* ⚡ **Real-Time Cross-Device Sync:** Firebase Firestore layer propagates task state changes instantly between desktop and mobile clients.
-* 🧪 **Deterministic Test Rigor:** Core domain logic (Privacy Guard tokenization & re-hydration) guarantees $\ge 90\%$ unit test coverage with Vitest.
-* 🎨 **Atomic Design UI:** React + TypeScript client structured cleanly into strict `atoms/`, `molecules/`, and `organisms/`.
+* 🛡️ **Confidentiality by Design (Local PII Masking):** Automatically strips personally identifiable information (emails, names, monetary amounts, phone numbers, IBANs, API keys) locally before dispatching prompts to external LLMs.
+* 🤖 **Zero Data Retention Orchestration:** Built with the official Google GenAI SDK (`@google/genai`), enforcing strict JSON Schema runtime verification (`responseSchema`) with Google Gemini.
+* 📐 **Spec-Driven Development (SDD):** System specifications, runtime contracts, and verification criteria are authoritatively defined in `docs/spec/` before production code is committed.
+* ⚡ **Real-Time Cross-Device Sync:** Built on Firebase Firestore (Spark Free Tier) leveraging direct `onSnapshot` listeners to push updates instantaneously to connected desktop and mobile clients.
+* 🧪 **Deterministic Engineering Rigor:** Core domain logic (Privacy Guard tokenization & re-hydration) guarantees $\ge 95\%$ unit test coverage with Vitest, running with 100% in-memory isolation.
+* 🎨 **Client-Side Atomic Design:** React + TypeScript UI decoupled into isolated `atoms/`, `molecules/`, `organisms/`, and `views/` with scoped styling.
+* 👥 **Multi-Agent Governance (PoLP & HITL):** Structured agentic workforce enforcing the Principle of Least Privilege and Human-in-the-Loop oversight across all engineering tasks.
 
 ---
 
@@ -24,15 +26,15 @@
 
 ```mermaid
 flowchart LR
-    Client["React Vite (Atomic Design)"] -->|"Sanitized API Req"| Gateway["Node.js Gateway / Orchestrator"]
-    Gateway -->|"1. Local Masking"| PG["Privacy Guard Engine"]
-    PG -->|"2. Tokenized Prompt"| AI["Google Gemini API (Structured Outputs)"]
-    AI -->|"3. Strict JSON"| PG
-    PG -->|"4. Local Re-hydration"| Storage["Firebase Firestore"]
-    Storage -->|"5. Real-time Stream"| Client
+    Client["React UI (Atomic Design)"] -->|"1. Raw Input"| Gateway["Node.js / TS Gateway"]
+    Gateway -->|"2. Mask PII"| PG["Privacy Guard Engine"]
+    PG -->|"3. Sanitized Prompt"| AI["Google Gemini API (gemini-2.5-flash)"]
+    AI -->|"4. Structured JSON"| PG
+    PG -->|"5. Re-hydrate Tokens"| Storage[("Firebase Firestore")]
+    Storage -->|"6. Real-Time Stream (onSnapshot)"| Client
 ```
 
-Detailed architectural blueprints and sequence diagrams are documented in [`docs/spec/architecture.md`](docs/spec/architecture.md).
+For full system diagrams, sequence workflows, and failure recovery protocols, see [**System Architecture Specification**](docs/spec/architecture.md).
 
 ---
 
@@ -41,41 +43,56 @@ Detailed architectural blueprints and sequence diagrams are documented in [`docs
 ```
 oscar/
 ├── docs/
-│   └── spec/                      # Authoritative specifications (Single Source of Truth)
-│       ├── architecture.md        # System components, data flows, and security model
-│       ├── contracts.md           # Zod runtime schemas & JSON Schema definitions
-│       └── privacy-guard-spec.md  # PII detection rules & tokenization lifecycle
-├── client/                        # React + TypeScript + Vite (Atomic Design)
+│   └── spec/                          # Authoritative Specifications (Single Source of Truth)
+│       ├── architecture.md            # System tiers, sequence flows, and Zero Trust model
+│       ├── contracts.md               # Authoritative Zod runtime schemas & JSON Schemas
+│       ├── privacy-guard-spec.md      # PII detection rules, RTL substitution & re-hydration
+│       └── multi-agent-system.md      # Agent workforce, PoLP privileges & HITL workflows
+├── client/                            # React + TypeScript + Vite (Atomic Design)
 │   └── src/
 │       ├── components/
-│       │   ├── atoms/             # Single-purpose isolated UI elements
-│       │   ├── molecules/         # Grouped atom components
-│       │   └── organisms/         # Business domain widgets
-│       └── services/              # API Client & Firestore Real-time subscriptions
-├── server/                        # Node.js + TypeScript Gateway
+│       │   ├── atoms/                 # Single-purpose isolated UI components (scoped CSS)
+│       │   ├── molecules/             # Grouped atom components
+│       │   └── organisms/             # Business domain widgets
+│       ├── views/                     # Page-level screens (Dashboard, TaskBoard)
+│       └── services/                  # Gateway client & Firestore listeners
+├── server/                            # Node.js + TypeScript Gateway
 │   ├── src/
-│   │   ├── privacy/               # Pure Privacy Guard Engine (PII Masker / Unmasker)
-│   │   ├── agent/                 # Gemini Orchestrator (Google GenAI SDK)
-│   │   └── routes/                # REST & Streaming endpoints
-│   └── tests/                     # Unit test suite (Vitest, >=90% target coverage)
-├── .gitignore
-├── LICENSE
-└── README.md
+│   │   ├── privacy/                   # Pure Privacy Guard Engine (Masker / Re-hydrator)
+│   │   ├── agent/                     # Gemini Orchestrator (Google GenAI SDK)
+│   │   └── routes/                    # API endpoints
+│   └── tests/                         # Unit & integration test suites (Vitest, >=95% target)
+├── .gitignore                         # Comprehensive ignore rules
+├── LICENSE                            # MIT License
+└── README.md                          # Project documentation portal
 ```
 
 ---
 
-## 📋 Specifications & Contracts
+## 📋 Authoritative System Specifications
 
-1. [**System Architecture**](docs/spec/architecture.md): Overview, component breakdown, and security guarantees.
-2. [**Domain Contracts**](docs/spec/contracts.md): Authoritative Zod schemas for Memos, Tasks, Privacy Tokens, and Audit Logs.
-3. [**Privacy Guard Specification**](docs/spec/privacy-guard-spec.md): Regex patterns, right-to-left replacement algorithm, and re-hydration rules.
+The OSCAR codebase strictly adheres to the following specification documents:
+
+1. [**System Architecture**](docs/spec/architecture.md): Component breakdown, end-to-end data sequence diagrams, tier specifications, and Zero Trust guarantees.
+2. [**Domain & Data Contracts**](docs/spec/contracts.md): Authoritative Zod schemas for PII token maps, sanitization results, Gemini structured task responses, Firestore entities, and privacy audit logs.
+3. [**Privacy Guard Engine Specification**](docs/spec/privacy-guard-spec.md): Regex patterns for 6 PII categories, Right-to-Left replacement algorithm, recursive JSON re-hydration logic, and Vitest test criteria.
+4. [**Multi-Agent System & Governance**](docs/spec/multi-agent-system.md): Agent topology (Lead Architect, Master Orchestrator, Docs Worker, Privacy Specialist, QA Worker), Principle of Least Privilege (PoLP) matrix, and Human-in-the-Loop (HITL) checkpoints.
+
+---
+
+## 🛡️ Privacy Guard: How It Works
+
+1. **Detection:** Scans input for API keys, IBANs, email addresses, phone numbers, monetary values, and person names using prioritized regex matchers.
+2. **Right-to-Left Masking:** Substitutes detected entities from end to start of the string, preserving character indices and preventing offset drift.
+3. **Structured Inference:** Sends sanitized text (`[PERSON_1]`, `[AMOUNT_MONEY_1]`) to Google Gemini alongside strict `responseSchema`.
+4. **Recursive Re-hydration:** Walks the returned JSON tree depth-first and restores cleartext values from an ephemeral in-memory dictionary.
+5. **Zero Trace:** The mapping dictionary is immediately garbage collected. The audit log records only non-PII compliance metrics.
 
 ---
 
 ## 🚀 Getting Started
 
-*(Setup instructions will be populated during the implementation phase).*
+*(Environment setup and dependency installation instructions will be provided in the implementation phase under HITL supervision).*
 
 ---
 

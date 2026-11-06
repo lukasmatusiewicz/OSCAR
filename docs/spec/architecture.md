@@ -1,104 +1,166 @@
 # OSCAR System Architecture Specification
 
-## 1. Overview & Vision
-**OSCAR** (**O**rchestrated **S**ecure **C**onfidential **A**gent **R**untime) is an enterprise-grade, privacy-first personal assistant and multi-agent task orchestrator. It bridges the power of generative AI models (Google Gemini) with strict data privacy constraints (Zero Data Retention principles, local PII masking, client-side data protection).
+## 1. Executive Summary & Vision
+**OSCAR** (**O**rchestrated **S**ecure **C**onfidential **A**gent **R**untime) is an enterprise-grade, privacy-first personal assistant and task orchestration framework. It marries the analytical and generative capabilities of Google Gemini with rigorous data confidentiality guarantees based on Zero Data Retention (ZDR) and local Personally Identifiable Information (PII) masking.
 
-The core tenet of OSCAR is **Confidentiality by Design**: no sensitive user data (names, emails, credentials, financial details) ever leaves the local/private boundary in plain text.
+The foundational principle of OSCAR is **Confidentiality by Design**: no sensitive user data—such as personal names, email addresses, monetary amounts, phone numbers, international bank account numbers (IBANs), or confidential tokens/keys—ever leaves the private, trusted execution boundary in plaintext.
 
 ---
 
-## 2. High-Level Component Architecture
+## 2. High-Level System Architecture
+
+OSCAR follows a multi-tiered, decoupled client-server architecture designed for high security, end-to-end type safety, and real-time synchronization.
 
 ```mermaid
 flowchart TD
-    subgraph ClientLayer ["Client Layer (Web / Responsive UI)"]
+    subgraph ClientLayer ["Client Layer (Web Application)"]
         UI["React + Vite UI (Atomic Design)"]
-        RT["Realtime Sync Listener (Firestore)"]
+        HOOKS["Domain Hooks (useMemos, useTasks)"]
+        RT["Firestore Real-Time Listener (onSnapshot)"]
     end
 
     subgraph ServerGateway ["Backend Gateway & Orchestrator (Node.js / TypeScript)"]
-        API["REST / Streaming API Routes"]
-        PG["Privacy Guard Engine (PII Masker / Unmasker)"]
-        ORCH["Agent Orchestrator (Google GenAI SDK)"]
-        AUDIT["Privacy Audit Logger"]
+        API["REST / Fastify or Express Gateway"]
+        PG["Privacy Guard Engine (Regex Masker / Re-hydrator)"]
+        TOKEN_STORE[("Ephemeral In-Memory Token Map\n(Request Scope)")]
+        ORCH["AI Agent Orchestrator (@google/genai)"]
+        AUDIT["Privacy Audit Logger (Anonymized)"]
+        FALLBACK["Deterministic Rule-Based Extractor (Fallback)"]
     end
 
-    subgraph ExternalAI ["External AI Provider (Zero Data Retention)"]
-        GEMINI["Google Gemini API (Structured Outputs)"]
+    subgraph ExternalAI ["External AI Infrastructure"]
+        GEMINI["Google Gemini API (gemini-2.5-flash)\nStructured Outputs (responseSchema)"]
     end
 
-    subgraph StorageLayer ["Persistence Layer"]
-        FS["Firebase Firestore (Real-time Cloud Database)"]
+    subgraph PersistenceLayer ["Persistence & Sync Layer (Firebase Spark Plan)"]
+        FS[("Firebase Firestore\n(Collections: memos, tasks, audit_logs)")]
     end
 
-    UI -->|"1. Submit confidential memo / task"| API
-    API -->|"2. Forward raw payload"| PG
-    PG -->|"3. Mask PII & generate token map"| AUDIT
-    PG -->|"4. Send sanitized prompt & JSON schema"| ORCH
-    ORCH -->|"5. Execute structured inference"| GEMINI
-    GEMINI -->|"6. Return structured JSON payload"| ORCH
-    ORCH -->|"7. Return parsed data to Privacy Guard"| PG
-    PG -->|"8. Restore real values from local token map"| API
-    API -->|"9. Persist finalized memo & tasks"| FS
-    FS -->|"10. Push real-time update"| RT
-    RT -->|"11. Re-render UI"| UI
+    UI -->|"1. Submit confidential memo / text"| API
+    API -->|"2. Pass raw text"| PG
+    PG <-->|"3. Store mappings / retrieve offsets"| TOKEN_STORE
+    PG -->|"4. Record non-PII metrics"| AUDIT
+    AUDIT -->|"5. Async persist audit entry"| FS
+    PG -->|"6. Sanitized prompt & JSON responseSchema"| ORCH
+    ORCH -->|"7a. Structured inference request"| GEMINI
+    ORCH -.->|"7b. On API error / offline"| FALLBACK
+    GEMINI -->|"8a. Strict JSON with tokens"| ORCH
+    FALLBACK -.->|"8b. Local fallback JSON"| ORCH
+    ORCH -->|"9. Return structured task object"| PG
+    PG <-->|"10. Recursively unmask tokens"| TOKEN_STORE
+    PG -->|"11. Re-hydrated task payload"| API
+    API -->|"12. Transactional save"| FS
+    FS -->|"13. Real-time document push"| RT
+    RT -->|"14. Reactive state update"| HOOKS
+    HOOKS -->|"15. Atomic re-render"| UI
 ```
 
 ---
 
-## 3. Layer Specifications
+## 3. Tiered Layer Specifications
 
-### 3.1 Client Layer
-* **Framework:** React 18+ with TypeScript, bundled with Vite.
-* **Architecture:** Atomic Design structure:
-  * `atoms/`: Fundamental UI elements (Buttons, Badges, Inputs, Icons). Each in a dedicated folder with scoped CSS.
-  * `molecules/`: Composite controls (SearchBox, PrivacyBadge, PrioritySelector).
-  * `organisms/`: Self-contained functional widgets (MemoEditor, TaskList, PrivacyAuditPanel).
-  * `views/`: Page-level screens (Dashboard, TaskBoard, Settings).
-* **State Management:** Reactive local state + custom hooks for Firestore subscriptions, ensuring lightweight bundle size.
+### 3.1 Client Layer (Frontend)
+* **Core Technology:** React 18+ with TypeScript, bundled using Vite.
+* **Architecture Pattern:** **Atomic Design** system strictly structured to eliminate duplicated components and preserve maintainability:
+  * `atoms/`: Smallest indivisible UI elements (e.g., `Button`, `Badge`, `Input`, `Icon`, `Typography`). Each component resides in its own dedicated subfolder with isolated CSS/Module styling (`src/components/atoms/Button/Button.tsx`, `Button.css`).
+  * `molecules/`: Assemblies of atoms functioning as cohesive UI units (e.g., `PrivacyIndicator`, `PriorityBadge`, `SearchBar`, `DateDisplay`).
+  * `organisms/`: Self-contained functional widgets bound to domain behavior (e.g., `MemoInputForm`, `TaskList`, `TaskCard`, `PrivacyAuditTable`).
+  * `views/`: Page-level route targets (e.g., `DashboardView`, `TaskBoardView`, `SettingsView`).
+* **Real-time Reactive Sync:** Client initializes direct Firestore subscriptions (`onSnapshot`) scoped to the active user context. When new tasks are created or status changes, UI reflects updates instantaneously without manual polling.
+* **Security Posture:** Zero third-party API keys or service account credentials exist in the client bundle. All sensitive AI operations are routed through the backend gateway.
 
 ### 3.2 Backend Gateway & Orchestrator
-* **Runtime:** Node.js (v20+) with TypeScript and strict compiler settings (`strict: true`).
-* **Roles:**
-  1. **Security Isolation:** Houses API keys (`GEMINI_API_KEY`) and Firebase Admin credentials. The client never touches third-party credentials.
-  2. **Privacy Guard Engine:** Pure, deterministic TypeScript module responsible for pattern extraction, token substitution, and post-inference re-hydration.
-  3. **Agent Orchestrator:** Uses official `@google/genai` SDK with strict `responseSchema` enforcing structured output.
+* **Core Technology:** Node.js (v20+ LTS) running TypeScript with compiler configuration set to `strict: true`.
+* **Primary Responsibilities:**
+  1. **Confidentiality Guarding:** Intercepts every inbound prompt, extracts PII tokens using the Privacy Guard engine, and holds the replacement dictionary in request-scoped ephemeral memory.
+  2. **AI Orchestration:** Communicates with the official `@google/genai` SDK using `generateContent` configured with `responseSchema` (structured outputs derived from Zod contracts).
+  3. **Re-hydration & Sanitization:** Traverses the returned structured JSON hierarchy, substituting synthetic tokens with original values before persistence.
+  4. **Auditability:** Writes anonymized performance and detection metrics (number of tokens masked, types detected, latency in ms) into the audit collection without logging any raw user PII.
+  5. **Graceful Degradation:** Provides deterministic local regex extraction fallback if the external AI service returns 429 (rate limit), 503, or network timeout.
 
-### 3.3 Persistence Layer (Firebase Firestore)
-* Cloud-hosted NoSQL document database used in Spark Plan (Free Tier).
-* Real-time listeners (`onSnapshot`) push updates instantly across devices (desktop/mobile).
+### 3.3 External AI Provider Layer (Google Gemini)
+* **Model Selection:** `gemini-2.5-flash` (or current GA Flash model) optimized for low latency, high throughput, and cost-effectiveness under the Google AI Studio Free Tier (15 RPM / 1500 RPD).
+* **Structured Outputs:** Gemini `generationConfig.responseSchema` is populated with a strict JSON schema generated directly from domain Zod definitions. This eliminates hallucinated formatting, markdown fencing drift, or missing required fields.
+* **Zero Data Retention (ZDR):** Gemini API under standard enterprise terms operates with Zero Data Retention principles, preventing user prompts from being used to train general foundational models.
+
+### 3.4 Persistence Layer (Firebase Firestore)
+* **Hosting Model:** Cloud Firestore under Spark Tier (Free Plan: 1 GiB storage, 50,000 document reads, 20,000 document writes per day).
+* **Data Model:**
+  * `memos`: Represents the user's raw notes, metadata, creation timestamps, and privacy summary tags.
+  * `tasks`: Contains actionable items, priorities, categorizations, deadlines, and decomposed subtask checklists.
+  * `privacy_audit_logs`: Stores anonymized compliance logs tracking PII detections, risk levels, and processing latencies.
+* **Real-time Engine:** Bi-directional document streaming over WebSockets/gRPC pushes database mutations immediately to listening clients.
 
 ---
 
 ## 4. End-to-End Data Flow Sequence
+
+The complete lifecycle of a user prompt—from raw input to masked AI analysis, unmasking, database write, and real-time reactive rendering—is depicted below:
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as User
     participant UI as React UI (Client)
+    participant GW as Backend Gateway
     participant PG as Privacy Guard Engine
-    participant Agent as Gemini Orchestrator
-    participant LLM as Google Gemini API
-    participant DB as Firebase Firestore
+    participant LLM as Google Gemini (gemini-2.5-flash)
+    participant FS as Firebase Firestore
 
-    User->>UI: Enter raw text ("Meeting with Frank (frank@pta.de) tomorrow 2pm, budget 15000 EUR")
-    UI->>PG: POST /api/memos { content: "..." }
-    Note over PG: Detect PII (Email, Name, Amount)<br/>Create local token map in memory
-    PG->>Agent: Sanitized content ("Meeting with [PERSON_1] ([EMAIL_1]) tomorrow 2pm, budget [AMOUNT_1]")
-    Agent->>LLM: generateContent with TaskExtractionSchema
-    LLM-->>Agent: Strict JSON { title, scheduledAt, category, subtasks }
-    Agent-->>PG: Structured JSON with tokens
-    Note over PG: Re-hydrate tokens with original values<br/>Write anonymized audit log
-    PG->>DB: Save Memo & Task documents
-    DB-->>UI: Real-time update stream (new task renders)
-    PG-->>UI: HTTP 201 Created { memo, task, privacyReport }
+    User->>UI: Enters memo: "Meeting with Frank Dietrich (frank@pta.de, +49 170 1234567) tomorrow 2pm to approve 15000 EUR budget"
+    UI->>GW: POST /api/memos { content, userId }
+    GW->>PG: mask(rawContent)
+    
+    activate PG
+    Note over PG: 1. Scan text with regex cascade<br/>2. Match: Email, Phone, Amount, Person<br/>3. Generate ephemeral token map<br/>4. Replace Right-to-Left
+    PG-->>GW: SanitizationResult { sanitizedText, tokenMap, riskLevel }
+    deactivate PG
+
+    Note over GW: sanitizedText: "Meeting with [PERSON_1] ([EMAIL_1], [PHONE_1]) tomorrow 2pm to approve [AMOUNT_MONEY_1] budget"
+
+    GW->>FS: Save PrivacyAuditLog (anonymized: detected 4 items, risk: HIGH)
+    GW->>LLM: generateContent({ prompt: sanitizedText, responseSchema: ExtractedTaskSchema })
+    
+    activate LLM
+    Note over LLM: AI parses sanitized text.<br/>Understands entities via tokens.<br/>Decomposes into actionable steps.
+    LLM-->>GW: Strict JSON { title: "Approve [AMOUNT_MONEY_1] budget with [PERSON_1]", subtasks: [...] }
+    deactivate LLM
+
+    GW->>PG: rehydrate(aiResponse, tokenMap)
+    
+    activate PG
+    Note over PG: Recursively walks JSON tree.<br/>Substitutes tokens with original values.<br/>Destroys ephemeral token map.
+    PG-->>GW: Re-hydrated Task object
+    deactivate PG
+
+    GW->>FS: Save MemoEntity and TaskEntity
+    FS-->>UI: Real-time update snapshot via onSnapshot()
+    GW-->>UI: HTTP 201 Created { memoId, taskId, privacySummary }
+    UI-->>User: Renders re-hydrated task card with verified Privacy Shield badge
 ```
 
 ---
 
-## 5. Security & Zero Trust Guarantees
-1. **Zero Secret Leakage:** No client-side exposure of LLM credentials or service accounts.
-2. **Local Token Store:** The token mapping dictionary is ephemeral and stored in server memory only during the lifecycle of the request.
-3. **Structured Schema Validation:** Every AI response is validated at runtime against Zod schemas before being accepted into the domain layer.
-4. **Resilience & Fallback:** If the external LLM is unreachable, the system falls back to a deterministic local rule-based extractor (*Graceful Degradation*).
+## 5. Zero Trust & Data Confidentiality Model
+
+OSCAR is engineered from the ground up on Zero Trust principles:
+
+1. **Client Isolation & Least Privilege:**
+   * Browser clients never receive or store cloud provider credentials, Gemini API keys, or database administrative tokens.
+   * Communication between client and gateway is secured via standard authenticated sessions.
+
+2. **Ephemeral Memory Scope for PII:**
+   * The `TokenMap` mapping synthetic placeholders (e.g., `[EMAIL_1]`) to cleartext values resides solely within volatile Node.js server memory during the lifespan of that specific HTTP request.
+   * `TokenMap` objects are strictly excluded from server loggers, crash reports, disk caches, and permanent storage.
+
+3. **Dual-Layer Schema Guardrails:**
+   * **Inbound (AI Provider):** Google Gemini `responseSchema` forces the model to emit deterministic JSON structures compliant with domain types.
+   * **Outbound (Application Gateway):** Returned payloads are verified at runtime using **Zod** schema validators before data ingestion. Malformed responses trigger automated retries or fallback extractors.
+
+4. **Prompt Injection & Adversarial Safeguards:**
+   * Inbound text is treated as untrusted data.
+   * Prompts are wrapped in structured XML/Markdown demarcation boundaries, preventing user input from overriding system directives or leaking system prompts.
+
+5. **Deterministic Graceful Degradation:**
+   * If external AI providers experience outages, network partition, or quota exhaustion (HTTP 429), the gateway falls back to an internal rule-based regex and keyword extractor (`DeterministicFallbackExtractor`).
+   * The user experience remains uninterrupted, and no task creation request is permanently lost.
