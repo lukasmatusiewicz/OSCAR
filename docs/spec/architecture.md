@@ -164,3 +164,50 @@ OSCAR is engineered from the ground up on Zero Trust principles:
 5. **Deterministic Graceful Degradation:**
    * If external AI providers experience outages, network partition, or quota exhaustion (HTTP 429), the gateway falls back to an internal rule-based regex and keyword extractor (`DeterministicFallbackExtractor`).
    * The user experience remains uninterrupted, and no task creation request is permanently lost.
+
+---
+
+## 6. Enterprise Auditability & Regulatory Alignment
+
+OSCAR is engineered to meet the highest enterprise standards for software integrity, auditability, and regulatory governance. By completely replacing undocumented, trial-and-error AI scripting ("vibe coding") with **Spec-Driven Development (SDD)** and a **Maker-Checker Multi-Agent Architecture**, the system achieves **AI Maturity Level 4 & 5** (Reifegrad 4/5) and aligns with stringent European Union regulatory frameworks.
+
+### 6.1 AI Maturity Levels (Reifegrad 4 & 5)
+
+| Maturity Level | Level Definition | OSCAR Operational Implementation |
+| :--- | :--- | :--- |
+| **Level 4: Quantitatively Managed** | Processes are measured, predictable, and controlled via mathematical and structural contracts. | • **Contract-First Engineering:** Zero code is committed without pre-existing Zod schemas (`contracts.md`) and architectural specifications.<br/>• **Dual Schema Enforcement:** Google Gemini outputs are strictly constrained at inference time via `responseSchema` and validated at runtime on the gateway.<br/>• **Deterministic Test Coverage:** Vitest suites mandate $\ge 95\%$ line, branch, and function coverage with zero test flakiness. |
+| **Level 5: Optimizing & Autonomous Governance** | Continuous self-monitoring, independent verification loops, and self-enforcing constitutional constraints. | • **Maker-Checker Topology:** Separation of concerns between implementing subagents (Makers) and independent auditing agents (Checkers).<br/>• **Constitutional Guardrails & Anti-Sycophancy:** Agents possess a mandatory duty to reject invalid directives, skip requests, or out-of-spec shortcuts.<br/>• **Circuit Breakers:** Critique loops are strictly capped at 2 iterations before human escalation, preventing unbounded conversational drift. |
+
+### 6.2 Deterministic Traceability & Contract Testing
+
+In enterprise deployments, every system state transition must be reproducible, verifiable, and auditable:
+1. **End-to-End Contract Verification:** Every payload crossing component boundaries (HTTP requests, AI prompts, Firestore entities, and internal agent messages) must successfully pass typed Zod parsers (`validateContract`). Schema drift is caught and halted at runtime.
+2. **Zero-PII Compliance Audit Trail:** The `privacy_audit_logs` collection provides tamper-evident compliance telemetry (timestamp, action, detected token categories, risk level, latency) without ever writing sensitive cleartext data to disk.
+3. **Deterministic Roundtrip Invariance:** The Privacy Guard engine guarantees mathematical symmetry across masking and re-hydration ($\text{rehydrate}(\text{mask}(x)) \equiv x$), verified by isolated in-memory test suites.
+
+### 6.3 Regulatory Compliance & Legal Alignment
+
+```mermaid
+flowchart LR
+    SDD["Spec-Driven Development\n(docs/spec/)"] --> TRACE["Deterministic Traceability\n& Contract Testing"]
+    MAS["Maker-Checker Governance\n(PoLP & HITL)"] --> OVERSIGHT["Effective Human Oversight\n(Protected Main)"]
+    PG["Privacy Guard Engine\n(Local Masking & ZDR)"] --> PRIVACY["Data Minimization\n& Zero Data Retention"]
+
+    TRACE --> PLD["EU Product Liability Directive\n(Revised PLD / Produkthaftung)"]
+    OVERSIGHT --> AIACT["EU AI Act\n(Articles 10, 13, 14, 15)"]
+    PRIVACY --> GDPR["GDPR / RODO\n(Article 25: Privacy by Design)"]
+```
+
+#### A. EU AI Act Compliance (Verordnung (EU) 2024/1689)
+OSCAR's architecture directly addresses the core requirements set forth for trustworthy and transparent artificial intelligence:
+* **Human Oversight (Article 14):** Fully realized through the strict **Human-in-the-Loop (HITL)** subagent instantiation protocol and **Branch Protection** (agents are prohibited from merging into `main`; only the human Supervisor holds merge authority).
+* **Technical Robustness & Cybersecurity (Article 15):** Dual-layer schema validation prevents malformed output injection; prompt boundary demarcation guards against adversarial prompt injection; in-memory isolation protects against data corruption.
+* **Transparency & Provision of Information (Article 13):** Every inference request is mapped to clear token schemas, and fallback pathways (`DeterministicFallbackExtractor`) ensure transparent, explainable behavior if external models fail.
+* **Data Governance & Minimization (Article 10):** Sensitive data is scrubbed at the edge prior to external transmission, enforcing Zero Data Retention (ZDR) across third-party cloud boundaries.
+
+#### B. EU Product Liability Directive (EU-Produkthaftungsrichtlinie / Revised PLD)
+The revised EU Product Liability Directive recognizes software and AI systems as products, establishing strict liability for defects resulting from undocumented or uncontrolled AI code generation:
+* **Elimination of "Vibe Coding" Liability:** AI agents generate code solely within pre-authorized specifications, eliminating hallucinations and unverified side-effects.
+* **Exculpatory Audit Trail:** By establishing an immutable Git history where specifications precede code, test runs verify $\ge 95\%$ coverage, and human approvals are recorded at every merge, the system provides conclusive technical documentation that software was defect-free and compliant with current state-of-the-art standards at the time of deployment.
+* **Strict Fault Containment:** The Principle of Least Privilege (PoLP) ensures that even if a subagent encounters a logic fault, the failure is quarantined to its scoped sandbox directory and cannot compromise root infrastructure or deployment branches.
+
