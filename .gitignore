@@ -1,5 +1,5 @@
 # OSCAR — Git Ignore Rules
-# Strictly excludes dependencies, environment credentials, build artifacts, test coverage, and local cache.
+# Strictly excludes dependencies, environment credentials, build artifacts, test coverage, memory dumps, and local cache.
 
 # Dependencies
 node_modules/
@@ -17,6 +17,9 @@ node_modules/
 *.pem
 *.key
 *.cert
+credentials.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
 
 # Build outputs & caches
 dist/
@@ -31,12 +34,19 @@ coverage/
 .vitest/
 .nyc_output/
 
-# Runtime logs
+# Runtime logs & memory dumps
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.heapsnapshot
+core
+core.*
+
+# Local databases & storage
+*.sqlite
+*.sqlite3
 
 # Firebase CLI & Emulator artifacts
 .firebase/

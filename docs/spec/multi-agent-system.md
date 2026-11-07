@@ -12,7 +12,7 @@ The development and operation of **OSCAR** is structured around an autonomous, r
 
 ## 2. Agent Workforce Architecture & Topology
 
-OSCAR employs a **Maker-Checker Architecture** to enforce separation of concerns between code generation and independent quality/security verification.
+OSCAR employs a **Maker-Checker-Critic Architecture** to enforce separation of concerns between code/spec generation, technical verification, and adversarial security auditing.
 
 ```mermaid
 flowchart TD
@@ -23,7 +23,7 @@ flowchart TD
     end
 
     subgraph ExecutionTier ["Operational Execution Tier"]
-        Orchestrator["Master Orchestrator (Pure Dispatcher)\n(Task Coordinator & HITL Controller)"]
+        Orchestrator["Master Orchestrator (Pure Dispatcher)\n(Task Coordinator, HITL Controller & State Machine)"]
     end
 
     subgraph MakerTier ["Specialized Maker Tier (Implementation)"]
@@ -31,8 +31,9 @@ flowchart TD
         PrivacyWorker["Privacy Guard Specialist\n(PII Engine & Security Logic)"]
     end
 
-    subgraph CheckerTier ["Independent Checker Tier (Verification)"]
-        Auditor["QA & Security Auditor Agent\n(Read-Only Code/Spec, Test Runner)"]
+    subgraph CheckerTier ["Independent Checker & Critic Tier (Verification & Audit)"]
+        Auditor["QA & Security Auditor Agent\n(Test Suite Runner & Code Verification)"]
+        Critic["Architecture & Security Critic Agent\n(Adversarial Threat Modeler & Spec Audit Gate)"]
     end
 
     Human <==>|"Strategic Guidance & Socratic Review"| Architect
@@ -46,13 +47,20 @@ flowchart TD
     Orchestrator -->|"Task Brief (Maker)"| DocsWorker
     Orchestrator -->|"Task Brief (Maker)"| PrivacyWorker
 
-    DocsWorker -->|"Draft Artifacts"| Auditor
-    PrivacyWorker -->|"Draft Code / Tests"| Auditor
+    DocsWorker -->|"Draft Docs / Contracts"| Orchestrator
+    PrivacyWorker -->|"Draft Code / Tests"| Orchestrator
 
-    Auditor -.->|"Critique / Feedback Loop (Max 2)"| PrivacyWorker
-    Auditor -.->|"Critique / Feedback Loop (Max 2)"| DocsWorker
+    Orchestrator -->|"Dispatch for Code Audit"| Auditor
+    Orchestrator -->|"Dispatch for Spec Audit Gate"| Critic
 
-    Auditor ==>|"Verification Sign-Off (Coverage >= 95%, PII, Zod)"| Orchestrator
+    Auditor -.->|"Audit Report / Critique"| Orchestrator
+    Critic -.->|"Threat Model / Critique"| Orchestrator
+
+    Orchestrator -.->|"Relay Critique (State Machine Loop <= 2)"| PrivacyWorker
+    Orchestrator -.->|"Relay Critique (State Machine Loop <= 2)"| DocsWorker
+
+    Auditor ==>|"Verification Sign-Off (Coverage >= 95%)"| Orchestrator
+    Critic ==>|"Security & Spec Sign-Off (Zero Open Findings)"| Orchestrator
     Orchestrator ==>|"Submit Branch PR for Human Merge"| Human
 ```
 
@@ -63,27 +71,56 @@ flowchart TD
 | Role | Operational Scope & Mandate | Allowed File Boundaries | Tool Authorizations | Prohibited Actions |
 | :--- | :--- | :--- | :--- | :--- |
 | **Lead Architect / Mentor** | Strategic architecture, requirements verification, Socratic dialogue with the Supervisor. Operates outside active code execution. | Read access across entire workspace. **Zero write access.** | `view_file`, `search_docs`, `read_resource`. | **Strictly forbidden from writing any files**, running shell commands, or spawning subagents. |
-| **Master Orchestrator (Pure Dispatcher)** | High-level workflow orchestrator and dispatcher. Coordinates subagents, manages task queues, formulates briefs, and prepares PR summaries. | `oscar/` root for task tracking; coordinates other agents. Edits `docs/` ONLY upon explicit Supervisor directive. | `send_message`, `manage_task`, `view_file`, `schedule`, `run_command` (scoped git/task). | **STRICTLY PROHIBITED from writing application source code or test suites.** Cannot merge to `main`. Cannot spawn subagents without explicit HITL approval from the Supervisor. Must enforce constitutional guardrails and refuse non-compliant instructions. |
+| **Master Orchestrator (Pure Dispatcher)** | High-level workflow orchestrator, dispatcher, and state machine controller. Coordinates subagents, manages task queues, tracks critique loops, and prepares PR summaries. | `oscar/` root for task tracking; coordinates other agents. Edits `docs/` ONLY upon explicit Supervisor directive. | `send_message`, `manage_task`, `view_file`, `schedule`, `run_command` (scoped git status/diff). | **STRICTLY PROHIBITED from writing application source code or test suites.** Cannot merge to `main`. Cannot spawn subagents without explicit HITL approval from the Supervisor. Must enforce constitutional guardrails and refuse non-compliant instructions. |
 | **Documentation & Spec Worker** | Authoritative owner of Spec-Driven Development (SDD), architecture documents, Zod schemas, and repo metadata. | `oscar/docs/`, `oscar/.gitignore`, `oscar/README.md`. | `view_file`, `write_file`, `edit_file`, `send_message`. | **Cannot edit any application source code** (`server/src/`, `client/src/`), cannot execute shell servers or network requests. |
-| **Privacy Guard Specialist** | Cryptographic & algorithmic specialist. Implements deterministic regex tokenization, RTL substitution, and re-hydration. | `oscar/server/src/privacy/`, `oscar/server/tests/privacy/`. | `view_file`, `write_file`, `edit_file`, `run_command` (scoped to `vitest run`). | Cannot modify frontend components, external API routes, or merge branches. |
-| **QA & Security Auditor Agent** | Independent **Checker** role. Evaluates Maker deliverables against specs, executes test suites, audits PII leaks, and validates Zod schemas. | **Read-Only** access to code & spec. Scoped test runner. | `view_file`, `run_command` (`vitest run`, `vitest run --coverage`), `send_message`. | **Strictly forbidden from editing source code or specifications**. Cannot approve PRs or merge to `main`. |
+| **Privacy Guard Specialist** | Cryptographic & algorithmic specialist. Implements deterministic regex tokenization, RTL substitution, and re-hydration. | `oscar/server/src/privacy/`, `oscar/server/tests/privacy/`. | `view_file`, `write_file`, `edit_file`, `run_command` (scoped strictly to allowlisted test commands). | Cannot modify frontend components, external API routes, or merge branches. |
+| **QA & Security Auditor Agent** | Independent **Checker** role. Evaluates Maker code deliverables against specs, executes test suites, audits PII leaks, and validates Zod schemas. | **Read-Only** access to code & spec. Scoped test runner. | `view_file`, `run_command` (strictly allowlisted test commands), `send_message`. | **Strictly forbidden from editing source code or specifications**. Cannot approve PRs or merge to `main`. |
+| **Architecture & Security Critic Agent** | Independent **Auditor & Critic** role. Conducts adversarial threat modeling, boundary verification, and Continuous Specification Regression Audits. | **Read-Only** access to `docs/` and root configuration files. | `view_file`, `search_docs`, `send_message`. | **Zero write permissions across the entire workspace.** Cannot execute shell commands, install packages, or mutate repository files. |
 
 ---
 
 ## 4. Maker-Checker Architecture & Review Loops
 
-To guarantee zero regressions and eliminate hallucinated implementations, all code and specification modifications must pass an independent **Maker-Checker validation loop**:
+### 4.1 Centralized Orchestrator State Machine
+To guarantee deterministic execution and eliminate uncontrolled inter-agent chatter, peer-to-peer communication loops between Makers and Checkers are **strictly prohibited**. All review cycles are governed centrally by the **Master Orchestrator State Machine**:
 
-1. **Maker Turn:** The designated Maker agent (e.g., Privacy Guard Specialist or Docs Worker) implements the task strictly within its assigned boundaries.
-2. **Checker Audit:** The **QA & Security Auditor Agent** is invoked with Read-Only permissions to code/specs and scoped command execution for tests:
-   - **Test Execution & Coverage:** Verifies that Vitest passes with $\ge 95\%$ line, branch, and function coverage on domain modules.
-   - **PII Leak Auditing:** Asserts that cleartext sensitive data never escapes into logs, schemas, or prompt templates.
-   - **Zod Contract Adherence:** Validates that runtime objects strictly conform to defined contracts (`contracts.md`).
-3. **Critique & Convergence Limit:**
-   - If flaws or gaps are detected, the Auditor generates a structured critique message detailing failing assertions.
-   - The Maker resolves the issues and resubmits to the Auditor.
-   - **Circuit Breaker:** A maximum of **2 critique loops** is permitted. If consensus is not reached within 2 iterations, the workflow halts and immediately escalates to the human Supervisor for resolution.
-4. **Sign-off:** Upon satisfactory audit, the Auditor issues a typed `COMPLETION_REPORT` to the Master Orchestrator.
+1. **Maker Turn:** The designated Maker agent (e.g., Privacy Guard Specialist or Docs Worker) implements the task within its PoLP sandbox and returns its deliverables to the Master Orchestrator.
+2. **Checker / Critic Turn:** The Master Orchestrator increments the cycle counter and routes the artifacts to the appropriate independent evaluator:
+   - Code artifacts are dispatched to the **QA & Security Auditor Agent**.
+   - Specification and architectural changes are dispatched to the **Architecture & Security Critic Agent**.
+3. **Structured Findings Evaluation:**
+   - Evaluators return typed findings categorized as `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW`.
+   - If findings exist, the Master Orchestrator formats a remediation brief and dispatches it back to the Maker.
+4. **Circuit Breaker (Max 2 Iterations):**
+   - The loop counter is tracked centrally in the Orchestrator's execution state.
+   - A maximum of **2 critique iterations** is permitted. If unresolved findings remain after cycle 2, the workflow halts immediately, freezes the task branch, and escalates to the human Supervisor for decision.
+
+### 4.2 Continuous Specification Regression Audit Gate
+Any proposed modification to `oscar/docs/` or domain contract schemas triggers a mandatory **Specification Regression Audit Gate**:
+* Prior to committing or opening a Pull Request for documentation/contract changes, the Master Orchestrator must invoke the **Architecture & Security Critic Agent**.
+* The Critic performs an exhaustive review against:
+  1. Cryptographic soundess (AES-256-GCM envelope encryption, key management).
+  2. RegExp compatibility (ECMAScript syntax, Unicode support, absence of invalid inline flags).
+  3. Schema synchronization (Zod contracts vs. Gemini OpenAPI `responseSchema` vs. Firestore schemas).
+  4. Identity neutrality (Zero PII, generic role taxonomy).
+* Zero Critical or High findings are permitted prior to PR generation.
+
+### 4.3 Command Execution Allowlist Policy
+For agents authorized to execute shell commands (`QA & Security Auditor Agent`, `Privacy Guard Specialist`, and `Master Orchestrator`), arbitrary shell command invocation is blocked. Only commands strictly matching the following allowlist are permitted:
+
+```
+ALLOWLIST = [
+  "npm test",
+  "npm run test",
+  "npx vitest run",
+  "npx vitest run --coverage",
+  "git status",
+  "git diff",
+  "git branch",
+  "git log -n *"
+]
+```
+All package installations (`npm install`, `yarn add`), global system modifications, daemon processes, and network requests (`curl`, `wget`) are strictly prohibited and blocked by governance policy.
 
 ---
 
@@ -106,14 +143,15 @@ The Master Orchestrator and all subagents are engineered with active constitutio
 ## 6. Zero PII & Identity Neutrality Policy
 
 To ensure absolute confidentiality and enterprise compliance:
-1. **No Personal Data in Repository:** Personal names, personal identities, contact numbers, personal email addresses, and external personal/interview context are **strictly barred** from all repository artifacts (source code, tests, documentation, commit messages, and PR descriptions).
-2. **Standardized Role Taxonomy:** All interactions, diagrams, and documentation must exclusively use generic engineering roles:
+1. **No Personal Data in Repository:** Personal names, personal identities, contact numbers, personal email addresses, and external personal or private context are **strictly barred** from all repository artifacts (source code, tests, documentation, commit messages, and PR descriptions).
+2. **Statutory Copyright Exception:** The statutory copyright attribution notice in the repository's root `LICENSE` file constitutes the **sole and exclusive legal exception** to this policy, as mandated by open-source licensing laws. All specifications, source files, tests, configurations, logs, and commit histories must remain 100% identity-neutral.
+3. **Standardized Role Taxonomy:** All interactions, diagrams, and documentation must exclusively use generic engineering roles:
    - `Supervisor`: The human engineering lead and sole decision-maker.
    - `User`: The end-user interacting with the OSCAR interface.
-   - `Master Orchestrator`: The execution and dispatch agent.
+   - `Master Orchestrator`: The execution, dispatch, and state-machine agent.
    - `Lead Architect`: The strategic mentor and advisor.
-   - Specialized workers (`Docs Worker`, `Privacy Specialist`, `QA Auditor`).
-3. **Synthetic Test Data:** Unit tests and specification examples must use synthetic names (e.g., `Alice Newman`, `Bob Miller`), fictional company domains (`@example.com`), and test numbers.
+   - Specialized workers (`Docs Worker`, `Privacy Specialist`, `QA Auditor`, `Security Critic`).
+4. **Synthetic Test Data:** Unit tests and specification examples must use synthetic names (e.g., `Alice Newman`, `Bob Miller`, `Jürgen Müller`, `Michał Kowalski`), fictional company domains (`@example.com`), and synthetic numbers.
 
 ---
 
@@ -131,7 +169,7 @@ Execution begins only after the Supervisor responds with explicit confirmation (
 ### 7.2 Strict Branch Protection & Merge Authority
 * **Branch Policy:** The `main` branch is protected and immutable to agent automation. All agentic development occurs on explicit task branches (e.g., `docs/spec-initial-architecture`).
 * **Zero Autonomous Merges:** No agent has permissions to execute `git merge main`, `git checkout main`, or push to `main`.
-* **Human Handover:** When a feature branch passes all Auditor checks, the Master Orchestrator pushes the branch and presents a structured Pull Request summary to the Supervisor. The Supervisor alone reviews, approves, and merges the PR on GitHub.
+* **Human Handover:** When a feature branch passes all Auditor and Critic checks, the Master Orchestrator pushes the branch and presents a structured Pull Request summary to the Supervisor. The Supervisor alone reviews, approves, and merges the PR on GitHub.
 
 ### 7.3 Incident Escalation & Circuit Breaker
 If an agent encounters any of the following conditions, it must halt execution immediately and escalate to the Master Orchestrator and the Supervisor:
