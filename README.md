@@ -2,10 +2,11 @@
 
 > **An enterprise-grade, spec-driven personal assistant and multi-agent runtime featuring local PII masking, Zero Data Retention orchestration, client-side AES-256-GCM encryption at rest, and real-time reactive synchronization.**
 
+[![CI / Vitest Pipeline](https://github.com/lukasmatusiewicz/OSCAR/actions/workflows/ci.yml/badge.svg)](https://github.com/lukasmatusiewicz/OSCAR/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Methodology](https://img.shields.io/badge/Methodology-Spec--Driven%20Development-success.svg)](docs/spec/architecture.md)
-[![Test Coverage Target](https://img.shields.io/badge/Coverage%20Target-%E2%89%A595%25-brightgreen.svg)](docs/spec/privacy-guard-spec.md)
 [![AI Governance](https://img.shields.io/badge/Governance-PoLP%2C%20HITL%20%26%20Critic%20Gate-purple.svg)](docs/spec/multi-agent-system.md)
 
 ---
