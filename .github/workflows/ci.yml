@@ -27,3 +27,4 @@ jobs:
 
       - name: Run Vitest with Coverage
         run: cd server && npx vitest run --coverage
+
