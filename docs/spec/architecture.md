@@ -107,7 +107,7 @@ sequenceDiagram
     participant LLM as Google Gemini (gemini-2.5-flash)
     participant FS as Firebase Firestore
 
-    User->>UI: Enters memo: "Meeting with Frank Dietrich (frank@pta.de, +49 170 1234567) tomorrow 2pm to approve 15000 EUR budget"
+    User->>UI: Enters memo: "Meeting with Alice Newman (alice@example.com, +49 170 1234567) tomorrow 2pm to approve 15000 EUR budget"
     UI->>GW: POST /api/memos { content, userId }
     GW->>PG: mask(rawContent)
     

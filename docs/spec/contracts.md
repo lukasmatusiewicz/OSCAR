@@ -112,7 +112,7 @@ export const ExtractedTaskSchema = z.object({
   tags: z
     .array(z.string().min(1).max(30))
     .max(8)
-    .describe('Relevant contextual tags for filtering and indexing (e.g., ["interview", "pta", "budget"])'),
+    .describe('Relevant contextual tags for filtering and indexing (e.g., ["project", "operations", "budget"])'),
   subtasks: z
     .array(SubtaskItemSchema)
     .min(1)

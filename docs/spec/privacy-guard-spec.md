@@ -15,13 +15,13 @@ The engine executes a priority-ordered cascade of deterministic regular expressi
 | :--- | :--- | :--- | :--- | :--- |
 | **1** | **API / Secret Key** | `[SECRET_KEY_N]` | `(?i)(?:bearer\s+[a-z0-9_\-\.]{20,}\|ghp_[a-z0-9]{36}\|ai[a-z0-9_\-]{30,}\|(?:sk-[a-z0-9]{32,}))` | `ghp_1234567890abcdef1234567890abcdef1234`, `Bearer eyJhbGciOi...` |
 | **2** | **IBAN** | `[IBAN_N]` | `\b[A-Z]{2}[0-9]{2}(?:[ ]?[0-9]{4}){4,7}(?:[ ]?[0-9]{1,4})?\b` | `DE89 3704 0044 0532 0130 00`, `PL61109010140000071219812874` |
-| **3** | **Email Address** | `[EMAIL_N]` | `\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b` | `frank.dietrich@pta.de`, `user@domain.co.uk` |
+| **3** | **Email Address** | `[EMAIL_N]` | `\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b` | `contact@example.com`, `user@domain.co.uk` |
 | **4** | **Phone Number** | `[PHONE_N]` | `(?:(?:\+|00)\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}\b` | `+49 170 1234567`, `(030) 9876-5432`, `+1-800-555-0199` |
 | **5** | **Monetary Amount** | `[AMOUNT_MONEY_N]` | `(?:\$|€|£|PLN|EUR|USD)\s?\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?\|\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?\s?(?:€|\$|£|PLN|EUR|USD)\b` | `15000 EUR`, `$450.00`, `2.500,00 €`, `49,99 PLN` |
-| **6** | **Person / Name** | `[PERSON_N]` | `(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\|(?:(?<=\bwith\s+\|\bmeeting\s+\|\bcall\s+\|\bfor\s+)[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)` | `Mr. Frank Dietrich`, `meeting Frank Dietrich`, `with Anna Kowalska` |
+| **6** | **Person / Name** | `[PERSON_N]` | `(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\|(?:(?<=\bwith\s+\|\bmeeting\s+\|\bcall\s+\|\bfor\s+)[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)` | `Mr. John Doe`, `meeting Alice Newman`, `with Bob Miller` |
 
 ### Edge Case Handling:
-1. **Punctuation Immunity:** Boundaries (`\b`) and lookaheads prevent swallowing sentence-ending punctuation (e.g., `frank@pta.de.` will correctly isolate `frank@pta.de` and leave the terminal period untouched).
+1. **Punctuation Immunity:** Boundaries (`\b`) and lookaheads prevent swallowing sentence-ending punctuation (e.g., `user@example.com.` will correctly isolate `user@example.com` and leave the terminal period untouched).
 2. **Whitespace Normalization:** IBANs with or without spacing are treated uniformly.
 3. **Currency Invariance:** Prefixed (`$100`) and suffixed (`100 EUR`) currency notations are both captured.
 
@@ -186,10 +186,10 @@ The test suite located at `server/tests/privacy/PrivacyGuard.spec.ts` must execu
 2. **Dense Multi-Entity Detection:**
    A prompt containing all 6 PII types simultaneously must replace all 6 without index collision or regex starvation.
 3. **Repeated Entity Deduplication / Consistency:**
-   If the name `Frank Dietrich` occurs 3 times in a single memo, each occurrence is assigned a consistent token mapping, and all 3 instances re-hydrate flawlessly.
+   If the name `Alice Newman` occurs 3 times in a single memo, each occurrence is assigned a consistent token mapping, and all 3 instances re-hydrate flawlessly.
 4. **Adversarial & Boundary Verification:**
    * Text with no PII produces identical string, `tokenCount: 0`, and `riskLevel: 'NONE'`.
-   * Strings with complex punctuation (e.g. `(email: test@pta.de).`) do not swallow parentheses or trailing periods.
+   * Strings with complex punctuation (e.g. `(email: user@example.com).`) do not swallow parentheses or trailing periods.
    * Unicode characters (German umlauts `ä, ö, ü, ß`, Polish diacritics `ą, ę, ł, ś, ć, ż, ź`) are preserved accurately across masking and re-hydration.
 5. **Coverage Guarantee:**
    Statements, branches, functions, and lines in `server/src/privacy/` must meet or exceed **95% coverage** as reported by `c8` / `@vitest/coverage-v8`.
