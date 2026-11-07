@@ -155,7 +155,7 @@ To ensure absolute confidentiality and enterprise compliance:
 
 ---
 
-## 7. Human-in-the-Loop (HITL) & Branch Governance
+## 7. Human-in-the-Loop (HITL) & Git Governance
 
 ### 7.1 Subagent Instantiation Workflow
 Before any specialized subagent is spawned, the Master Orchestrator must submit a formal declaration to the Supervisor containing:
@@ -178,6 +178,11 @@ If an agent encounters any of the following conditions, it must halt execution i
 * Unit test coverage dropping below 95% on core privacy modules.
 * Critique loop limit (2 iterations) exceeded without convergence.
 * External API failure or unrecoverable rate limiting.
+
+### 7.4 Atomic Conventional Commits Invariant
+- **Granular Atomic Commits:** All future Maker subagents and orchestrator workflows MUST structure deliverables into granular, logical, atomic Conventional Commits (`feat(...)`, `test(...)`, `docs(...)`, etc.) rather than squashing entire development phases into monolithic commits.
+- **Independent Compilation Integrity:** Every single commit must compile cleanly without errors (`tsc --noEmit`), ensuring git bisectability, auditability, and traceability.
+- **Structured Rollout Plan:** Before committing a feature phase, the delivery must be partitioned into designated staged sets (e.g., environment scaffolding, security/crypto services, components hierarchy, state hooks & views, test suite).
 
 ---
 
