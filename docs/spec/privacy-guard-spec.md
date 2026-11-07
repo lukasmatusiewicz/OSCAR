@@ -22,6 +22,9 @@ All regular expressions adhere strictly to ECMAScript (Node.js V8) standard synt
 | **5** | **Monetary Amount** | `[AMOUNT_MONEY_N]` | `(?:\$|€|£|PLN|EUR|USD)\s?\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?\|\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?\s?(?:€|\$|£|PLN|EUR|USD)\b` | `giu` | `15000 EUR`, `$450.00`, `2.500,00 €`, `49,99 PLN` |
 | **6** | **Person / Name** | `[PERSON_N]` | `(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)\|(?:(?<=\b(?:with\|meeting\|call\|for\|from\|by\|to\|contact\|assigned to)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)` | `gu` | `Mr. John Doe`, `meeting Alice Newman`, `with Bob Miller`, `call Jürgen Müller`, `for Michał Kowalski`, `contact François Dupond` |
 
+> [!NOTE]
+> **Markdown Table Syntax Note:** Alternation pipes within the regex table are escaped with a backslash (`\|`) to prevent breaking Markdown table cell delimiters. In TypeScript/JavaScript code, use unescaped standard alternation pipes (`|`).
+
 ### Unicode & Internationalization Specification:
 1. **Unicode Property Escapes (`\p{Lu}\p{Ll}+` with `u` flag):** The `PERSON` detector avoids ASCII-only `[A-Z][a-z]+` constraints, accurately matching European personal names containing umlauts, accents, and diacritics (e.g., `Jürgen Müller`, `Michał Kowalski`, `François Dupond`).
 2. **Context Trigger Boundaries:** Person names are extracted via deterministic honorific prefixes (`Mr.`, `Ms.`, `Mrs.`, `Dr.`, `Prof.`, `Herr`, `Frau`) or relational action markers (`with`, `meeting`, `call`, `for`, `from`, `by`, `to`, `contact`, `assigned to`).
@@ -130,53 +133,38 @@ export class PrivacyGuard {
 
   /**
    * Priority-weighted overlap resolution:
-   * When two candidate spans overlap, keeps the match with the higher priority (lower priority number).
-   * Breaks ties by earlier startIndex, then longer match length.
+   * Sorts matches primarily by priority ascending (1: SECRET_KEY before 6: PERSON),
+   * secondarily by startIndex ascending, tertiarily by span length descending.
+   * Iterates through candidates and greedily accepts candidate spans that do not
+   * intersect any already-accepted span (candidate.startIndex < accepted.endIndex && candidate.endIndex > accepted.startIndex).
+   * Finally, sorts accepted matches by startIndex ascending for deterministic Right-to-Left substitution.
    */
   public static resolveOverlaps(matches: RawMatch[]): RawMatch[] {
     if (matches.length <= 1) return matches;
 
-    // Sort primarily by startIndex ascending, secondarily by priority ascending (1 before 6)
-    const sorted = [...matches].sort((a, b) => {
-      if (a.startIndex !== b.startIndex) return a.startIndex - b.startIndex;
+    // Sort: 1) Priority ascending (1 to 6), 2) startIndex ascending, 3) span length descending
+    const candidates = [...matches].sort((a, b) => {
       const prioDiff = CATEGORY_PRIORITY[a.type] - CATEGORY_PRIORITY[b.type];
       if (prioDiff !== 0) return prioDiff;
+      if (a.startIndex !== b.startIndex) return a.startIndex - b.startIndex;
       return (b.endIndex - b.startIndex) - (a.endIndex - a.startIndex);
     });
 
-    const resolved: RawMatch[] = [];
+    const accepted: RawMatch[] = [];
 
-    for (const current of sorted) {
-      let isOverlapping = false;
-      let shouldAdd = true;
+    for (const candidate of candidates) {
+      // Check if candidate intersects with any already accepted span
+      const hasOverlap = accepted.some(
+        acc => candidate.startIndex < acc.endIndex && candidate.endIndex > acc.startIndex
+      );
 
-      for (let i = 0; i < resolved.length; i++) {
-        const existing = resolved[i];
-        // Check for span intersection: a.start < b.end && b.start < a.end
-        if (current.startIndex < existing.endIndex && existing.startIndex < current.endIndex) {
-          isOverlapping = true;
-          const currentPrio = CATEGORY_PRIORITY[current.type];
-          const existingPrio = CATEGORY_PRIORITY[existing.type];
-
-          if (currentPrio < existingPrio) {
-            // Current has higher priority: replace existing
-            resolved[i] = current;
-            shouldAdd = false;
-            break;
-          } else {
-            // Existing has higher or equal priority: drop current
-            shouldAdd = false;
-            break;
-          }
-        }
-      }
-
-      if (!isOverlapping && shouldAdd) {
-        resolved.push(current);
+      if (!hasOverlap) {
+        accepted.push(candidate);
       }
     }
 
-    return resolved.sort((a, b) => a.startIndex - b.startIndex);
+    // Sort by startIndex ascending for reading order and subsequent RTL substitution
+    return accepted.sort((a, b) => a.startIndex - b.startIndex);
   }
 
   private static calculateRisk(count: number, types: PIIType[]): 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' {
@@ -215,11 +203,19 @@ export const TOKEN_PATTERN = /\[(?:SECRET_KEY|IBAN|EMAIL|PHONE|AMOUNT_MONEY|PERS
 
 /**
  * Recursively re-hydrates tokens in a parsed JSON structure using atomic single-pass regex replacement.
+ * Accepts either an ephemeral Map<string, string> or an array of PIITokenMap records (e.g. from SanitizationResult.tokens).
  *
  * @param target Data structure returned from Gemini inference
- * @param tokenMap Map linking token string (e.g. "[PERSON_1]") to cleartext original value
+ * @param tokenMapOrTokens Map linking token string (e.g. "[PERSON_1]") to cleartext original value OR array of PIITokenMap records
  */
-export function rehydrate<T>(target: T, tokenMap: Map<string, string>): T {
+export function rehydrate<T>(
+  target: T,
+  tokenMapOrTokens: Map<string, string> | PIITokenMap[]
+): T {
+  const tokenMap: Map<string, string> = Array.isArray(tokenMapOrTokens)
+    ? new Map(tokenMapOrTokens.map(t => [t.token, t.originalValue]))
+    : tokenMapOrTokens;
+
   // Base case 1: String primitive — atomic single-pass substitution
   if (typeof target === 'string') {
     return target.replace(TOKEN_PATTERN, (match) => {

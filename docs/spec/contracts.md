@@ -101,6 +101,13 @@ export const SanitizationResultSchema = z.object({
 });
 
 export type SanitizationResult = z.infer<typeof SanitizationResultSchema>;
+
+/**
+ * Ergonomic Adapter Note:
+ * The `rehydrate<T>()` engine accepts either `Map<string, string>` or directly `PIITokenMap[]`
+ * (as delivered in `SanitizationResult.tokens`), automatically constructing the lookup map
+ * when an array is passed to ensure developer ergonomics without manual boilerplate.
+ */
 ```
 
 ---
@@ -240,13 +247,25 @@ export type MemoEntity = z.infer<typeof MemoEntitySchema>;
 
 ### 5.2 Task Entities (Domain vs. Persisted Representation)
 
-#### A. In-Memory Decrypted Task (`DecryptedTaskSchema`)
-Used in the frontend application state after local client-side decryption of the `encryptedPayload`:
+#### A. In-Memory Decrypted Task (`DecryptedTaskPayloadSchema`)
+Used in the frontend application state after local client-side decryption of the `encryptedPayload`.
+
+> [!NOTE]
+> **Post-Rehydration Bounds Expansion:**
+> AI model inference produces structured output constrained by `ExtractedTaskSchema` (e.g., 120 chars for `title`, 500 chars for `summary`, 200 chars for subtasks) while containing compact synthetic tokens (e.g., `[PERSON_1]`, `[AMOUNT_MONEY_1]`). During atomic re-hydration, tokens are replaced with cleartext values (such as lengthy full names, compound email addresses, or formatted monetary amounts), expanding the overall character count. The decrypted schema relaxes these upper bounds (`title` to 250, `summary` to 1000, and `subtasks.title` to 400) to safely absorb expansion without validation errors.
+
 ```typescript
+export const DecryptedSubtaskItemSchema = z.object({
+  title: z.string().min(1).max(400).describe('Actionable subtask title with re-hydrated cleartext (expanded bound)'),
+  completed: z.boolean().default(false)
+});
+
+export type DecryptedSubtaskItem = z.infer<typeof DecryptedSubtaskItemSchema>;
+
 export const DecryptedTaskPayloadSchema = z.object({
-  title: z.string().min(3).max(120),
-  summary: z.string().min(5).max(500),
-  subtasks: z.array(SubtaskItemSchema).min(1).max(10)
+  title: z.string().min(3).max(250).describe('Re-hydrated title accommodating token expansion beyond 120 chars'),
+  summary: z.string().min(5).max(1000).describe('Re-hydrated summary accommodating token expansion beyond 500 chars'),
+  subtasks: z.array(DecryptedSubtaskItemSchema).min(1).max(10).describe('Checklist with re-hydrated cleartext items')
 });
 
 export type DecryptedTaskPayload = z.infer<typeof DecryptedTaskPayloadSchema>;

@@ -81,7 +81,7 @@ flowchart TD
   1. **Confidentiality Guarding:** Intercepts every inbound prompt, extracts PII tokens using the Privacy Guard engine, and holds the replacement dictionary in request-scoped ephemeral memory.
   2. **AI Orchestration:** Communicates with the official `@google/genai` SDK using `generateContent` configured with native `systemInstruction` and `responseSchema` (structured outputs derived from Zod contracts).
   3. **Atomic Re-hydration & Sanitization:** Traverses the returned structured JSON hierarchy, substituting synthetic tokens with original values using atomic single-pass regex replacement.
-  4. **AES-256-GCM Envelope Encryption at Rest:** Encrypts sensitive fields prior to persisting documents to Cloud Firestore.
+  4. **AES-256-GCM Envelope Encryption at Rest:** Encrypts sensitive fields prior to persisting documents to Cloud Firestore. The per-user / per-session Data Encryption Key (DEK) is generated or derived client-side via WebCrypto (PBKDF2/HKDF) and passed to the gateway in an ephemeral, strictly non-logged HTTP header `X-Oscar-Encryption-Key` over TLS/HTTPS (or configured via local environment variable `OSCAR_MASTER_KEY` in single-tenant self-hosted mode). The gateway uses it strictly within request scope for envelope encryption before persisting to Firestore, zeroing the key buffer immediately upon response completion.
   5. **Auditability:** Writes anonymized performance and detection metrics (number of tokens masked, types detected, latency in ms) into the audit collection without logging any raw user PII.
   6. **Quota Optimization & Atomic Batches:** Uses Firestore `writeBatch` to bundle memo, task, and audit log into a single commit (3 writes per memo).
 
@@ -167,6 +167,7 @@ To satisfy Zero Trust and GDPR Article 25 (Privacy by Design), no unencrypted cl
    }
    ```
 3. **Queryable Metadata Separation:** Only non-PII operational fields (`id`, `memoId`, `userId`, `category`, `priority`, `status`, `scheduledDate`, `tags`, `provenance`, `modelVersion`, `createdAt`, `updatedAt`) remain unencrypted to permit efficient Firestore index queries and client-side filtering.
+4. **Session Key Transport & Lifecycle:** The AES-256-GCM symmetric Data Encryption Key (DEK) is generated or derived client-side via WebCrypto (PBKDF2/HKDF) and transmitted to the gateway via an ephemeral, strictly non-logged HTTP header `X-Oscar-Encryption-Key` over TLS/HTTPS (or configured via local environment variable `OSCAR_MASTER_KEY` in single-tenant self-hosted deployments). The gateway processes this key strictly in-memory within the request execution scope to encrypt document payloads before Firestore persistence, zeroing the key buffer immediately upon response completion. The key is never logged, cached to disk, or transmitted to any external service.
 
 ### 5.2 Rate Limiting, Timeouts & Graceful Degradation
 To protect against upstream provider outages, quota exhaustion, and Denial of Service:
