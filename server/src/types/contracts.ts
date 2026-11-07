@@ -99,6 +99,9 @@ export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 export const AIProvenanceSchema = z.enum(['GEMINI_FLASH', 'DETERMINISTIC_FALLBACK']);
 export type AIProvenance = z.infer<typeof AIProvenanceSchema>;
 
+export const ProvenanceSchema = AIProvenanceSchema;
+export type Provenance = AIProvenance;
+
 export const SubtaskItemSchema = z.object({
   title: z.string().min(1).max(200).describe('Concise, actionable subtask checklist item'),
   completed: z.boolean().default(false).describe('Initial completion state, defaults to false')
@@ -213,10 +216,10 @@ export type PrivacyAuditLog = z.infer<typeof PrivacyAuditLogSchema>;
 // 7. Schema Validation & Safe Parsing Helper
 // ==========================================
 
-export function validateContract<T>(
-  schema: z.ZodSchema<T>,
+export function validateContract<Output, Input = unknown>(
+  schema: z.ZodType<Output, z.ZodTypeDef, Input>,
   data: unknown
-): { success: true; data: T } | { success: false; errors: z.ZodError } {
+): { success: true; data: Output } | { success: false; errors: z.ZodError } {
   const result = schema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
