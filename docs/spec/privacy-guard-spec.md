@@ -15,7 +15,7 @@ The engine executes a priority-ordered cascade of deterministic regular expressi
 | :--- | :--- | :--- | :--- | :--- |
 | **1** | **API / Secret Key** | `[SECRET_KEY_N]` | `(?i)(?:bearer\s+[a-z0-9_\-\.]{20,}\|ghp_[a-z0-9]{36}\|ai[a-z0-9_\-]{30,}\|(?:sk-[a-z0-9]{32,}))` | `ghp_1234567890abcdef1234567890abcdef1234`, `Bearer eyJhbGciOi...` |
 | **2** | **IBAN** | `[IBAN_N]` | `\b[A-Z]{2}[0-9]{2}(?:[ ]?[0-9]{4}){4,7}(?:[ ]?[0-9]{1,4})?\b` | `DE89 3704 0044 0532 0130 00`, `PL61109010140000071219812874` |
-| **3** | **Email Address** | `[EMAIL_N]` | `\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b` | `frank.dietrich@pta.de`, `lukas@domain.co.uk` |
+| **3** | **Email Address** | `[EMAIL_N]` | `\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b` | `frank.dietrich@pta.de`, `user@domain.co.uk` |
 | **4** | **Phone Number** | `[PHONE_N]` | `(?:(?:\+|00)\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}\b` | `+49 170 1234567`, `(030) 9876-5432`, `+1-800-555-0199` |
 | **5** | **Monetary Amount** | `[AMOUNT_MONEY_N]` | `(?:\$|€|£|PLN|EUR|USD)\s?\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?\|\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?\s?(?:€|\$|£|PLN|EUR|USD)\b` | `15000 EUR`, `$450.00`, `2.500,00 €`, `49,99 PLN` |
 | **6** | **Person / Name** | `[PERSON_N]` | `(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\|(?:(?<=\bwith\s+\|\bmeeting\s+\|\bcall\s+\|\bfor\s+)[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)` | `Mr. Frank Dietrich`, `meeting Frank Dietrich`, `with Anna Kowalska` |
