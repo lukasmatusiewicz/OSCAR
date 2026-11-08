@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createHealthRouter } from './routes/health.js';
 import { createMemoRouter } from './routes/memos.js';
 import { createTaskRouter } from './routes/tasks.js';
+import { createDocsRouter } from './routes/docs.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { GeminiOrchestrator } from './agent/GeminiOrchestrator.js';
 import { TaskStore, taskStore as defaultTaskStore } from './store/TaskStore.js';
@@ -14,6 +15,7 @@ export interface AppOptions {
   corsOrigin?: string | string[];
   orchestrator?: GeminiOrchestrator;
   taskStore?: TaskStore;
+  specPath?: string;
 }
 
 /**
@@ -46,6 +48,7 @@ export function createApp(options: AppOptions = {}): Express {
   app.use('/api', createHealthRouter());
   app.use('/api', createMemoRouter({ orchestrator, taskStore: store }));
   app.use('/api', createTaskRouter({ taskStore: store }));
+  app.use('/api/docs', createDocsRouter({ specPath: options.specPath }));
 
   // Centralized structured error handling middleware (must be registered after routes)
   app.use(errorHandler);
