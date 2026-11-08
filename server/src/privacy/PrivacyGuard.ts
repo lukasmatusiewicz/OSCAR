@@ -1,9 +1,4 @@
-import {
-  PIITokenMap,
-  PIIType,
-  SanitizationResult,
-  RiskLevel
-} from '../types/contracts.js';
+import { PIITokenMap, PIIType, SanitizationResult, RiskLevel } from '../types/contracts.js';
 
 export interface RawMatch {
   type: PIIType;
@@ -18,7 +13,7 @@ export const CATEGORY_PRIORITY: Record<PIIType, number> = {
   EMAIL: 3,
   PHONE: 4,
   AMOUNT_MONEY: 5,
-  PERSON: 6
+  PERSON: 6,
 };
 
 /**
@@ -33,12 +28,9 @@ export const TOKEN_PATTERN = /\[(?:SECRET_KEY|IBAN|EMAIL|PHONE|AMOUNT_MONEY|PERS
  * @param target Data structure returned from AI inference or string
  * @param tokenMapOrTokens Map linking token string (e.g. "[PERSON_1]") to cleartext original value OR array of PIITokenMap records
  */
-export function rehydrate<T>(
-  target: T,
-  tokenMapOrTokens: Map<string, string> | PIITokenMap[]
-): T {
+export function rehydrate<T>(target: T, tokenMapOrTokens: Map<string, string> | PIITokenMap[]): T {
   const tokenMap: Map<string, string> = Array.isArray(tokenMapOrTokens)
-    ? new Map(tokenMapOrTokens.map(t => [t.token, t.originalValue]))
+    ? new Map(tokenMapOrTokens.map((t) => [t.token, t.originalValue]))
     : tokenMapOrTokens;
 
   // Base case 1: String primitive — atomic single-pass substitution
@@ -51,7 +43,7 @@ export function rehydrate<T>(
 
   // Base case 2: Array elements — recursive mapping
   if (Array.isArray(target)) {
-    return target.map(item => rehydrate(item, tokenMap)) as unknown as T;
+    return target.map((item) => rehydrate(item, tokenMap)) as unknown as T;
   }
 
   // Base case 3: Nested object structures — recursive property walk
@@ -101,7 +93,7 @@ export class PrivacyGuard {
         type: match.type,
         originalValue: match.value,
         startIndex: match.startIndex,
-        endIndex: match.endIndex
+        endIndex: match.endIndex,
       });
     }
 
@@ -111,9 +103,7 @@ export class PrivacyGuard {
     let sanitized = text;
     for (const item of rtlTokens) {
       sanitized =
-        sanitized.substring(0, item.startIndex) +
-        item.token +
-        sanitized.substring(item.endIndex);
+        sanitized.substring(0, item.startIndex) + item.token + sanitized.substring(item.endIndex);
     }
 
     return {
@@ -121,7 +111,10 @@ export class PrivacyGuard {
       tokenCount: tokens.length,
       tokens, // In sequential order for audit and downstream processing
       timestamp: new Date().toISOString(),
-      riskLevel: this.calculateRisk(tokens.length, tokens.map(t => t.type))
+      riskLevel: this.calculateRisk(
+        tokens.length,
+        tokens.map((t) => t.type),
+      ),
     };
   }
 
@@ -141,7 +134,7 @@ export class PrivacyGuard {
       const prioDiff = CATEGORY_PRIORITY[a.type] - CATEGORY_PRIORITY[b.type];
       if (prioDiff !== 0) return prioDiff;
       if (a.startIndex !== b.startIndex) return a.startIndex - b.startIndex;
-      return (b.endIndex - b.startIndex) - (a.endIndex - a.startIndex);
+      return b.endIndex - b.startIndex - (a.endIndex - a.startIndex);
     });
 
     const accepted: RawMatch[] = [];
@@ -149,7 +142,7 @@ export class PrivacyGuard {
     for (const candidate of candidates) {
       // Check if candidate intersects with any already accepted span
       const hasOverlap = accepted.some(
-        acc => candidate.startIndex < acc.endIndex && candidate.endIndex > acc.startIndex
+        (acc) => candidate.startIndex < acc.endIndex && candidate.endIndex > acc.startIndex,
       );
 
       if (!hasOverlap) {
@@ -179,14 +172,15 @@ export class PrivacyGuard {
     const matches: RawMatch[] = [];
 
     // 1. SECRET_KEY (Priority 1)
-    const secretKeyRegex = /\b(?:bearer\s+[a-z0-9_.-]{20,}|ghp_[a-z0-9]{36}|ai[a-z0-9_-]{30,}|sk-[a-z0-9]{32,})\b/giu;
+    const secretKeyRegex =
+      /\b(?:bearer\s+[a-z0-9_.-]{20,}|ghp_[a-z0-9]{36}|ai[a-z0-9_-]{30,}|sk-[a-z0-9]{32,})\b/giu;
     for (const m of text.matchAll(secretKeyRegex)) {
       if (m.index !== undefined) {
         matches.push({
           type: 'SECRET_KEY',
           value: m[0],
           startIndex: m.index,
-          endIndex: m.index + m[0].length
+          endIndex: m.index + m[0].length,
         });
       }
     }
@@ -199,7 +193,7 @@ export class PrivacyGuard {
           type: 'IBAN',
           value: m[0],
           startIndex: m.index,
-          endIndex: m.index + m[0].length
+          endIndex: m.index + m[0].length,
         });
       }
     }
@@ -212,39 +206,42 @@ export class PrivacyGuard {
           type: 'EMAIL',
           value: m[0],
           startIndex: m.index,
-          endIndex: m.index + m[0].length
+          endIndex: m.index + m[0].length,
         });
       }
     }
 
     // 4. PHONE (Priority 4)
-    const phoneRegex = /(?:(?:\+|00)\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}\b/gu;
+    const phoneRegex =
+      /(?:(?:\+|00)\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}\b/gu;
     for (const m of text.matchAll(phoneRegex)) {
       if (m.index !== undefined) {
         matches.push({
           type: 'PHONE',
           value: m[0],
           startIndex: m.index,
-          endIndex: m.index + m[0].length
+          endIndex: m.index + m[0].length,
         });
       }
     }
 
     // 5. AMOUNT_MONEY (Priority 5)
-    const moneyRegex = /(?:(?:\$|€|£|\b(?:PLN|EUR|USD))\s?\d+(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?|\b\d+(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?\s?(?:€|\$|£|(?:PLN|EUR|USD)\b))/giu;
+    const moneyRegex =
+      /(?:(?:\$|€|£|\b(?:PLN|EUR|USD))\s?\d+(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?|\b\d+(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?\s?(?:€|\$|£|(?:PLN|EUR|USD)\b))/giu;
     for (const m of text.matchAll(moneyRegex)) {
       if (m.index !== undefined) {
         matches.push({
           type: 'AMOUNT_MONEY',
           value: m[0],
           startIndex: m.index,
-          endIndex: m.index + m[0].length
+          endIndex: m.index + m[0].length,
         });
       }
     }
 
     // 6. PERSON (Priority 6)
-    const personRegex = /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:[wW]ith|[mM]eeting|[cC]all|[fF]or|[fF]rom|[bB]y|[tT]o|[cC]ontact|[aA]ssigned [tT]o)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)/gu;
+    const personRegex =
+      /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:[wW]ith|[mM]eeting|[cC]all|[fF]or|[fF]rom|[bB]y|[tT]o|[cC]ontact|[aA]ssigned [tT]o)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)/gu;
     const initialPersonMatches: RawMatch[] = [];
     for (const m of text.matchAll(personRegex)) {
       if (m.index !== undefined) {
@@ -252,7 +249,7 @@ export class PrivacyGuard {
           type: 'PERSON',
           value: m[0],
           startIndex: m.index,
-          endIndex: m.index + m[0].length
+          endIndex: m.index + m[0].length,
         });
       }
     }
@@ -263,7 +260,9 @@ export class PrivacyGuard {
     const discoveredNames = new Set<string>();
     for (const pm of initialPersonMatches) {
       discoveredNames.add(pm.value);
-      const bareName = pm.value.replace(/^(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+/i, '').trim();
+      const bareName = pm.value
+        .replace(/^(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+/i, '')
+        .trim();
       if (bareName.includes(' ')) {
         discoveredNames.add(bareName);
       }
@@ -276,13 +275,15 @@ export class PrivacyGuard {
         if (nm.index !== undefined) {
           const s = nm.index;
           const e = s + nm[0].length;
-          const alreadyMatched = matches.some(existing => s < existing.endIndex && e > existing.startIndex);
+          const alreadyMatched = matches.some(
+            (existing) => s < existing.endIndex && e > existing.startIndex,
+          );
           if (!alreadyMatched) {
             matches.push({
               type: 'PERSON',
               value: nm[0],
               startIndex: s,
-              endIndex: e
+              endIndex: e,
             });
           }
         }
@@ -295,10 +296,7 @@ export class PrivacyGuard {
   /**
    * Rehydrates synthetic tokens in target structure.
    */
-  public static rehydrate<T>(
-    target: T,
-    tokenMapOrTokens: Map<string, string> | PIITokenMap[]
-  ): T {
+  public static rehydrate<T>(target: T, tokenMapOrTokens: Map<string, string> | PIITokenMap[]): T {
     return rehydrate(target, tokenMapOrTokens);
   }
 }

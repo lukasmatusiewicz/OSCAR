@@ -3,7 +3,7 @@ import {
   TaskPriority,
   TaskCategory,
   SubtaskItem,
-  ExtractedTaskSchema
+  ExtractedTaskSchema,
 } from '../types/contracts.js';
 
 export interface DeterministicExtractionResult {
@@ -28,7 +28,7 @@ export class DeterministicFallbackExtractor {
     const rawTrimmed = memoText.trim();
     const lines = memoText
       .split(/\r?\n/)
-      .map(l => l.trim())
+      .map((l) => l.trim())
       .filter(Boolean);
 
     const firstLine = lines[0] ?? 'New Memo Action Item';
@@ -72,12 +72,15 @@ export class DeterministicFallbackExtractor {
 
     // Subtasks: Bullet items or line items, guaranteeing min(1) subtask
     const subtaskCandidates: SubtaskItem[] = lines
-      .filter(l => /^[-*•\d.]+\s+/.test(l))
-      .map(l => ({
-        title: l.replace(/^[-*•\d.]+\s+/, '').trim().substring(0, 200),
-        completed: false
+      .filter((l) => /^[-*•\d.]+\s+/.test(l))
+      .map((l) => ({
+        title: l
+          .replace(/^[-*•\d.]+\s+/, '')
+          .trim()
+          .substring(0, 200),
+        completed: false,
       }))
-      .filter(s => s.title.length > 0);
+      .filter((s) => s.title.length > 0);
 
     const subtasks: SubtaskItem[] =
       subtaskCandidates.length > 0
@@ -95,7 +98,7 @@ export class DeterministicFallbackExtractor {
       priority,
       scheduledDate,
       tags: ['fallback', category.toLowerCase()],
-      subtasks
+      subtasks,
     };
 
     // Validate against contract to guarantee 100% schema compliance
@@ -109,7 +112,7 @@ export class DeterministicFallbackExtractor {
     return {
       task: this.extract(memoText),
       provenance: this.PROVENANCE,
-      modelVersion: this.MODEL_VERSION
+      modelVersion: this.MODEL_VERSION,
     };
   }
 }

@@ -155,7 +155,7 @@ To ensure absolute confidentiality and enterprise compliance:
 
 ---
 
-## 7. Human-in-the-Loop (HITL) & Branch Governance
+## 7. Human-in-the-Loop (HITL) & Git Governance
 
 ### 7.1 Subagent Instantiation Workflow
 Before any specialized subagent is spawned, the Master Orchestrator must submit a formal declaration to the Supervisor containing:
@@ -171,7 +171,24 @@ Execution begins only after the Supervisor responds with explicit confirmation (
 * **Zero Autonomous Merges:** No agent has permissions to execute `git merge main`, `git checkout main`, or push to `main`.
 * **Human Handover:** When a feature branch passes all Auditor and Critic checks, the Master Orchestrator pushes the branch and presents a structured Pull Request summary to the Supervisor. The Supervisor alone reviews, approves, and merges the PR on GitHub.
 
-### 7.3 Incident Escalation & Circuit Breaker
+### 7.3 Engineering Craftsmanship & Code Hygiene Gate (Mandatory QA Sign-Off Matrix)
+
+1. **Git & History Hygiene (Atomic Commits):**
+   - Strictly granular, bisectable commits following Conventional Commits (`feat(...)`, `test(...)`, `refactor(...)`). Monolithic single-commit phase squashes are strictly rejected.
+2. **Modularity & Single Responsibility (Architectural Purity):**
+   - Strict Atomic Design in frontend: `atoms/` and `molecules/` must remain pure presentational components without embedded side-effects or network calls. Business and state logic must reside strictly in custom hooks (`hooks/`).
+3. **Type Strictness & Hygiene (Zero Dead Code):**
+   - Zero commented-out code, zero unused imports/variables, strict `tsc --noEmit` exit code 0, and absolute zero tolerance for `any` or `@ts-ignore`.
+4. **Resource Lifecycle & Memory Discipline (Effect Cleanup):**
+   - Every reactive effect (`useEffect`), stream, listener (e.g. Firestore `onSnapshot`), or timer MUST return an explicit cleanup function to eliminate memory leaks and dangling background processes on unmount.
+5. **Defensive Error Handling:**
+   - Zero swallowed exceptions (`catch (e) {}` is prohibited). Every error must be either gracefully handled, surfaced through typed error states, or caught by a dedicated Error Boundary.
+6. **Configuration & Literal Integrity (Zero Magic Literals):**
+   - No hardcoded numbers or strings. All timeouts, thresholds, rate limits, and cryptographic identifiers must be defined as exported named constants.
+7. **Semantic HTML & Accessibility (WCAG 2.1 AA):**
+   - Strictly semantic elements (interactive controls must be native `<button>`, forms require `<label>` / `aria-label`). Zero non-semantic clickable divs.
+
+### 7.4 Incident Escalation & Circuit Breaker
 If an agent encounters any of the following conditions, it must halt execution immediately and escalate to the Master Orchestrator and the Supervisor:
 * Access denied or permission boundary violation.
 * Schema conflict between AI output and Zod validation.
