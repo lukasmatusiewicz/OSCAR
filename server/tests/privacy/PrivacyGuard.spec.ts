@@ -43,9 +43,11 @@ describe('PrivacyGuard Engine Suite', () => {
       }
     });
 
-    it('detects IBANs (Priority 2)', () => {
+    it('detects IBANs (Priority 2) with case-insensitivity', () => {
       const germanIban = 'DE89 3704 0044 0532 0130 00';
       const polishIban = 'PL61109010140000071219812874';
+      const lowercaseGermanIban = 'de89 3704 0044 0532 0130 00';
+      const lowercasePolishIban = 'pl61109010140000071219812874';
 
       const resDe = PrivacyGuard.mask(`Wire funds to ${germanIban} immediately.`);
       expect(resDe.tokens).toHaveLength(1);
@@ -58,6 +60,18 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(resPl.tokens[0].type).toBe('IBAN');
       expect(resPl.tokens[0].originalValue).toBe(polishIban);
       expect(resPl.sanitizedText).toBe('Bank account: [IBAN_1]');
+
+      const resDeLower = PrivacyGuard.mask(`Account: ${lowercaseGermanIban}`);
+      expect(resDeLower.tokens).toHaveLength(1);
+      expect(resDeLower.tokens[0].type).toBe('IBAN');
+      expect(resDeLower.tokens[0].originalValue).toBe(lowercaseGermanIban);
+      expect(resDeLower.sanitizedText).toBe('Account: [IBAN_1]');
+
+      const resPlLower = PrivacyGuard.mask(`Account: ${lowercasePolishIban}`);
+      expect(resPlLower.tokens).toHaveLength(1);
+      expect(resPlLower.tokens[0].type).toBe('IBAN');
+      expect(resPlLower.tokens[0].originalValue).toBe(lowercasePolishIban);
+      expect(resPlLower.sanitizedText).toBe('Account: [IBAN_1]');
     });
 
     it('detects Email Addresses (Priority 3)', () => {
@@ -90,14 +104,24 @@ describe('PrivacyGuard Engine Suite', () => {
       }
     });
 
-    it('detects Monetary Amounts (Priority 5)', () => {
+    it('detects Monetary Amounts (Priority 5) including colloquial multipliers and spacing', () => {
       const samples = [
         { text: 'Invoice of 15000 EUR is pending', val: '15000 EUR' },
         { text: 'Total is $450.00 for the license', val: '$450.00' },
         { text: 'The price was 2.500,00 € in total', val: '2.500,00 €' },
         { text: 'Fee is 49,99 PLN for shipping', val: '49,99 PLN' },
         { text: 'Pay £75.50 today', val: '£75.50' },
-        { text: 'Deposit 100 USD now', val: '100 USD' }
+        { text: 'Deposit 100 USD now', val: '100 USD' },
+        { text: 'Estimated cost: 50k zł for consulting', val: '50k zł' },
+        { text: 'Budget exceeded 1.5 mln EUR this quarter', val: '1.5 mln EUR' },
+        { text: 'Received 25 tys. PLN grant', val: '25 tys. PLN' },
+        { text: 'Transferred 15 0000 PLN yesterday', val: '15 0000 PLN' },
+        { text: 'Bonus is 50k€ for achievement', val: '50k€' },
+        { text: 'Contract worth 10 milionów złotych', val: '10 milionów złotych' },
+        { text: 'Fee: 300 CHF standard', val: '300 CHF' },
+        { text: 'Cost is 100 euro per person', val: '100 euro' },
+        { text: 'Price was zł 50 000 in cash', val: 'zł 50 000' },
+        { text: 'Total cost ¥5000 in Tokyo', val: '¥5000' }
       ];
 
       for (const { text, val } of samples) {
@@ -110,7 +134,7 @@ describe('PrivacyGuard Engine Suite', () => {
       }
     });
 
-    it('detects Person Names via Honorifics and Context Markers (Priority 6)', () => {
+    it('detects Person Names via Honorifics, Declined Polish Cases, and Context Markers (Priority 6)', () => {
       const honorifics = [
         'Mr. John Doe',
         'Ms. Alice Smith',
@@ -118,7 +142,11 @@ describe('PrivacyGuard Engine Suite', () => {
         'Dr. Gregory House',
         'Prof. Charles Xavier',
         'Herr Max Mustermann',
-        'Frau Erika Schmidt'
+        'Frau Erika Schmidt',
+        'Pan Tomasz Nowak',
+        'Pani Anna Nowak',
+        'dr Piotr Wiśniewski',
+        'mec. Anna Zielińska'
       ];
 
       for (const name of honorifics) {
@@ -136,7 +164,13 @@ describe('PrivacyGuard Engine Suite', () => {
         { text: 'Send report to David Copperfield immediately.', name: 'David Copperfield' },
         { text: 'This was reviewed by Grace Hopper yesterday.', name: 'Grace Hopper' },
         { text: 'Task was assigned to Alan Turing for analysis.', name: 'Alan Turing' },
-        { text: 'Please contact John Carmack for guidance.', name: 'John Carmack' }
+        { text: 'Please contact John Carmack for guidance.', name: 'John Carmack' },
+        { text: 'Spotkanie z Janem Kowalskim w biurze.', name: 'Janem Kowalskim' },
+        { text: 'Rozmowa z Piotrem Wiśniewskim w poniedziałek.', name: 'Piotrem Wiśniewskim' },
+        { text: 'Dokument przygotowany dla Annie Nowak.', name: 'Annie Nowak' },
+        { text: 'Przekaż zadanie Markowi Wójcikowi.', name: 'Markowi Wójcikowi' },
+        { text: 'Treffen mit Hans Schmidt in Berlin.', name: 'Hans Schmidt' },
+        { text: 'Rendez-vous avec François Dupond à Paris.', name: 'François Dupond' }
       ];
 
       for (const { text, name } of relationalCases) {
@@ -146,6 +180,44 @@ describe('PrivacyGuard Engine Suite', () => {
         expect(pToken).toBeDefined();
         expect(pToken?.originalValue).toBe(name);
         expect(res.sanitizedText).not.toContain(name);
+      }
+    });
+
+    it('detects Physical Addresses, Street Patterns, and Major International Hubs (Priority 7)', () => {
+      const streetCases = [
+        { text: 'Meeting at ul. Marszałkowska 10 tomorrow', addr: 'ul. Marszałkowska 10' },
+        { text: 'Office address is Friedrichstraße 42 in the center', addr: 'Friedrichstraße 42' },
+        { text: 'Store located at rue de Rivoli 5 near the Louvre', addr: 'rue de Rivoli 5' },
+        { text: 'Residence at Baker Street 221B is famous', addr: 'Baker Street 221B' },
+        { text: 'The Prime Minister lives at 10 Downing Street in London', addr: '10 Downing Street' },
+        { text: 'Visit ul. Marszałkowska 126 for the keys', addr: 'ul. Marszałkowska 126' },
+        { text: 'Branch at al. Jerozolimskie 50 is open', addr: 'al. Jerozolimskie 50' },
+        { text: 'Meeting at pl. Bankowy 1 on Friday', addr: 'pl. Bankowy 1' }
+      ];
+
+      for (const { text, addr } of streetCases) {
+        const res = PrivacyGuard.mask(text);
+        expect(res.tokens.length).toBeGreaterThanOrEqual(1);
+        const addrToken = res.tokens.find(t => t.type === 'ADDRESS');
+        expect(addrToken).toBeDefined();
+        expect(addrToken?.originalValue).toBe(addr);
+        expect(res.sanitizedText).not.toContain(addr);
+      }
+
+      const cities = [
+        'New York', 'Kassel', 'Berlin', 'Paris', 'Warsaw', 'Warszawa',
+        'London', 'Zurich', 'Zürich', 'Tokyo', 'Vienna', 'Wien', 'Rome',
+        'Roma', 'Madrid', 'Krakow', 'Kraków', 'Wrocław', 'Munich', 'München',
+        'Hamburg', 'Frankfurt'
+      ];
+
+      for (const city of cities) {
+        const res = PrivacyGuard.mask(`Flight to ${city} is scheduled.`);
+        expect(res.tokens.length).toBeGreaterThanOrEqual(1);
+        const addrToken = res.tokens.find(t => t.type === 'ADDRESS');
+        expect(addrToken).toBeDefined();
+        expect(addrToken?.originalValue).toBe(city);
+        expect(res.sanitizedText).not.toContain(city);
       }
     });
   });
@@ -234,6 +306,48 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(PrivacyGuard.resolveOverlaps(singleMatch)).toEqual(singleMatch);
     });
 
+    it('prefers PERSON (Priority 6) over ADDRESS (Priority 7) in overlapping candidate spans', () => {
+      const rawMatches = [
+        {
+          type: 'ADDRESS' as PIIType,
+          value: 'Paris Hilton',
+          startIndex: 0,
+          endIndex: 12
+        },
+        {
+          type: 'PERSON' as PIIType,
+          value: 'Paris Hilton',
+          startIndex: 0,
+          endIndex: 12
+        }
+      ];
+
+      const resolved = PrivacyGuard.resolveOverlaps(rawMatches);
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0].type).toBe('PERSON');
+    });
+
+    it('prefers AMOUNT_MONEY (Priority 5) over ADDRESS (Priority 7) in overlapping spans', () => {
+      const rawMatches = [
+        {
+          type: 'ADDRESS' as PIIType,
+          value: 'Kassel 500 EUR',
+          startIndex: 0,
+          endIndex: 14
+        },
+        {
+          type: 'AMOUNT_MONEY' as PIIType,
+          value: '500 EUR',
+          startIndex: 7,
+          endIndex: 14
+        }
+      ];
+
+      const resolved = PrivacyGuard.resolveOverlaps(rawMatches);
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0].type).toBe('AMOUNT_MONEY');
+    });
+
     it('resolves ties with same priority and start index by choosing longer span', () => {
       const ties = [
         {
@@ -299,6 +413,24 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(result.tokens[1].token).toBe('[PERSON_1]');
     });
 
+    it('assigns identical tokens to repeated occurrences of the same physical address', () => {
+      const text =
+        'Deliver package to Friedrichstraße 42 today. ' +
+        'Second courier will also stop at Friedrichstraße 42 later.';
+
+      const result = PrivacyGuard.mask(text);
+
+      expect(result.tokens).toHaveLength(2);
+      expect(result.tokens[0].token).toBe('[ADDRESS_1]');
+      expect(result.tokens[1].token).toBe('[ADDRESS_1]');
+      expect(result.tokens[0].originalValue).toBe('Friedrichstraße 42');
+      expect(result.tokens[1].originalValue).toBe('Friedrichstraße 42');
+      expect(result.sanitizedText).toBe(
+        'Deliver package to [ADDRESS_1] today. ' +
+        'Second courier will also stop at [ADDRESS_1] later.'
+      );
+    });
+
     it('increments token IDs for distinct entities in reading order', () => {
       const text =
         'Meeting with Alice Newman, then call Bob Miller, and follow up with Alice Newman.';
@@ -343,14 +475,15 @@ describe('PrivacyGuard Engine Suite', () => {
   // 5. Single-Pass Atomic Regex Re-hydration (Zero Prefix Collision & Injection)
   // =========================================================================
   describe('Single-Pass Atomic Regex Re-hydration', () => {
-    it('matches TOKEN_PATTERN across all 6 PII types', () => {
+    it('matches TOKEN_PATTERN across all 7 PII types', () => {
       const validTokens = [
         '[SECRET_KEY_1]',
         '[IBAN_10]',
         '[EMAIL_3]',
         '[PHONE_99]',
         '[AMOUNT_MONEY_42]',
-        '[PERSON_100]'
+        '[PERSON_100]',
+        '[ADDRESS_55]'
       ];
 
       for (const token of validTokens) {
@@ -434,6 +567,18 @@ describe('PrivacyGuard Engine Suite', () => {
       // In atomic single-pass, [PERSON_1] is replaced with "Attn: [EMAIL_1] User".
       // The embedded "[EMAIL_1]" must NOT be recursively expanded to "confidential@internal.corp".
       expect(restored).toBe('Meeting with Attn: [EMAIL_1] User regarding project.');
+    });
+
+    it('asserts zero prefix collision with ADDRESS entities ([ADDRESS_1] vs [ADDRESS_10])', () => {
+      const tokenMap = new Map<string, string>();
+      for (let i = 1; i <= 15; i++) {
+        tokenMap.set(`[ADDRESS_${i}]`, `Street Number ${i}`);
+      }
+
+      const input = 'Offices: [ADDRESS_1] and [ADDRESS_10]';
+      const result = rehydrate(input, tokenMap);
+      expect(result).toBe('Offices: Street Number 1 and Street Number 10');
+      expect(result).not.toContain('Street Number 100');
     });
   });
 
@@ -550,19 +695,27 @@ describe('PrivacyGuard Engine Suite', () => {
       const text =
         'Contact contact@example.com. ' +
         'Also Mr. John Doe, are you available? ' +
-        '(Call +49 170 1234567).';
+        '(Call +49 170 1234567). ' +
+        'Visit ul. Marszałkowska 10, or Friedrichstraße 42. ' +
+        'Fee is 50k zł, in Berlin.';
 
       const result = PrivacyGuard.mask(text);
 
-      expect(result.tokens).toHaveLength(3);
+      expect(result.tokens).toHaveLength(7);
       expect(result.tokens[0].originalValue).toBe('contact@example.com');
       expect(result.tokens[1].originalValue).toBe('Mr. John Doe');
       expect(result.tokens[2].originalValue).toBe('+49 170 1234567');
+      expect(result.tokens[3].originalValue).toBe('ul. Marszałkowska 10');
+      expect(result.tokens[4].originalValue).toBe('Friedrichstraße 42');
+      expect(result.tokens[5].originalValue).toBe('50k zł');
+      expect(result.tokens[6].originalValue).toBe('Berlin');
 
       expect(result.sanitizedText).toBe(
         'Contact [EMAIL_1]. ' +
         'Also [PERSON_1], are you available? ' +
-        '(Call [PHONE_1]).'
+        '(Call [PHONE_1]). ' +
+        'Visit [ADDRESS_1], or [ADDRESS_2]. ' +
+        'Fee is [AMOUNT_MONEY_1], in [ADDRESS_3].'
       );
     });
 
@@ -583,22 +736,33 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(result.tokens).toEqual([]);
       expect(result.riskLevel).toBe('NONE');
     });
+
+    it('applies Unicode NFC normalization before masking', () => {
+      // "Zürich" written in NFD (decomposed: "u" + combining diaeresis) vs NFC
+      const nfdText = 'Office in Zu\u0308rich';
+      const result = PrivacyGuard.mask(nfdText);
+
+      expect(result.tokens).toHaveLength(1);
+      expect(result.tokens[0].type).toBe('ADDRESS');
+      expect(result.tokens[0].originalValue).toBe('Zürich');
+      expect(result.sanitizedText).toBe('Office in [ADDRESS_1]');
+    });
   });
 
   // =========================================================================
   // 8. Deterministic Roundtrip Invariance
   // =========================================================================
   describe('Deterministic Roundtrip Invariance', () => {
-    it('guarantees roundtrip invariance: rehydrate(mask(text).sanitizedText, result.tokens) === text', () => {
+    it('guarantees roundtrip invariance across all 7 categories: rehydrate(mask(text).sanitizedText, result.tokens) === text', () => {
       const complexText =
         'Meeting with Alice Newman to review invoice $1,500.00.\n' +
         'Please transfer to DE89 3704 0044 0532 0130 00 or notify contact@example.com.\n' +
         'Call +49 170 1234567 if bearer token bearer abcdef1234567890abcdef123456 is compromised.\n' +
-        'Follow up with Alice Newman afterwards.';
+        'Follow up at Friedrichstraße 42 in Berlin afterwards.';
 
       const maskResult = PrivacyGuard.mask(complexText);
 
-      // Verify all 6 categories are detected
+      // Verify all 7 categories are detected
       const detectedTypes = new Set(maskResult.tokens.map(t => t.type));
       expect(detectedTypes.has('SECRET_KEY')).toBe(true);
       expect(detectedTypes.has('IBAN')).toBe(true);
@@ -606,6 +770,7 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(detectedTypes.has('PHONE')).toBe(true);
       expect(detectedTypes.has('AMOUNT_MONEY')).toBe(true);
       expect(detectedTypes.has('PERSON')).toBe(true);
+      expect(detectedTypes.has('ADDRESS')).toBe(true);
 
       // Verify rehydrate with tokens array restores original text 100% identically
       const restored = rehydrate(maskResult.sanitizedText, maskResult.tokens);
@@ -625,6 +790,18 @@ describe('PrivacyGuard Engine Suite', () => {
     it('calculates LOW when single non-critical PII is present', () => {
       const res = PrivacyGuard.mask('Call +49 170 1234567 tomorrow');
       expect(res.riskLevel).toBe('LOW');
+    });
+
+    it('calculates MEDIUM when financial data (AMOUNT_MONEY) is present even with count 1', () => {
+      const res = PrivacyGuard.mask('Estimated cost is 50k zł');
+      expect(res.tokens).toHaveLength(1);
+      expect(res.riskLevel).toBe('MEDIUM');
+    });
+
+    it('calculates MEDIUM when physical address is present even with count 1', () => {
+      const res = PrivacyGuard.mask('Office in Berlin');
+      expect(res.tokens).toHaveLength(1);
+      expect(res.riskLevel).toBe('MEDIUM');
     });
 
     it('calculates MEDIUM when exactly 2 non-critical PII items are present', () => {

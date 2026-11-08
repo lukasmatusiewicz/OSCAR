@@ -12,6 +12,129 @@ export interface MemoEditorProps {
   placeholder?: string;
 }
 
+const INTERNATIONAL_CITIES = [
+  'New York',
+  'Kassel',
+  'Berlin',
+  'Paris',
+  'Warsaw',
+  'Warszawa',
+  'London',
+  'Zurich',
+  'Zürich',
+  'Tokyo',
+  'Vienna',
+  'Wien',
+  'Rome',
+  'Roma',
+  'Madrid',
+  'Krakow',
+  'Kraków',
+  'Wrocław',
+  'Munich',
+  'München',
+  'Hamburg',
+  'Frankfurt',
+  'Geneva',
+  'Brussels',
+  'Amsterdam',
+  'Poznań',
+  'Gdańsk',
+];
+
+const currencies = '(?:[\\$€£¥]|(?:PLN|EUR|USD|GBP|CHF|złotych|zł|euro)(?!\\p{L}))';
+const multipliers = '(?:k€|k\\s*PLN|k|tys\\.?(?!\\p{L})|tysięcy|mln|milionów|mld)';
+const number = '\\d+(?:[.,\\s]\\d+)*';
+
+const amountMoneyRegex = new RegExp(
+  '(?:' +
+    currencies +
+    '\\s*' +
+    number +
+    '(?:\\s*' +
+    multipliers +
+    ')?' +
+    '|' +
+    '(?<!\\p{L})' +
+    number +
+    '\\s*' +
+    multipliers +
+    '(?:\\s*' +
+    currencies +
+    ')?' +
+    '|' +
+    '(?<!\\p{L})' +
+    number +
+    '\\s*' +
+    currencies +
+    ')',
+  'giu',
+);
+
+const streetPrefixWords = [
+  'ul\\.',
+  'ulica',
+  'al\\.',
+  'aleja',
+  'pl\\.',
+  'plac',
+  'os\\.',
+  'rue',
+  'bd',
+  'boulevard',
+  'avenue',
+  'av\\.',
+  'straße',
+  'strasse',
+  'str\\.',
+  'weg',
+  'platz',
+  'st\\.',
+  'street',
+  'ave\\.',
+  'avenue',
+  'rd\\.',
+  'road',
+  'blvd\\.',
+  'drive',
+  'dr\\.',
+];
+
+const streetPrefixes = streetPrefixWords
+  .map((w) => `[${w[0].toLowerCase()}${w[0].toUpperCase()}]${w.slice(1)}`)
+  .join('|');
+
+const streetPostfixWords = [
+  'Street',
+  'St\\.',
+  'Avenue',
+  'Ave\\.',
+  'Road',
+  'Rd\\.',
+  'Boulevard',
+  'Blvd\\.',
+  'Drive',
+  'Dr\\.',
+  'Straße',
+  'Strasse',
+  'Str\\.',
+  'Weg',
+  'Platz',
+  'Gasse',
+];
+const streetPostfixes = streetPostfixWords.join('|');
+
+const streetPattern1 = `\\b(?:${streetPrefixes})\\s+(?:(?:de|d'|von|van)\\s+)?[\\p{Lu}\\p{Ll}'-]+(?:\\s+[\\p{Lu}\\p{Ll}'-]+)*(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
+const streetPattern2 = `\\b\\p{Lu}[\\p{L}'-]*(?:straße|strasse)\\b(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
+const streetPattern3 = `\\b\\p{Lu}[\\p{L}'-]+(?:\\s+\\p{Lu}[\\p{L}'-]+)?\\s+(?:${streetPostfixes})(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?\\b`;
+const streetPattern4 = `\\b\\d+\\s+\\p{Lu}[\\p{L}'-]+\\s+(?:${streetPostfixes})\\b`;
+const cityPattern = `(?:${INTERNATIONAL_CITIES.join('|')})(?!\\p{L})`;
+
+const addressRegex = new RegExp(
+  `(?:${streetPattern1}|${streetPattern2}|${streetPattern4}|${streetPattern3}|${cityPattern})`,
+  'gu',
+);
+
 export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskLevel: RiskLevel } {
   const tokens: PIITokenMap[] = [];
   let tokenIndex = 1;
@@ -22,7 +145,7 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
       regex:
         /(?:sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|AIza[0-9A-Za-z-_]{35}|[0-9a-fA-F]{32,64})/g,
     },
-    { type: 'IBAN', regex: /[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}(?:[A-Z0-9]{0,16})/g },
+    { type: 'IBAN', regex: /[a-zA-Z]{2}\d{2}[a-zA-Z0-9]{4}\d{7}(?:[a-zA-Z0-9]{0,16})/giu },
     { type: 'EMAIL', regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g },
     {
       type: 'PHONE',
@@ -31,19 +154,29 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
     },
     {
       type: 'AMOUNT_MONEY',
-      regex:
-        /(?:[$€£¥]\s*\d+[\s\d]*(?:[.,]\d{2})?|\d+[\s\d]*(?:[.,]\d{2})?\s*(?:USD|EUR|GBP|PLN|euro|Euro|zł|złotych|CHF))/giu,
+      regex: amountMoneyRegex,
     },
     {
       type: 'PERSON',
       regex:
-        /(?:(?:Mr\.|Mrs\.|Ms\.|Dr\.|Pan|Pani|Pana|Panią|dr|mec)\.?\s+)?[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+(?:\s+[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+)+/gu,
+        /(?:(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Pan|Pani|Pana|Panią|dr|mec|Herr|Frau|M\.|Mme)\.?\s+)?[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+(?:\s+[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+)+/gu,
+    },
+    {
+      type: 'ADDRESS',
+      regex: addressRegex,
     },
   ];
 
   for (const { type, regex } of patterns) {
+    const r = new RegExp(regex.source, regex.flags);
     let match: RegExpExecArray | null;
-    while ((match = regex.exec(text)) !== null) {
+    while ((match = r.exec(text)) !== null) {
+      if (
+        type === 'PERSON' &&
+        INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === match?.[0].toLowerCase())
+      ) {
+        continue;
+      }
       tokens.push({
         token: `[${type}_${tokenIndex++}]`,
         type,
@@ -57,11 +190,13 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
   // Calculate risk level based on token presence
   let riskLevel: RiskLevel = 'NONE';
   if (tokens.length > 0) {
-    const hasSecret = tokens.some((t) => t.type === 'SECRET_KEY');
-    const hasFinancial = tokens.some((t) => t.type === 'IBAN' || t.type === 'AMOUNT_MONEY');
-    if (hasSecret || tokens.length >= 5) {
+    const hasSecretOrIban = tokens.some((t) => t.type === 'SECRET_KEY' || t.type === 'IBAN');
+    const hasFinancialOrAddress = tokens.some(
+      (t) => t.type === 'AMOUNT_MONEY' || t.type === 'ADDRESS',
+    );
+    if (hasSecretOrIban || tokens.length >= 3) {
       riskLevel = 'HIGH';
-    } else if (hasFinancial || tokens.length >= 2) {
+    } else if (hasFinancialOrAddress || tokens.length === 2) {
       riskLevel = 'MEDIUM';
     } else {
       riskLevel = 'LOW';

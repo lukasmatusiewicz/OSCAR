@@ -84,6 +84,14 @@ describe('MemoEditor & detectClientTokens', () => {
     expect(moneyTokens.length).toBeGreaterThanOrEqual(7);
   });
 
+  it('detectClientTokens accurately detects street addresses and international cities', () => {
+    const addressText = 'Visit our office at ul. Marszałkowska 10 or Friedrichstraße 42 or Baker Street 221B in Berlin and Paris.';
+    const result = detectClientTokens(addressText);
+    const addressTokens = result.tokens.filter((t) => t.type === 'ADDRESS');
+    expect(addressTokens.length).toBeGreaterThanOrEqual(5);
+    expect(result.riskLevel).toBe('HIGH');
+  });
+
   it('displays error message when submitted with empty content', async () => {
     const handleSubmit = vi.fn();
     render(<MemoEditor onSubmit={handleSubmit} />);

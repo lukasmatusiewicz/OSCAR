@@ -14,6 +14,7 @@ const TYPE_CONFIG: Record<PIIType, { icon: string; label: string; color: string;
   PHONE: { icon: '📱', label: 'Phone', color: '#059669', bg: '#ecfdf5' },
   AMOUNT_MONEY: { icon: '💰', label: 'Amount', color: '#7c3aed', bg: '#f5f3ff' },
   PERSON: { icon: '👤', label: 'Person', color: '#d97706', bg: '#fffbeb' },
+  ADDRESS: { icon: '📍', label: 'Address', color: '#0891b2', bg: '#ecfeff' },
 };
 
 export const TokenPreviewBadge: React.FC<TokenPreviewBadgeProps> = ({

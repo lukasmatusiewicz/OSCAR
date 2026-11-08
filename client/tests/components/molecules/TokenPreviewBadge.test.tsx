@@ -22,6 +22,7 @@ describe('TokenPreviewBadge', () => {
       'PHONE',
       'AMOUNT_MONEY',
       'PERSON',
+      'ADDRESS',
     ];
 
     types.forEach((t, i) => {

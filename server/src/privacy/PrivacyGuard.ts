@@ -14,12 +14,154 @@ export const CATEGORY_PRIORITY: Record<PIIType, number> = {
   PHONE: 4,
   AMOUNT_MONEY: 5,
   PERSON: 6,
+  ADDRESS: 7,
 };
 
 /**
- * Authoritative Token Pattern covering all 6 categories
+ * Authoritative Token Pattern covering all 7 categories
  */
-export const TOKEN_PATTERN = /\[(?:SECRET_KEY|IBAN|EMAIL|PHONE|AMOUNT_MONEY|PERSON)_\d+\]/g;
+export const TOKEN_PATTERN =
+  /\[(?:SECRET_KEY|IBAN|EMAIL|PHONE|AMOUNT_MONEY|PERSON|ADDRESS)_\d+\]/g;
+
+export const INTERNATIONAL_CITIES = [
+  'New York',
+  'Kassel',
+  'Berlin',
+  'Paris',
+  'Warsaw',
+  'Warszawa',
+  'London',
+  'Zurich',
+  'Zürich',
+  'Tokyo',
+  'Vienna',
+  'Wien',
+  'Rome',
+  'Roma',
+  'Madrid',
+  'Krakow',
+  'Kraków',
+  'Wrocław',
+  'Munich',
+  'München',
+  'Hamburg',
+  'Frankfurt',
+  'Geneva',
+  'Brussels',
+  'Amsterdam',
+  'Poznań',
+  'Gdańsk',
+];
+
+export const EXCLUDED_NAME_WORDS = new Set([
+  'new',
+  'york',
+  'kassel',
+  'berlin',
+  'paris',
+  'warsaw',
+  'warszawa',
+  'london',
+  'zurich',
+  'zürich',
+  'tokyo',
+  'vienna',
+  'wien',
+  'rome',
+  'roma',
+  'madrid',
+  'krakow',
+  'kraków',
+  'wrocław',
+  'munich',
+  'münchen',
+  'hamburg',
+  'frankfurt',
+  'geneva',
+  'brussels',
+  'amsterdam',
+  'poznań',
+  'gdańsk',
+  'street',
+  'st',
+  'road',
+  'rd',
+  'avenue',
+  'ave',
+  'boulevard',
+  'blvd',
+  'drive',
+  'dr',
+  'ulica',
+  'aleja',
+  'plac',
+  'rue',
+  'chemin',
+  'straße',
+  'strasse',
+  'weg',
+  'platz',
+  'gasse',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
+  'the',
+  'this',
+  'that',
+  'these',
+  'those',
+  'our',
+  'your',
+  'their',
+  'his',
+  'her',
+  'its',
+  'prime',
+  'residence',
+  'office',
+  'store',
+  'branch',
+  'hotel',
+  'building',
+  'deliver',
+  'visit',
+  'package',
+  'schedule',
+  'call',
+  'meet',
+  'meeting',
+  'contact',
+  'send',
+  'review',
+  'create',
+  'update',
+  'delete',
+  'check',
+  'follow',
+  'spotkanie',
+  'rozmowa',
+  'zadanie',
+  'notatka',
+  'telefon',
+  'kontakt',
+  'przekaż',
+]);
 
 /**
  * Recursively re-hydrates tokens in a parsed JSON structure using atomic single-pass regex replacement.
@@ -67,6 +209,7 @@ export class PrivacyGuard {
    * Masks sensitive information using Priority Overlap Resolution and Right-to-Left replacement.
    */
   public static mask(text: string): SanitizationResult {
+    text = text.normalize('NFC');
     const rawMatches: RawMatch[] = this.collectAllMatches(text);
     const nonOverlapping = this.resolveOverlaps(rawMatches);
 
@@ -120,7 +263,7 @@ export class PrivacyGuard {
 
   /**
    * Priority-weighted overlap resolution:
-   * Sorts matches primarily by priority ascending (1: SECRET_KEY before 6: PERSON),
+   * Sorts matches primarily by priority ascending (1: SECRET_KEY before 7: ADDRESS),
    * secondarily by startIndex ascending, tertiarily by span length descending.
    * Iterates through candidates and greedily accepts candidate spans that do not
    * intersect any already-accepted span (candidate.startIndex < accepted.endIndex && candidate.endIndex > accepted.startIndex).
@@ -129,7 +272,7 @@ export class PrivacyGuard {
   public static resolveOverlaps(matches: RawMatch[]): RawMatch[] {
     if (matches.length <= 1) return matches;
 
-    // Sort: 1) Priority ascending (1 to 6), 2) startIndex ascending, 3) span length descending
+    // Sort: 1) Priority ascending (1 to 7), 2) startIndex ascending, 3) span length descending
     const candidates = [...matches].sort((a, b) => {
       const prioDiff = CATEGORY_PRIORITY[a.type] - CATEGORY_PRIORITY[b.type];
       if (prioDiff !== 0) return prioDiff;
@@ -159,14 +302,13 @@ export class PrivacyGuard {
    */
   public static calculateRisk(count: number, types: PIIType[]): RiskLevel {
     if (count === 0) return 'NONE';
-    if (types.includes('SECRET_KEY') || types.includes('IBAN')) return 'HIGH';
-    if (count >= 3) return 'HIGH';
-    if (count === 2) return 'MEDIUM';
+    if (types.includes('SECRET_KEY') || types.includes('IBAN') || count >= 3) return 'HIGH';
+    if (count === 2 || types.includes('AMOUNT_MONEY') || types.includes('ADDRESS')) return 'MEDIUM';
     return 'LOW';
   }
 
   /**
-   * Deterministic match collection across all 6 compiled ECMAScript RegExp patterns.
+   * Deterministic match collection across all 7 compiled ECMAScript RegExp patterns.
    */
   private static collectAllMatches(text: string): RawMatch[] {
     const matches: RawMatch[] = [];
@@ -185,8 +327,8 @@ export class PrivacyGuard {
       }
     }
 
-    // 2. IBAN (Priority 2)
-    const ibanRegex = /\b[A-Z]{2}[0-9]{2}(?:[ ]?[0-9]{4}){4,7}(?:[ ]?[0-9]{1,4})?\b/gu;
+    // 2. IBAN (Priority 2, case-insensitive giu)
+    const ibanRegex = /\b[a-z]{2}[0-9]{2}(?:[ ]?[0-9]{4}){4,7}(?:[ ]?[0-9]{1,4})?\b/giu;
     for (const m of text.matchAll(ibanRegex)) {
       if (m.index !== undefined) {
         matches.push({
@@ -226,8 +368,38 @@ export class PrivacyGuard {
     }
 
     // 5. AMOUNT_MONEY (Priority 5)
-    const moneyRegex =
-      /(?:(?:\$|€|£|\b(?:PLN|EUR|USD))\s?\d+(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?|\b\d+(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?\s?(?:€|\$|£|(?:PLN|EUR|USD)\b))/giu;
+    // Currencies: symbols ($€£¥) and codes (PLN, EUR, USD, GBP, CHF, zł, złotych, euro)
+    // Multipliers: k, k€, k PLN, tys, tys., tysięcy, mln, milionów, mld
+    // Spacing/typos: 15 000, 15 0000, 15.000,00
+    const currencies = '(?:[\\$€£¥]|(?:PLN|EUR|USD|GBP|CHF|złotych|zł|euro)(?!\\p{L}))';
+    const multipliers = '(?:k€|k\\s*PLN|k|tys\\.?(?!\\p{L})|tysięcy|mln|milionów|mld)';
+    const number = '\\d+(?:[.,\\s]\\d+)*';
+
+    const moneyRegex = new RegExp(
+      '(?:' +
+        currencies +
+        '\\s*' +
+        number +
+        '(?:\\s*' +
+        multipliers +
+        ')?' +
+        '|' +
+        '(?<!\\p{L})' +
+        number +
+        '\\s*' +
+        multipliers +
+        '(?:\\s*' +
+        currencies +
+        ')?' +
+        '|' +
+        '(?<!\\p{L})' +
+        number +
+        '\\s*' +
+        currencies +
+        ')',
+      'giu',
+    );
+
     for (const m of text.matchAll(moneyRegex)) {
       if (m.index !== undefined) {
         matches.push({
@@ -240,10 +412,92 @@ export class PrivacyGuard {
     }
 
     // 6. PERSON (Priority 6)
-    const personRegex =
-      /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:[wW]ith|[mM]eeting|[cC]all|[fF]or|[fF]rom|[bB]y|[tT]o|[cC]ontact|[aA]ssigned [tT]o)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)/gu;
+    // Multilingual contextual patterns for English, Polish, German, French
+    // Honorifics: Mr., Mrs., Ms., Dr., Prof., Pan, Pani, Pana, Panią, dr, mec, Herr, Frau, M., Mme
+    // Trigger prepositions: with|z|ze|mit|bei|avec|pour|meeting with|spotkanie z|rozmowa z|Treffen mit|rendez-vous avec|for|from|by|to|dla|od|przez|do|für|von|de|par|call|contact|assigned to|meeting|spotkanie|rozmowa|treffen|rendez-vous
+    const honorificsList = [
+      'Mr\\.',
+      'Mrs\\.',
+      'Ms\\.',
+      'Dr\\.',
+      'Prof\\.',
+      'Pan',
+      'Pani',
+      'Pana',
+      'Panią',
+      'dr',
+      'dr\\.',
+      'mec\\.',
+      'mec',
+      'Herr',
+      'Frau',
+      'M\\.',
+      'Mme\\.',
+      'Mme',
+    ];
+
+    const prepWords = [
+      'meeting with',
+      'spotkanie z',
+      'rozmowa z',
+      'treffen mit',
+      'rendez-vous avec',
+      'meeting',
+      'spotkanie',
+      'rozmowa',
+      'treffen',
+      'rendez-vous',
+      'with',
+      'z',
+      'ze',
+      'mit',
+      'bei',
+      'avec',
+      'pour',
+      'for',
+      'from',
+      'by',
+      'to',
+      'dla',
+      'od',
+      'przez',
+      'do',
+      'für',
+      'von',
+      'de',
+      'par',
+      'call',
+      'contact',
+      'assigned to',
+    ];
+
+    const prepPattern = prepWords
+      .map((phrase) =>
+        phrase
+          .split(' ')
+          .map((w) => `[${w[0].toLowerCase()}${w[0].toUpperCase()}]${w.slice(1)}`)
+          .join('\\s+'),
+      )
+      .join('|');
+
+    const honPattern = honorificsList.join('|');
+    const nameWord = '\\p{Lu}[\\p{Ll}\'-]+';
+
+    // Contextual trigger preposition followed by 2-3 capitalized name words
+    const personPrepRegex = new RegExp(
+      `\\b(?:${prepPattern})\\s+(${nameWord}(?:\\s+${nameWord}){1,2})`,
+      'gu',
+    );
+
+    // Honorific followed by 1-3 capitalized name words
+    const personHonRegex = new RegExp(
+      `\\b(?:${honPattern})\\s+${nameWord}(?:\\s+${nameWord}){0,2}`,
+      'gu',
+    );
+
     const initialPersonMatches: RawMatch[] = [];
-    for (const m of text.matchAll(personRegex)) {
+
+    for (const m of text.matchAll(personHonRegex)) {
       if (m.index !== undefined) {
         initialPersonMatches.push({
           type: 'PERSON',
@@ -254,14 +508,66 @@ export class PrivacyGuard {
       }
     }
 
+    for (const m of text.matchAll(personPrepRegex)) {
+      if (m.index !== undefined && m[1]) {
+        const lowerVal = m[1].toLowerCase();
+        const isCityOrExcluded =
+          INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
+          EXCLUDED_NAME_WORDS.has(lowerVal) ||
+          m[1].split(/\s+/).some((w) => EXCLUDED_NAME_WORDS.has(w.toLowerCase()));
+        if (isCityOrExcluded) continue;
+
+        const offset = m[0].lastIndexOf(m[1]);
+        const s = m.index + offset;
+        const e = s + m[1].length;
+        const alreadyMatched = initialPersonMatches.some(
+          (existing) => s < existing.endIndex && e > existing.startIndex,
+        );
+        if (!alreadyMatched) {
+          initialPersonMatches.push({
+            type: 'PERSON',
+            value: m[1],
+            startIndex: s,
+            endIndex: e,
+          });
+        }
+      }
+    }
+
+    const pairRegex = /\b(\p{Lu}[\p{Ll}'-]+)\s+(\p{Lu}[\p{Ll}'-]+)\b/gu;
+    for (const m of text.matchAll(pairRegex)) {
+      if (m.index !== undefined) {
+        const w1 = m[1].toLowerCase();
+        const w2 = m[2].toLowerCase();
+        if (!EXCLUDED_NAME_WORDS.has(w1) && !EXCLUDED_NAME_WORDS.has(w2)) {
+          const s = m.index;
+          const e = s + m[0].length;
+          const alreadyMatched = initialPersonMatches.some(
+            (existing) => s < existing.endIndex && e > existing.startIndex,
+          );
+          if (!alreadyMatched) {
+            initialPersonMatches.push({
+              type: 'PERSON',
+              value: m[0],
+              startIndex: s,
+              endIndex: e,
+            });
+          }
+        }
+      }
+    }
+
     matches.push(...initialPersonMatches);
 
-    // Propagate detected person entities across the text (case-insensitively for entity deduplication)
+    // Discovered name propagation across the text for full deduplication (case-insensitive giu)
     const discoveredNames = new Set<string>();
     for (const pm of initialPersonMatches) {
       discoveredNames.add(pm.value);
       const bareName = pm.value
-        .replace(/^(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.)\s+/i, '')
+        .replace(
+          /^(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Pan|Pani|Pana|Panią|dr|dr\.|mec\.|mec|Herr|Frau|M\.|Mme\.|Mme)\s+/i,
+          '',
+        )
         .trim();
       if (bareName.includes(' ')) {
         discoveredNames.add(bareName);
@@ -287,6 +593,86 @@ export class PrivacyGuard {
             });
           }
         }
+      }
+    }
+
+    // 7. ADDRESS (Priority 7)
+    // Street patterns: prefixes (ul., al., pl., os., aleja, plac, ulica, rue, bd, boulevard, avenue, av., Straße, Strasse, Str., Weg, Platz, St., Street, Ave., Avenue, Rd., Road, Blvd., Drive, Dr.)
+    // followed by street name and optional number (e.g. ul. Marszałkowska 10, Friedrichstraße 42, rue de Rivoli 5, Baker Street 221B)
+    // Major international cities/hubs: New York, Kassel, Berlin, Paris, Warsaw, Warszawa, London, Zurich, Zürich, Tokyo, Vienna, Wien, Rome, Roma, Madrid, Krakow, Kraków, Wrocław, Munich, München, Hamburg, Frankfurt
+    const cityPattern = `(?:${INTERNATIONAL_CITIES.join('|')})(?!\\p{L})`;
+
+    const streetPrefixWords = [
+      'ul\\.',
+      'ulica',
+      'al\\.',
+      'aleja',
+      'pl\\.',
+      'plac',
+      'os\\.',
+      'rue',
+      'bd',
+      'boulevard',
+      'avenue',
+      'av\\.',
+      'straße',
+      'strasse',
+      'str\\.',
+      'weg',
+      'platz',
+      'st\\.',
+      'street',
+      'ave\\.',
+      'avenue',
+      'rd\\.',
+      'road',
+      'blvd\\.',
+      'drive',
+      'dr\\.',
+    ];
+
+    const streetPrefixes = streetPrefixWords
+      .map((w) => `[${w[0].toLowerCase()}${w[0].toUpperCase()}]${w.slice(1)}`)
+      .join('|');
+
+    const streetPostfixWords = [
+      'Street',
+      'St\\.',
+      'Avenue',
+      'Ave\\.',
+      'Road',
+      'Rd\\.',
+      'Boulevard',
+      'Blvd\\.',
+      'Drive',
+      'Dr\\.',
+      'Straße',
+      'Strasse',
+      'Str\\.',
+      'Weg',
+      'Platz',
+      'Gasse',
+    ];
+    const streetPostfixes = streetPostfixWords.join('|');
+
+    const streetPattern1 = `\\b(?:${streetPrefixes})\\s+(?:(?:de|d'|von|van)\\s+)?[\\p{Lu}\\p{Ll}'-]+(?:\\s+[\\p{Lu}\\p{Ll}'-]+)*(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
+    const streetPattern2 = `\\b\\p{Lu}[\\p{L}'-]*(?:straße|strasse)\\b(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
+    const streetPattern3 = `\\b\\p{Lu}[\\p{L}'-]+(?:\\s+\\p{Lu}[\\p{L}'-]+)?\\s+(?:${streetPostfixes})(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?\\b`;
+    const streetPattern4 = `\\b\\d+\\s+\\p{Lu}[\\p{L}'-]+\\s+(?:${streetPostfixes})\\b`;
+
+    const addressRegex = new RegExp(
+      `(?:${streetPattern1}|${streetPattern2}|${streetPattern4}|${streetPattern3}|${cityPattern})`,
+      'gu',
+    );
+
+    for (const m of text.matchAll(addressRegex)) {
+      if (m.index !== undefined) {
+        matches.push({
+          type: 'ADDRESS',
+          value: m[0],
+          startIndex: m.index,
+          endIndex: m.index + m[0].length,
+        });
       }
     }
 
