@@ -3,8 +3,8 @@
 > **An enterprise-grade, spec-driven personal assistant and multi-agent runtime featuring local PII masking, Zero Data Retention orchestration, client-side AES-256-GCM encryption at rest, and real-time reactive synchronization.**
 
 [![CI / Vitest Pipeline](https://github.com/lukasmatusiewicz/OSCAR/actions/workflows/ci.yml/badge.svg)](https://github.com/lukasmatusiewicz/OSCAR/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/Tests-108%20passed-brightgreen.svg)]()
-[![Coverage](https://img.shields.io/badge/Coverage-100%25%20Lines%20%7C%2098.65%25%20Branches-brightgreen.svg)]()
+[![Tests Passing](https://img.shields.io/badge/Tests-174%20passed-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/Coverage-%3E95%25%20Verified-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Methodology](https://img.shields.io/badge/Methodology-Spec--Driven%20Development-success.svg)](docs/spec/architecture.md)
@@ -15,12 +15,12 @@
 ## 🌟 Core Highlights & Architectural Principles
 
 * 🛡️ **Confidentiality by Design (Local PII Masking):** Automatically strips personally identifiable information (emails, names, monetary amounts, phone numbers, IBANs, API keys) locally before dispatching prompts to external LLMs.
-* 🔐 **Client-Side AES-256-GCM Envelope Encryption:** Cleartext user data is never stored in public cloud storage. All sensitive fields are encrypted at rest using WebCrypto AES-256-GCM prior to Cloud Firestore persistence, with session key memory zeroing immediately upon request completion.
+* 🔐 **Client-Side AES-256-GCM Envelope Encryption:** Cleartext user data is never stored in public cloud storage. All sensitive fields are encrypted at rest using WebCrypto AES-256-GCM prior to Cloud Firestore persistence, with session key memory zeroing immediately upon logout.
 * 🤖 **Zero Data Retention Orchestration:** Built with the official Google GenAI SDK (`@google/genai`) and Gemini 2.5 Flash, enforcing strict JSON Schema runtime verification (`responseSchema`).
 * ⏱️ **Gateway Resilience & SLA Protection:** Incorporates a 12 RPM token-bucket rate limiter (preventing upstream quota exhaustion), strict 8,000ms SLA timeout handler (`AbortSignal.timeout(8000)`), and an autonomous `DeterministicFallbackExtractor` rule engine for zero-data-loss offline operation.
 * 📐 **Spec-Driven Development (SDD):** System specifications, runtime contracts, and verification criteria are authoritatively defined in `docs/spec/` before production code is committed, eliminating ad-hoc prompt coding.
 * ⚡ **Real-Time Cross-Device Sync:** Built on Firebase Firestore (Spark Free Tier) leveraging direct `onSnapshot` listeners to push updates instantaneously to connected desktop and mobile clients.
-* 🧪 **Deterministic Engineering Rigor:** 108 automated unit and integration tests passing across 5 test suites with 100% in-memory isolation (<2 seconds execution, zero live network calls in unit tests). Verified test coverage across all `server/src/**` modules: **100% Statements, 100% Functions, 100% Lines, and 98.65% Branches**.
+* 🧪 **Deterministic Engineering Rigor:** 174 automated unit, integration, component, and security tests passing across 13 test suites (108 backend tests with 100% lines / 98.65% branches, 66 frontend tests with 98.24% lines / 92.27% branches, and verified zero DOM PII leakage).
 * 🎨 **Client-Side Atomic Design:** React + TypeScript UI decoupled into isolated `atoms/`, `molecules/`, `organisms/`, and `views/` with scoped styling.
 * 👥 **Maker-Checker-Critic Multi-Agent Governance:** Structured agentic workforce enforcing the Principle of Least Privilege (PoLP), Human-in-the-Loop (HITL) oversight, and an automated Architecture & Security Critic regression audit gate.
 
@@ -55,13 +55,15 @@ oscar/
 │       ├── privacy-guard-spec.md      # PII detection rules, RTL substitution & atomic re-hydration
 │       └── multi-agent-system.md      # Maker-Checker-Critic topology, PoLP matrix & Critic audit gate
 ├── client/                            # React + TypeScript + Vite (Atomic Design & WebCrypto)
-│   └── src/
-│       ├── components/
-│       │   ├── atoms/                 # Single-purpose isolated UI components (scoped CSS)
-│       │   ├── molecules/             # Grouped atom components
-│       │   └── organisms/             # Business domain widgets
-│       ├── views/                     # Page-level screens (Dashboard, TaskBoard)
-│       └── services/                  # Gateway client & Firestore listeners
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── atoms/                 # Single-purpose isolated UI components (Button, Input, Badge, etc.)
+│   │   │   ├── molecules/             # Grouped atom components (SearchBar, PrioritySelector, etc.)
+│   │   │   └── organisms/             # Business domain widgets (TaskCard, MemoInputForm, etc.)
+│   │   ├── hooks/                     # Custom domain hooks (useTasks, useMemos, useAuditLogs)
+│   │   ├── services/                  # Gateway client, WebCrypto envelope encryption & Firestore listeners
+│   │   └── views/                     # Page-level screens (DashboardView, TaskBoardView)
+│   └── tests/                         # Vitest test suite (66 tests, 98.24% lines, 92.27% branches)
 ├── server/                            # Node.js + TypeScript Gateway
 │   ├── src/
 │   │   ├── privacy/                   # Pure Privacy Guard Engine (Masker / Re-hydrator)
@@ -107,8 +109,10 @@ The OSCAR codebase strictly adheres to the following specification documents:
   *Pure, deterministic PII detection for 6 categories, ECMAScript Unicode property escapes, priority-weighted greedy overlap resolution, entity deduplication, and atomic single-pass regex re-hydration. 36 unit tests passing with 100% coverage.*
 - [x] **Phase 3: AI Orchestration & Gateway Resilience**  
   *Native `@google/genai` integration with Gemini 2.5 Flash, 12 RPM token-bucket rate limiter, 8,000ms SLA timeout handler, `DeterministicFallbackExtractor` rule engine, WebCrypto AES-256-GCM envelope encryption with session key memory zeroing, and full Zod runtime validation. 108 automated unit and integration tests passing across 5 test suites (100% Lines, 98.65% Branches).*
-- [ ] **Phase 4: Client-Side UI & Real-Time Sync**  
-  *React 18+ Vite TypeScript frontend, strict Atomic Design component hierarchy (`atoms/`, `molecules/`, `organisms/`, `views/`), client-side WebCrypto decryption, and Firebase Firestore real-time synchronization (`onSnapshot`).*
+- [x] **Phase 4: Client-Side UI & Real-Time Sync (React 18+ & WebCrypto)**  
+  *React 18+ Vite TypeScript frontend, strict Atomic Design component hierarchy (`atoms/`, `molecules/`, `organisms/`, `views/`), client-side WebCrypto AES-256-GCM envelope decryption, ephemeral session key memory zeroing on logout, and zero DOM PII leakage. 66 automated tests passing with >98% statement and line coverage.*
+- [ ] **Phase 5: End-to-End Integration, Local Dev Orchestration & UAT**  
+  *Live end-to-end integration connecting React frontend with Node.js gateway, Cloud Firestore real-time synchronization, and browser-driven User Acceptance Testing.*
 
 ---
 
@@ -120,8 +124,9 @@ The OSCAR codebase strictly adheres to the following specification documents:
 * **Google AI Studio API Key:** For external Gemini inference (free tier)
 
 ### Quickstart & Test Verification
-Clone the repository, install dependencies in the `server` directory, and run the test suite:
+Clone the repository, install dependencies, and run the test suites:
 
+#### Backend Gateway & Security Tests
 ```bash
 # Navigate to the backend gateway
 cd server
@@ -134,6 +139,24 @@ npm test
 
 # Run the test suite with comprehensive coverage report
 npm run test:coverage
+```
+
+#### Client Frontend & UI Component Tests
+```bash
+# Navigate to the client application
+cd ../client
+
+# Clean installation of dependencies
+npm ci
+
+# Run all 66 component, hook, and security unit tests
+npm test
+
+# Verify type safety and static analysis
+npm run lint
+
+# Build production bundle
+npm run build
 ```
 
 ### Environment Configuration

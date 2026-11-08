@@ -7,10 +7,9 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
-    name: Quality Gate, Lint & Vitest
+  lint-and-typecheck:
+    name: Static Analysis & Lint Gate
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -24,20 +23,59 @@ jobs:
             server/package-lock.json
             client/package-lock.json
 
-      - name: Server Install Dependencies
-        run: cd server && npm ci
+      - name: Server Install & Lint/Typecheck
+        run: cd server && npm ci && npx tsc --noEmit && npm run lint
 
-      - name: Server ESLint & Type Check
-        run: cd server && npx tsc --noEmit && npm run lint
+      - name: Client Install & Lint/Typecheck
+        run: cd client && npm ci && npx tsc --noEmit && npm run lint
 
-      - name: Server Vitest with Coverage
-        run: cd server && npx vitest run --coverage
+  test-server:
+    name: Server Vitest Suite (108 Tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: Client Install Dependencies
-        run: cd client && npm ci
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
 
-      - name: Client ESLint & Type Check
-        run: cd client && npx tsc --noEmit && npm run lint
+      - name: Server Vitest Suite with Coverage
+        run: cd server && npm ci && npx vitest run --coverage
 
-      - name: Client Vitest with Coverage
-        run: cd client && npx vitest run --coverage
+  test-client:
+    name: Client Vitest Suite (66 Tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Client Vitest Suite with Coverage
+        run: cd client && npm ci && npx vitest run --coverage
+
+  build-verification:
+    name: Client Production Build Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Client Production Build
+        run: cd client && npm ci && npm run build
