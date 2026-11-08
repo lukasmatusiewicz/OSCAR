@@ -48,6 +48,7 @@ export const PIITypeSchema = z.enum([
   'PHONE',
   'AMOUNT_MONEY',
   'PERSON',
+  'ADDRESS',
 ]);
 
 export type PIIType = z.infer<typeof PIITypeSchema>;

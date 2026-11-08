@@ -279,6 +279,7 @@ components:
         - PHONE
         - AMOUNT_MONEY
         - PERSON
+        - ADDRESS
       description: Categories of sensitive personally identifiable information detected by Privacy Guard
 
     RiskLevel:

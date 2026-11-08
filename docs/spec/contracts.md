@@ -64,11 +64,32 @@ export const PIITypeSchema = z.enum([
   'EMAIL',
   'PHONE',
   'AMOUNT_MONEY',
-  'PERSON'
+  'PERSON',
+  'ADDRESS'
 ]);
 
 export type PIIType = z.infer<typeof PIITypeSchema>;
 ```
+
+#### Category Taxonomy & Sensitivity Matrix
+
+| PII Category | Synthetic Token Format | Description & Sensitivity Classification | Overlap Weight |
+| :--- | :--- | :--- | :--- |
+| `SECRET_KEY` | `[SECRET_KEY_N]` | API credentials, private keys, bearer/PAT tokens. Highest criticality: immediate risk of unauthorized infrastructure access. | 60 |
+| `IBAN` | `[IBAN_N]` | International Bank Account Numbers. Critical financial identifier subject to international banking confidentiality regulations. | 50 |
+| `EMAIL` | `[EMAIL_N]` | Personal and corporate email addresses. Direct personal identifier subject to GDPR Art. 4(1). | 40 |
+| `PHONE` | `[PHONE_N]` | International and national telephone numbers. Direct telecommunications contact identifier. | 30 |
+| `AMOUNT_MONEY` | `[AMOUNT_MONEY_N]` | Transaction values, salaries, budgets, colloquial numbers (`10k zł`, `1.5 mln EUR`). Sensitive financial intelligence. | 25 |
+| `PERSON` | `[PERSON_N]` | Multilingual natural person names (nominative and inflected/declined forms across EN, PL, DE, FR). Core personal identity marker. | 20 |
+| `ADDRESS` | `[ADDRESS_N]` | Physical geographic locations, street addresses, avenues, and international cities/urban centers. Location data under GDPR Art. 4(1) and Recital 26/30. | 15 |
+
+#### 3.1.1 ADDRESS Category Specification & Synthetic Token Format
+- **Synthetic Token Identifier:** `[ADDRESS_INDEX]` where `INDEX` is a 1-based sequential integer (e.g., `[ADDRESS_1]`, `[ADDRESS_2]`), conforming strictly to the bracketed token regular expression `^\[[A-Z_]+_\d+\]$`.
+- **Sensitivity Characteristics:** Physical location identifiers pose severe privacy risks:
+  1. *Deanonymization Vector:* When combined with role or timing cues, residential or corporate physical addresses frequently facilitate re-identification of anonymous individuals.
+  2. *Geolocational Profiling:* Transmission of physical venues to third-party model inference engines risks inadvertent location harvesting and unauthorized behavioral telemetry.
+  3. *Physical Security:* Residential locations of remote employees, executives, or clients must never cross untrusted network boundaries.
+- **Multilingual Recognition Scope:** Covers both structured street addresses (using language prefixes such as `ul.`, `al.`, `pl.`, `rue`, `Avenue`, `St.`, `Straße`) and major international urban agglomerations (e.g., `New York`, `Kassel`, `Berlin`, `Paris`, `Warsaw`, `London`, `Zurich`).
 
 ### 3.2 Token Mapping Record (`PIITokenMapSchema`)
 Represents an individual token substitution stored in ephemeral request memory:
