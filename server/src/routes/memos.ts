@@ -4,6 +4,7 @@ import {
   CreateMemoResponse,
   TaskEntity,
   MemoEntity,
+  PrivacyAuditLog,
   DecryptedTaskPayload,
   DecryptedTaskPayloadSchema,
 } from '../types/contracts.js';
@@ -15,17 +16,17 @@ import {
 import { GeminiOrchestrator } from '../agent/GeminiOrchestrator.js';
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
-import { TaskStore } from '../store/TaskStore.js';
+import { ITaskRepository } from '../store/ITaskRepository.js';
 
 export interface MemoRouterDependencies {
   orchestrator: GeminiOrchestrator;
-  taskStore: TaskStore;
+  taskStore: ITaskRepository;
 }
 
 /**
  * Creates the memo processing router.
  *
- * @param deps Dependencies including GeminiOrchestrator and TaskStore.
+ * @param deps Dependencies including GeminiOrchestrator and ITaskRepository.
  * @returns Express Router mounted with /memos endpoints.
  */
 export function createMemoRouter(deps: MemoRouterDependencies): Router {
@@ -40,6 +41,8 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
    */
   router.post('/memos', async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const requestStart = Date.now();
+
       // 1. Validate inbound request payload against MemoInputSchema
       const input = MemoInputSchema.parse(req.body);
 
@@ -187,9 +190,19 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         scheduledTime,
       };
 
-      // 9. Persist to store
-      deps.taskStore.addMemo(memoEntity);
-      deps.taskStore.addTask(taskEntity);
+      // 9. Persist to store atomically via commitBatch with PrivacyAuditLog
+      const auditLog: PrivacyAuditLog = {
+        id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`,
+        userId: 'usr_session_default_01',
+        action: 'MASK_SUCCESS',
+        detectedTypes: Array.from(new Set(sanitization.tokens.map((t) => t.type))),
+        tokenCount: sanitization.tokenCount,
+        riskLevel: sanitization.riskLevel,
+        durationMs: Date.now() - requestStart,
+        timestamp: nowIso,
+      };
+
+      await deps.taskStore.commitBatch(memoEntity, taskEntity, auditLog);
 
       // 10. Return structured response with created tasks and PII telemetry
       const response: CreateMemoResponse = {

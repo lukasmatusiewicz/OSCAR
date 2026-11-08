@@ -8,16 +8,16 @@ import {
 } from '../types/contracts.js';
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
-import { TaskStore } from '../store/TaskStore.js';
+import { ITaskRepository } from '../store/ITaskRepository.js';
 
 export interface TaskRouterDependencies {
-  taskStore: TaskStore;
+  taskStore: ITaskRepository;
 }
 
 /**
  * Creates the task management router.
  *
- * @param deps Dependencies including TaskStore.
+ * @param deps Dependencies including ITaskRepository.
  * @returns Express Router mounted with /tasks endpoints.
  */
 export function createTaskRouter(deps: TaskRouterDependencies): Router {
@@ -27,9 +27,13 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
    * GET /api/tasks
    * Returns list of encrypted tasks persisted in the store.
    */
-  router.get('/tasks', (_req: Request, res: Response) => {
-    const tasks = deps.taskStore.getTasks();
-    res.status(200).json(tasks);
+  router.get('/tasks', async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const tasks = await deps.taskStore.getTasks();
+      res.status(200).json(tasks);
+    } catch (err: unknown) {
+      next(err);
+    }
   });
 
   /**
@@ -81,7 +85,7 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
         scheduledTime: input.scheduledTime ?? null,
       };
 
-      deps.taskStore.addTask(taskEntity);
+      await deps.taskStore.addTask(taskEntity);
       res.status(201).json(taskEntity);
     } catch (err: unknown) {
       next(err);
@@ -96,7 +100,7 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
     try {
       const input = UpdateTaskInputSchema.parse(req.body);
       const taskId = req.params.id as string;
-      const existing = deps.taskStore.getTaskById(taskId);
+      const existing = await deps.taskStore.getTaskById(taskId);
 
       if (!existing) {
         return res.status(404).json({
@@ -155,7 +159,7 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
         updates.encryptedPayload = newEncryptedPayload;
       }
 
-      const updated = deps.taskStore.updateTask(taskId, updates);
+      const updated = await deps.taskStore.updateTask(taskId, updates);
       res.status(200).json(updated);
     } catch (err: unknown) {
       next(err);
@@ -166,22 +170,26 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
    * DELETE /api/tasks/:id
    * Removes a task from the store.
    */
-  router.delete('/tasks/:id', (req: Request, res: Response) => {
-    const taskId = req.params.id as string;
-    const deleted = deps.taskStore.deleteTask(taskId);
+  router.delete('/tasks/:id', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const taskId = req.params.id as string;
+      const deleted = await deps.taskStore.deleteTask(taskId);
 
-    if (!deleted) {
-      return res.status(404).json({
-        error: 'Task not found',
-        message: `Task with id '${taskId}' was not found`,
+      if (!deleted) {
+        return res.status(404).json({
+          error: 'Task not found',
+          message: `Task with id '${taskId}' was not found`,
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        id: taskId,
+        message: 'Task successfully removed',
       });
+    } catch (err: unknown) {
+      next(err);
     }
-
-    res.status(200).json({
-      success: true,
-      id: taskId,
-      message: 'Task successfully removed',
-    });
   });
 
   return router;

@@ -1,11 +1,14 @@
-import { TaskEntity, MemoEntity } from '../types/contracts.js';
+import { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
+import { ITaskRepository } from './ITaskRepository.js';
+
+export { ITaskRepository } from './ITaskRepository.js';
 
 /**
  * In-memory store for TaskEntity and MemoEntity records.
  * Provides synchronized CRUD operations for development, integration testing,
  * and ephemeral single-instance runtime execution.
  */
-export class TaskStore {
+export class TaskStore implements ITaskRepository {
   private readonly tasks: Map<string, TaskEntity> = new Map();
   private readonly memos: Map<string, MemoEntity> = new Map();
 
@@ -91,6 +94,18 @@ export class TaskStore {
   }
 
   /**
+   * Atomically commits a memo, task, and optional audit log into the in-memory store.
+   *
+   * @param memo MemoEntity instance to persist.
+   * @param task TaskEntity instance to persist.
+   * @param _auditLog Optional privacy audit log.
+   */
+  public commitBatch(memo: MemoEntity, task: TaskEntity, _auditLog?: PrivacyAuditLog): void {
+    this.addMemo(memo);
+    this.addTask(task);
+  }
+
+  /**
    * Clears all tasks and memos from the store.
    */
   public clear(): void {
@@ -100,4 +115,5 @@ export class TaskStore {
 }
 
 export const taskStore = new TaskStore();
+
 
