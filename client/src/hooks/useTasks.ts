@@ -180,6 +180,31 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
     });
   }, []);
 
+  const updateTaskPayload = useCallback(
+    (taskId: string, updatedPayload: DecryptedTaskPayload) => {
+      setDecryptedPayloads((prev) => ({
+        ...prev,
+        [taskId]: updatedPayload,
+      }));
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (t.id === taskId) {
+            return {
+              ...t,
+              location: updatedPayload.location ?? t.location,
+              contactPerson: updatedPayload.contactPerson ?? t.contactPerson,
+              amount: updatedPayload.amount ?? t.amount,
+              scheduledTime: updatedPayload.scheduledTime ?? t.scheduledTime,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return t;
+        }),
+      );
+    },
+    [],
+  );
+
   const clearDecryptedPayloads = useCallback(() => {
     setDecryptedPayloads({});
   }, []);
@@ -194,6 +219,7 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
     addTask,
     updateTaskStatus,
     updateTaskPriority,
+    updateTaskPayload,
     deleteTask,
     fetchTasks,
     toggleSubtask,

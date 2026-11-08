@@ -135,68 +135,382 @@ const addressRegex = new RegExp(
   'gu',
 );
 
+const EXCLUDED_PERSON_WORDS = new Set([
+  'street',
+  'st',
+  'road',
+  'rd',
+  'avenue',
+  'ave',
+  'boulevard',
+  'blvd',
+  'drive',
+  'ulica',
+  'aleja',
+  'plac',
+  'rue',
+  'straße',
+  'strasse',
+  'weg',
+  'platz',
+  'gasse',
+  ...INTERNATIONAL_CITIES.map((c) => c.toLowerCase()),
+]);
+
+/**
+ * Validates Polish PESEL checksum using statutory weights [1, 3, 7, 9, 1, 3, 7, 9, 1, 3].
+ */
+export function isValidPesel(pesel: string): boolean {
+  if (!/^\d{11}$/.test(pesel)) return false;
+  const weights = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3];
+  const digits = pesel.split('').map(Number);
+  let sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += weights[i] * digits[i];
+  }
+  const control = (10 - (sum % 10)) % 10;
+  return control === digits[10];
+}
+
+/**
+ * Validates German Steuer-ID / Steueridentifikationsnummer.
+ */
+export function isGermanSteuerId(val: string, text: string, index: number): boolean {
+  if (index > 0 && text[index - 1] === '+') return false;
+
+  const clean = val.replace(/\s+/g, '');
+  if (!/^\d{11}$/.test(clean)) return false;
+
+  const windowStart = Math.max(0, index - 30);
+  const windowEnd = Math.min(text.length, index + val.length + 30);
+  const context = text.substring(windowStart, windowEnd).toLowerCase();
+  const taxTrigger =
+    /\b(?:steuer[- ]?id|steueridentifikationsnummer|idnr|steuernummer|finanzamt|tax\s+id|tin)\b/i;
+  if (taxTrigger.test(context)) return true;
+
+  if (/^\d{2}\s\d{3}\s\d{3}\s\d{3}$/.test(val)) return true;
+
+  if (clean[0] !== '0') {
+    const first10 = clean.slice(0, 10);
+    const counts: Record<string, number> = {};
+    for (const ch of first10) {
+      counts[ch] = (counts[ch] || 0) + 1;
+    }
+    const repeated = Object.values(counts).filter((c) => c > 1);
+    if (repeated.length === 1 && (repeated[0] === 2 || repeated[0] === 3)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Validates US Social Security Number (SSN).
+ */
+export function isValidSsn(ssn: string): boolean {
+  const match = ssn.match(/^(\d{3})-(\d{2})-(\d{4})$/);
+  if (!match) return false;
+  const area = parseInt(match[1], 10);
+  const group = parseInt(match[2], 10);
+  const serial = parseInt(match[3], 10);
+  if (area === 0 || area === 666 || area >= 900) return false;
+  if (group === 0) return false;
+  if (serial === 0) return false;
+  return true;
+}
+
+interface RawMatch {
+  type: PIIType;
+  value: string;
+  startIndex: number;
+  endIndex: number;
+}
+
+const CATEGORY_PRIORITY: Record<PIIType, number> = {
+  SECRET_KEY: 1,
+  IBAN: 2,
+  NATIONAL_ID: 3,
+  HEALTH_DATA: 4,
+  EMAIL: 5,
+  PHONE: 6,
+  AMOUNT_MONEY: 7,
+  PERSON: 8,
+  ADDRESS: 9,
+};
+
+function resolveOverlaps(matches: RawMatch[]): RawMatch[] {
+  if (matches.length <= 1) return matches;
+
+  const candidates = [...matches].sort((a, b) => {
+    const prioDiff = CATEGORY_PRIORITY[a.type] - CATEGORY_PRIORITY[b.type];
+    if (prioDiff !== 0) return prioDiff;
+    if (a.startIndex !== b.startIndex) return a.startIndex - b.startIndex;
+    return b.endIndex - b.startIndex - (a.endIndex - a.startIndex);
+  });
+
+  const accepted: RawMatch[] = [];
+
+  for (const candidate of candidates) {
+    const hasOverlap = accepted.some(
+      (acc) => candidate.startIndex < acc.endIndex && candidate.endIndex > acc.startIndex,
+    );
+
+    if (!hasOverlap) {
+      accepted.push(candidate);
+    }
+  }
+
+  return accepted.sort((a, b) => a.startIndex - b.startIndex);
+}
+
 export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskLevel: RiskLevel } {
-  const tokens: PIITokenMap[] = [];
-  let tokenIndex = 1;
+  const rawMatches: RawMatch[] = [];
 
-  const patterns: { type: PIIType; regex: RegExp }[] = [
-    {
-      type: 'SECRET_KEY',
-      regex:
-        /(?:sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|AIza[0-9A-Za-z-_]{35}|[0-9a-fA-F]{32,64})/g,
-    },
-    { type: 'IBAN', regex: /[a-zA-Z]{2}\d{2}[a-zA-Z0-9]{4}\d{7}(?:[a-zA-Z0-9]{0,16})/giu },
-    { type: 'EMAIL', regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g },
-    {
-      type: 'PHONE',
-      regex:
-        /(?:\+\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{3,4}|\b\d{3}[-\s]?\d{3}[-\s]?\d{3}\b)/gu,
-    },
-    {
-      type: 'AMOUNT_MONEY',
-      regex: amountMoneyRegex,
-    },
-    {
-      type: 'PERSON',
-      regex:
-        /(?:(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Pan|Pani|Pana|Panią|dr|mec|Herr|Frau|M\.|Mme)\.?\s+)?[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+(?:\s+[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+)+/gu,
-    },
-    {
-      type: 'ADDRESS',
-      regex: addressRegex,
-    },
-  ];
-
-  for (const { type, regex } of patterns) {
-    const r = new RegExp(regex.source, regex.flags);
-    let match: RegExpExecArray | null;
-    while ((match = r.exec(text)) !== null) {
-      if (
-        type === 'PERSON' &&
-        INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === match?.[0].toLowerCase())
-      ) {
-        continue;
-      }
-      tokens.push({
-        token: `[${type}_${tokenIndex++}]`,
-        type,
-        originalValue: match[0],
-        startIndex: match.index,
-        endIndex: match.index + match[0].length,
+  // 1. SECRET_KEY
+  const secretKeyRegex =
+    /(?:sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|AIza[0-9A-Za-z-_]{35}|[0-9a-fA-F]{32,64})/g;
+  for (const m of text.matchAll(secretKeyRegex)) {
+    if (m.index !== undefined) {
+      rawMatches.push({
+        type: 'SECRET_KEY',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
       });
     }
   }
 
+  // 2. IBAN
+  const ibanRegex = /[a-zA-Z]{2}\d{2}[a-zA-Z0-9]{4}\d{7}(?:[a-zA-Z0-9]{0,16})/giu;
+  for (const m of text.matchAll(ibanRegex)) {
+    if (m.index !== undefined) {
+      rawMatches.push({
+        type: 'IBAN',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // 3. NATIONAL_ID
+  // 3a. Polish PESEL
+  const peselRegex = /\b\d{11}\b/gu;
+  for (const m of text.matchAll(peselRegex)) {
+    if (m.index !== undefined && isValidPesel(m[0])) {
+      rawMatches.push({
+        type: 'NATIONAL_ID',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // 3b. German Steuer-ID (formatted 03 245 678 912 or unformatted in context)
+  const steuerFormattedRegex = /(?<!\+)\b\d{2}\s\d{3}\s\d{3}\s\d{3}\b/gu;
+  for (const m of text.matchAll(steuerFormattedRegex)) {
+    if (m.index !== undefined && isGermanSteuerId(m[0], text, m.index)) {
+      rawMatches.push({
+        type: 'NATIONAL_ID',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+  for (const m of text.matchAll(peselRegex)) {
+    if (m.index !== undefined) {
+      const alreadyMatched = rawMatches.some(
+        (existing) =>
+          existing.type === 'NATIONAL_ID' &&
+          m.index! < existing.endIndex &&
+          m.index! + m[0].length > existing.startIndex,
+      );
+      if (!alreadyMatched && isGermanSteuerId(m[0], text, m.index)) {
+        rawMatches.push({
+          type: 'NATIONAL_ID',
+          value: m[0],
+          startIndex: m.index,
+          endIndex: m.index + m[0].length,
+        });
+      }
+    }
+  }
+
+  // 3c. US SSN
+  const ssnRegex = /\b\d{3}-\d{2}-\d{4}\b/gu;
+  for (const m of text.matchAll(ssnRegex)) {
+    if (m.index !== undefined && isValidSsn(m[0])) {
+      rawMatches.push({
+        type: 'NATIONAL_ID',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // 4. HEALTH_DATA
+  // 4a. German KVNR ([A-Z]\d{9})
+  const kvnrRegex = /\b[A-Z]\d{9}\b/gu;
+  for (const m of text.matchAll(kvnrRegex)) {
+    if (m.index !== undefined) {
+      rawMatches.push({
+        type: 'HEALTH_DATA',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // 4b. Medical terms, diagnoses, and prescriptions in context (PL, DE, EN, FR)
+  const medicalRegex =
+    /\b(?:diagnoza|rozpoznanie|recepta|skierowanie|leki|Diagnose|Rezept|ordonnance|diagnosis|prescription)\b(?:\s*[:-]\s*|\s+(?:na|dla|für|pour|for)\s+)[a-zA-Z0-9\p{L}+-]+(?:\s+[a-zA-Z0-9\p{L}+-]+){0,4}/giu;
+  for (const m of text.matchAll(medicalRegex)) {
+    if (m.index !== undefined) {
+      rawMatches.push({
+        type: 'HEALTH_DATA',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // 4c. Tier 3 context matcher: 6-16 char alphanumeric IDs near policy/insurance keywords
+  const candidateIdRegex = /\b[A-Za-z0-9\-_]{6,16}\b/gu;
+  const healthContextKeywords =
+    /\b(?:polisa|ubezpieczenie|ubezpieczenia|ubezpieczeniowa|ubezpieczeniowej|versichert|versicherung|polizze|krankenkasse|insurance|policy|card|karta|health\s+card|recepta)\b/i;
+  const nationalContextKeywords =
+    /\b(?:dowód|dowodu|ausweis|personalausweis|reisepass|paszport|national\s+id|citizen\s+id|id\s+card|identity\s+card|steuer)\b/i;
+
+  for (const m of text.matchAll(candidateIdRegex)) {
+    if (m.index !== undefined) {
+      const val = m[0];
+      if (!/\d/.test(val)) continue;
+
+      const windowStart = Math.max(0, m.index - 30);
+      const windowEnd = Math.min(text.length, m.index + val.length + 30);
+      const windowText = text.substring(windowStart, windowEnd);
+
+      if (healthContextKeywords.test(windowText)) {
+        rawMatches.push({
+          type: 'HEALTH_DATA',
+          value: val,
+          startIndex: m.index,
+          endIndex: m.index + val.length,
+        });
+      } else if (nationalContextKeywords.test(windowText)) {
+        rawMatches.push({
+          type: 'NATIONAL_ID',
+          value: val,
+          startIndex: m.index,
+          endIndex: m.index + val.length,
+        });
+      }
+    }
+  }
+
+  // 5. EMAIL
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  for (const m of text.matchAll(emailRegex)) {
+    if (m.index !== undefined) {
+      rawMatches.push({
+        type: 'EMAIL',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // 6. PHONE
+  const phoneRegex =
+    /(?:\+\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{3,4}|\b\d{3}[-\s]?\d{3}[-\s]?\d{3}\b)/gu;
+  for (const m of text.matchAll(phoneRegex)) {
+    if (m.index !== undefined) {
+      rawMatches.push({
+        type: 'PHONE',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // 7. AMOUNT_MONEY
+  for (const m of text.matchAll(new RegExp(amountMoneyRegex.source, amountMoneyRegex.flags))) {
+    if (m.index !== undefined) {
+      rawMatches.push({
+        type: 'AMOUNT_MONEY',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // 8. PERSON
+  const personRegex =
+    /(?:(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Pan|Pani|Pana|Panią|dr|mec|Herr|Frau|M\.|Mme)\.?\s+)?[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+(?:\s+[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+)+/gu;
+  for (const m of text.matchAll(personRegex)) {
+    if (m.index !== undefined) {
+      const words = m[0].split(/\s+/).map((w) => w.toLowerCase().replace(/[.,]/g, ''));
+      if (words.some((w) => EXCLUDED_PERSON_WORDS.has(w))) {
+        continue;
+      }
+      rawMatches.push({
+        type: 'PERSON',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // 9. ADDRESS
+  for (const m of text.matchAll(new RegExp(addressRegex.source, addressRegex.flags))) {
+    if (m.index !== undefined) {
+      rawMatches.push({
+        type: 'ADDRESS',
+        value: m[0],
+        startIndex: m.index,
+        endIndex: m.index + m[0].length,
+      });
+    }
+  }
+
+  // Resolve overlapping spans by priority
+  const resolved = resolveOverlaps(rawMatches);
+
+  let tokenIndex = 1;
+  const tokens: PIITokenMap[] = resolved.map((match) => ({
+    token: `[${match.type}_${tokenIndex++}]`,
+    type: match.type,
+    originalValue: match.value,
+    startIndex: match.startIndex,
+    endIndex: match.endIndex,
+  }));
+
   // Calculate risk level based on token presence
   let riskLevel: RiskLevel = 'NONE';
   if (tokens.length > 0) {
-    const hasSecretOrIban = tokens.some((t) => t.type === 'SECRET_KEY' || t.type === 'IBAN');
-    const hasFinancialOrAddress = tokens.some(
-      (t) => t.type === 'AMOUNT_MONEY' || t.type === 'ADDRESS',
+    const hasHighRisk = tokens.some(
+      (t) =>
+        t.type === 'SECRET_KEY' ||
+        t.type === 'IBAN' ||
+        t.type === 'NATIONAL_ID' ||
+        t.type === 'HEALTH_DATA',
     );
-    if (hasSecretOrIban || tokens.length >= 3) {
+    if (hasHighRisk || tokens.length >= 3) {
       riskLevel = 'HIGH';
-    } else if (hasFinancialOrAddress || tokens.length === 2) {
+    } else if (
+      tokens.length === 2 ||
+      tokens.some((t) => t.type === 'AMOUNT_MONEY' || t.type === 'ADDRESS')
+    ) {
       riskLevel = 'MEDIUM';
     } else {
       riskLevel = 'LOW';

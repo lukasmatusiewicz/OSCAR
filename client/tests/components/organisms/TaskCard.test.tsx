@@ -65,6 +65,165 @@ describe('TaskCard', () => {
     expect(handleStatusChange).toHaveBeenCalledWith(mockTask.id, 'CANCELLED');
   });
 
+  it('renders Smart Metadata Chips in DRAFT mode', () => {
+    const taskWithMetadata: TaskEntity = {
+      ...mockTask,
+      scheduledDate: '2026-11-20T14:00:00Z',
+    };
+    const decryptedWithMetadata: DecryptedTaskPayload = {
+      ...mockDecrypted,
+      location: 'Kassel, Room 4B',
+      contactPerson: 'Dr. Schmidt',
+      amount: '1,500 EUR',
+      scheduledTime: '2026-11-20 at 14:00',
+    };
+
+    render(
+      <TaskCard
+        task={taskWithMetadata}
+        decryptedPayload={decryptedWithMetadata}
+      />
+    );
+
+    expect(screen.getByTestId('smart-metadata-chips')).toBeInTheDocument();
+    expect(screen.getByTestId('metadata-chip-scheduled')).toHaveTextContent(/2026-11-20/);
+    expect(screen.getByTestId('metadata-chip-location')).toHaveTextContent('Kassel, Room 4B');
+    expect(screen.getByTestId('metadata-chip-contact')).toHaveTextContent('Dr. Schmidt');
+    expect(screen.getByTestId('metadata-chip-amount')).toHaveTextContent('1,500 EUR');
+  });
+
+  it('toggles interactive draft edit mode, edits fields, and confirms & saves task', () => {
+    const handleStatusChange = vi.fn();
+    const handleTaskUpdate = vi.fn();
+
+    render(
+      <TaskCard
+        task={mockTask}
+        decryptedPayload={mockDecrypted}
+        onStatusChange={handleStatusChange}
+        onTaskUpdate={handleTaskUpdate}
+      />
+    );
+
+    // Edit button should be present in DRAFT mode
+    const editBtn = screen.getByRole('button', { name: /edit draft/i });
+    fireEvent.click(editBtn);
+
+    // Draft edit mode is active
+    expect(screen.getByTestId('draft-edit-mode')).toBeInTheDocument();
+
+    // Edit Title & Summary
+    const titleInput = screen.getByRole('textbox', { name: /^title$/i });
+    fireEvent.change(titleInput, { target: { value: 'Updated Audit Report Title' } });
+
+    const summaryInput = screen.getByRole('textbox', { name: /^summary$/i });
+    fireEvent.change(summaryInput, { target: { value: 'Updated Summary with details' } });
+
+    // Edit Location, Contact Person, Amount, Scheduled Time
+    const locationInput = screen.getByLabelText(/location/i);
+    fireEvent.change(locationInput, { target: { value: 'Berlin Office' } });
+
+    const contactInput = screen.getByLabelText(/contact person/i);
+    fireEvent.change(contactInput, { target: { value: 'Anna Nowak' } });
+
+    const amountInput = screen.getByLabelText(/amount/i);
+    fireEvent.change(amountInput, { target: { value: '2500 PLN' } });
+
+    const timeInput = screen.getByLabelText(/scheduled time/i);
+    fireEvent.change(timeInput, { target: { value: 'Tomorrow at 10:00' } });
+
+    // Subtasks editor: add an item
+    const addItemBtn = screen.getByRole('button', { name: /\+ add item/i });
+    fireEvent.click(addItemBtn);
+
+    // Toggle subtask 2 completed checkbox in edit mode
+    const subtask2Checkbox = screen.getByLabelText(/subtask 2 completed/i);
+    fireEvent.click(subtask2Checkbox);
+
+    // Edit new item title
+    const subtaskInputs = screen.getAllByPlaceholderText(/subtask #/i);
+    expect(subtaskInputs.length).toBe(3);
+    fireEvent.change(subtaskInputs[2], { target: { value: 'New item to verify' } });
+
+    // Remove first item
+    const removeBtn = screen.getByRole('button', { name: /remove subtask 1/i });
+    fireEvent.click(removeBtn);
+
+    // Click Confirm & Save Task
+    const saveBtn = screen.getByRole('button', { name: /confirm & save task/i });
+    fireEvent.click(saveBtn);
+
+    expect(handleTaskUpdate).toHaveBeenCalledWith(
+      mockTask.id,
+      expect.objectContaining({
+        title: 'Updated Audit Report Title',
+        summary: 'Updated Summary with details',
+        location: 'Berlin Office',
+        contactPerson: 'Anna Nowak',
+        amount: '2500 PLN',
+        scheduledTime: 'Tomorrow at 10:00',
+        subtasks: expect.arrayContaining([
+          expect.objectContaining({ title: 'Confirm encryption at rest' }),
+          expect.objectContaining({ title: 'New item to verify' }),
+        ]),
+      })
+    );
+    expect(handleStatusChange).toHaveBeenCalledWith(mockTask.id, 'PENDING');
+  });
+
+  it('cancels draft edit mode when Cancel button is clicked', () => {
+    const handleTaskUpdate = vi.fn();
+    render(
+      <TaskCard
+        task={mockTask}
+        decryptedPayload={mockDecrypted}
+        onTaskUpdate={handleTaskUpdate}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /edit draft/i }));
+    expect(screen.getByTestId('draft-edit-mode')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(screen.queryByTestId('draft-edit-mode')).not.toBeInTheDocument();
+    expect(handleTaskUpdate).not.toHaveBeenCalled();
+  });
+
+  it('falls back to default action item when saving draft with empty subtasks', () => {
+    const handleTaskUpdate = vi.fn();
+    render(
+      <TaskCard
+        task={mockTask}
+        decryptedPayload={{
+          ...mockDecrypted,
+          subtasks: [],
+        }}
+        onTaskUpdate={handleTaskUpdate}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /edit draft/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirm & save task/i }));
+
+    expect(handleTaskUpdate).toHaveBeenCalledWith(
+      mockTask.id,
+      expect.objectContaining({
+        subtasks: [{ title: 'Action Item', completed: false }],
+      })
+    );
+  });
+
+  it('renders offline fallback provenance badge when provenance is DETERMINISTIC_FALLBACK', () => {
+    const fallbackTask: TaskEntity = {
+      ...mockTask,
+      provenance: 'DETERMINISTIC_FALLBACK',
+      modelVersion: 'rule-based-v1',
+    };
+
+    render(<TaskCard task={fallbackTask} decryptedPayload={mockDecrypted} />);
+    expect(screen.getByText(/⚡ offline fallback/i)).toBeInTheDocument();
+  });
+
   it('handles subtask checklist toggle callback', () => {
     const handleToggle = vi.fn();
     render(

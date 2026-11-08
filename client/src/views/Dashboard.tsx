@@ -24,6 +24,7 @@ export interface DashboardProps {
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
+  onTaskUpdate?: (taskId: string, updatedPayload: DecryptedTaskPayload) => void;
   hasActiveKey?: boolean;
   totalTokensMasked?: number;
   tokensByType?: Partial<Record<PIIType, number>>;
@@ -44,6 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onStatusChange,
   onPriorityChange,
   onSubtaskToggle,
+  onTaskUpdate,
   hasActiveKey: propHasActiveKey,
   totalTokensMasked: propTotalTokensMasked,
   tokensByType: propTokensByType,
@@ -67,6 +69,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const handleStatusChange = onStatusChange || fallbackTasks.updateTaskStatus;
   const handlePriorityChange = onPriorityChange || fallbackTasks.updateTaskPriority;
   const handleSubtaskToggle = onSubtaskToggle || fallbackTasks.toggleSubtask;
+  const handleTaskUpdate = onTaskUpdate || fallbackTasks.updateTaskPayload;
   const draftsCount =
     propDraftsCount !== undefined ? propDraftsCount : fallbackTasks.draftsCount;
 
@@ -97,7 +100,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const { isSubmitting, submitMemo } = useMemos({
+  const {
+    isSubmitting,
+    warning: memoWarning,
+    submitMemo,
+  } = useMemos({
     onTaskCreated: (task, decrypted) => {
       handleTaskCreated(task, decrypted);
     },
@@ -163,6 +170,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
+        {/* EU AI Act Article 13 AI Error & Offline Fallback Transparency */}
+        {memoWarning && (
+          <div
+            role="status"
+            data-testid="memo-offline-warning"
+            style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '8px',
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fde68a',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.8125rem',
+              color: '#92400e',
+            }}
+          >
+            <span style={{ fontSize: '1rem' }}>⚡</span>
+            <span>
+              <strong>Offline Fallback Mode (EU AI Act Art. 13):</strong> {memoWarning}
+            </span>
+          </div>
+        )}
+
         <MemoEditor onSubmit={submitMemo} isLoading={isSubmitting} />
 
         <TaskList
@@ -172,6 +203,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           onStatusChange={handleStatusChange}
           onPriorityChange={handlePriorityChange}
           onSubtaskToggle={handleSubtaskToggle}
+          onTaskUpdate={handleTaskUpdate}
         />
       </main>
 

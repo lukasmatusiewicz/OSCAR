@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePrivacyShield } from '../../src/hooks/usePrivacyShield';
 import { useTasks } from '../../src/hooks/useTasks';
 import { useMemos } from '../../src/hooks/useMemos';
 import { ClientCryptoService } from '../../src/services/ClientCryptoService';
+import { gatewayClient } from '../../src/services/GatewayClient';
 import { TaskEntity, MemoEntitySchema } from '../../src/types/contracts';
 
 describe('Reactive State Hooks', () => {
@@ -148,6 +149,25 @@ describe('Reactive State Hooks', () => {
 
       expect(result.current.tasks.length).toBe(2);
 
+      // Test updateTaskPayload
+      act(() => {
+        result.current.updateTaskPayload('task_001_mock_id_1234567', {
+          title: 'Modified Title',
+          summary: 'Modified Summary',
+          subtasks: [{ title: 'Updated subtask', completed: true }],
+          location: 'Office 301',
+          contactPerson: 'Jane Doe',
+          amount: '1000 EUR',
+          scheduledTime: '2026-11-20',
+        });
+      });
+      expect(result.current.decryptedPayloads['task_001_mock_id_1234567'].title).toBe('Modified Title');
+      const updatedTask1 = result.current.tasks.find(
+        (t) => t.id === 'task_001_mock_id_1234567',
+      );
+      expect(updatedTask1?.location).toBe('Office 301');
+      expect(updatedTask1?.contactPerson).toBe('Jane Doe');
+
       act(() => {
         result.current.clearDecryptedPayloads();
       });
@@ -190,9 +210,83 @@ describe('Reactive State Hooks', () => {
       expect(memoEntity!.maskedFieldsCount).toBe(1);
       expect(result.current.memos.length).toBe(1);
 
-      // Verify task creation callback
+      // Verify task creation callback and deterministic fallback transparency
       expect(createdTask).not.toBeNull();
       expect(createdTask!.status).toBe('DRAFT');
+      expect(createdTask!.provenance).toBe('DETERMINISTIC_FALLBACK');
+      expect(createdTask!.modelVersion).toBe('rule-based-v1');
+      expect(result.current.isOfflineFallback).toBe(true);
+      expect(result.current.warning).toContain('Deterministic rule-based fallback');
+    });
+
+    it('submits memo successfully through gatewayClient when online', async () => {
+      let createdTask: TaskEntity | null = null;
+      let detectedTokensCount = 0;
+      const { result } = renderHook(() =>
+        useMemos({
+          onTaskCreated: (task) => {
+            createdTask = task;
+          },
+          onTokensDetected: (tokens) => {
+            detectedTokensCount = tokens.length;
+          },
+        })
+      );
+
+      const encPayload = await ClientCryptoService.encrypt({
+        title: 'Online Gemini Task',
+        summary: 'Processed successfully by backend',
+        subtasks: [{ title: 'Verify gateway response', completed: false }],
+      });
+
+      const mockOnlineTask: TaskEntity = {
+        id: 'task_gateway_online_123',
+        memoId: 'memo_gateway_online_123',
+        userId: 'usr_mock_session_active',
+        encryptedPayload: encPayload,
+        category: 'WORK',
+        priority: 'MEDIUM',
+        status: 'DRAFT',
+        scheduledDate: null,
+        tags: ['online'],
+        provenance: 'GEMINI_FLASH',
+        modelVersion: 'gemini-2.5-flash-001',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const mockOnlineMemo = {
+        id: 'memo_gateway_online_123',
+        userId: 'usr_mock_session_active',
+        encryptedPayload: encPayload,
+        sanitizedContentPreview: 'Online memo content',
+        hasPII: false,
+        maskedFieldsCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const spy = vi.spyOn(gatewayClient, 'submitMemo').mockResolvedValueOnce({
+        task: mockOnlineTask,
+        tasks: [mockOnlineTask],
+        memo: mockOnlineMemo,
+        piiStats: {
+          detectedEntityCount: 0,
+          maskedTokens: [],
+          riskLevel: 'NONE',
+        },
+      });
+
+      await act(async () => {
+        await result.current.submitMemo('Submit online memo');
+      });
+
+      expect(spy).toHaveBeenCalled();
+      expect(result.current.isOfflineFallback).toBe(false);
+      expect(result.current.warning).toBeNull();
+      expect(result.current.memos.length).toBe(1);
+      expect(createdTask).not.toBeNull();
+      expect(detectedTokensCount).toBe(0);
     });
   });
 });
