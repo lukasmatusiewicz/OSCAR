@@ -280,6 +280,8 @@ components:
         - AMOUNT_MONEY
         - PERSON
         - ADDRESS
+        - HEALTH_DATA
+        - NATIONAL_ID
       description: Categories of sensitive personally identifiable information detected by Privacy Guard
 
     RiskLevel:
@@ -465,6 +467,26 @@ components:
           minItems: 1
           maxItems: 10
           description: Actionable decomposed subtasks
+        location:
+          type:
+            - string
+            - 'null'
+          description: Extracted physical location, meeting venue, or city
+        contactPerson:
+          type:
+            - string
+            - 'null'
+          description: Primary person of contact or counterparty
+        amount:
+          type:
+            - string
+            - 'null'
+          description: Associated financial budget or invoice amount
+        scheduledTime:
+          type:
+            - string
+            - 'null'
+          description: Colloquial or explicit time specification
       description: AI structured response output contract passed to Gemini responseSchema
 
     DecryptedTaskPayload:
@@ -501,6 +523,26 @@ components:
               completed:
                 type: boolean
                 default: false
+        location:
+          type:
+            - string
+            - 'null'
+          description: Extracted physical location, meeting venue, or city
+        contactPerson:
+          type:
+            - string
+            - 'null'
+          description: Primary person of contact or counterparty
+        amount:
+          type:
+            - string
+            - 'null'
+          description: Associated financial budget or invoice amount
+        scheduledTime:
+          type:
+            - string
+            - 'null'
+          description: Colloquial or explicit time specification
       description: In-memory decrypted cleartext task payload with post-rehydration bounds expansion
 
     TaskEntity:
@@ -568,6 +610,26 @@ components:
           type: string
           format: date-time
           description: Last update timestamp
+        location:
+          type:
+            - string
+            - 'null'
+          description: Extracted physical location, meeting venue, or city
+        contactPerson:
+          type:
+            - string
+            - 'null'
+          description: Primary person of contact or counterparty
+        amount:
+          type:
+            - string
+            - 'null'
+          description: Associated financial budget or invoice amount
+        scheduledTime:
+          type:
+            - string
+            - 'null'
+          description: Colloquial or explicit time specification
       description: Stored task entity with envelope-encrypted payload and plaintext metadata
 
     MemoEntity:
@@ -707,6 +769,26 @@ components:
                 description: Subtask completion status
           maxItems: 10
           description: Actionable checklist subtask items
+        location:
+          type:
+            - string
+            - 'null'
+          description: Extracted physical location, meeting venue, or city
+        contactPerson:
+          type:
+            - string
+            - 'null'
+          description: Primary person of contact or counterparty
+        amount:
+          type:
+            - string
+            - 'null'
+          description: Associated financial budget or invoice amount
+        scheduledTime:
+          type:
+            - string
+            - 'null'
+          description: Colloquial or explicit time specification
       description: Input payload for manual task creation
 
     UpdateTaskInput:
@@ -760,6 +842,26 @@ components:
                 description: Subtask completion status
           maxItems: 10
           description: Updated checklist items
+        location:
+          type:
+            - string
+            - 'null'
+          description: Extracted physical location, meeting venue, or city
+        contactPerson:
+          type:
+            - string
+            - 'null'
+          description: Primary person of contact or counterparty
+        amount:
+          type:
+            - string
+            - 'null'
+          description: Associated financial budget or invoice amount
+        scheduledTime:
+          type:
+            - string
+            - 'null'
+          description: Colloquial or explicit time specification
       description: Input payload for updating task status or metadata
 
     HealthResponse:
