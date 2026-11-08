@@ -270,3 +270,92 @@ export function validateContract<Output, Input = unknown>(
   }
   return { success: false, errors: result.error };
 }
+
+// ==========================================
+// 8. REST Gateway API Contracts
+// ==========================================
+
+export const MemoInputSchema = z.object({
+  content: z
+    .string()
+    .min(1, 'Content must not be empty')
+    .max(10000, 'Content exceeds maximum limit of 10000 characters')
+    .describe('Raw user memo text for privacy masking and extraction'),
+  title: z
+    .string()
+    .max(200, 'Title exceeds maximum limit of 200 characters')
+    .optional()
+    .describe('Optional title for the memo'),
+});
+
+export type MemoInput = z.infer<typeof MemoInputSchema>;
+
+export const MemoPIIStatsSchema = z.object({
+  detectedEntityCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .describe('Total number of sensitive PII tokens identified and masked'),
+  maskedTokens: z.array(PIITokenMapSchema).describe('List of ephemeral token replacement records'),
+  riskLevel: RiskLevelSchema.describe('Calculated privacy risk level'),
+});
+
+export type MemoPIIStats = z.infer<typeof MemoPIIStatsSchema>;
+
+export const CreateMemoResponseSchema = z.object({
+  task: TaskEntitySchema.describe('Created task entity with AES-256-GCM encrypted payload'),
+  tasks: z.array(TaskEntitySchema).describe('Collection of created tasks'),
+  memo: MemoEntitySchema.describe('Created memo entity record'),
+  piiStats: MemoPIIStatsSchema.describe('Sanitization and privacy telemetry metrics'),
+});
+
+export type CreateMemoResponse = z.infer<typeof CreateMemoResponseSchema>;
+
+export const CreateTaskInputSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters').max(250),
+  summary: z.string().min(5, 'Summary must be at least 5 characters').max(1000).optional(),
+  category: TaskCategorySchema.optional().default('OTHER'),
+  priority: TaskPrioritySchema.optional().default('MEDIUM'),
+  status: TaskStatusSchema.optional().default('DRAFT'),
+  scheduledDate: z.string().nullable().optional().default(null),
+  tags: z.array(z.string().min(1).max(30)).max(8).optional().default([]),
+  subtasks: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(400),
+        completed: z.boolean().optional().default(false),
+      }),
+    )
+    .max(10)
+    .optional(),
+});
+
+export type CreateTaskInput = z.input<typeof CreateTaskInputSchema>;
+
+export const UpdateTaskInputSchema = z.object({
+  status: TaskStatusSchema.optional(),
+  priority: TaskPrioritySchema.optional(),
+  category: TaskCategorySchema.optional(),
+  scheduledDate: z.string().nullable().optional(),
+  tags: z.array(z.string().min(1).max(30)).max(8).optional(),
+  title: z.string().min(3).max(250).optional(),
+  summary: z.string().min(5).max(1000).optional(),
+  subtasks: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(400),
+        completed: z.boolean().default(false),
+      }),
+    )
+    .max(10)
+    .optional(),
+});
+
+export type UpdateTaskInput = z.input<typeof UpdateTaskInputSchema>;
+
+export const HealthResponseSchema = z.object({
+  status: z.literal('ok'),
+  timestamp: z.string(),
+});
+
+export type HealthResponse = z.infer<typeof HealthResponseSchema>;

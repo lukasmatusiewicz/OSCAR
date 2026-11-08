@@ -10,11 +10,26 @@ import { ClientCryptoService } from './services/ClientCryptoService';
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'board'>('dashboard');
 
-  const { tasks, decryptedPayloads, updateTaskStatus, updateTaskPriority, toggleSubtask } =
-    useTasks();
+  const {
+    tasks,
+    decryptedPayloads,
+    addTask,
+    updateTaskStatus,
+    updateTaskPriority,
+    toggleSubtask,
+    clearDecryptedPayloads,
+    draftsCount,
+  } = useTasks();
 
-  const { hasActiveKey, sessionRiskLevel, totalTokensMasked, logoutAndZeroKey, initializeKey } =
-    usePrivacyShield();
+  const {
+    hasActiveKey,
+    totalTokensMasked,
+    tokensByType,
+    sessionRiskLevel,
+    recordMaskedTokens,
+    logoutAndZeroKey,
+    initializeKey,
+  } = usePrivacyShield();
 
   useEffect(() => {
     // Automatically initialize ephemeral session key on app launch
@@ -22,6 +37,11 @@ export const App: React.FC = () => {
       initializeKey();
     }
   }, [initializeKey]);
+
+  const handleLockAndZero = () => {
+    logoutAndZeroKey();
+    clearDecryptedPayloads();
+  };
 
   return (
     <div
@@ -141,7 +161,7 @@ export const App: React.FC = () => {
             <Button
               size="sm"
               variant="ghost"
-              onClick={logoutAndZeroKey}
+              onClick={handleLockAndZero}
               aria-label="Logout and Zero Key"
               style={{ fontSize: '0.75rem', color: '#dc2626' }}
             >
@@ -163,7 +183,22 @@ export const App: React.FC = () => {
       {/* Main Content Area */}
       <div style={{ flex: 1, padding: '1rem 0' }}>
         {activeTab === 'dashboard' ? (
-          <Dashboard />
+          <Dashboard
+            tasks={tasks}
+            decryptedPayloads={decryptedPayloads}
+            onTaskCreated={addTask}
+            onStatusChange={updateTaskStatus}
+            onPriorityChange={updateTaskPriority}
+            onSubtaskToggle={toggleSubtask}
+            hasActiveKey={hasActiveKey}
+            totalTokensMasked={totalTokensMasked}
+            tokensByType={tokensByType}
+            sessionRiskLevel={sessionRiskLevel}
+            recordMaskedTokens={recordMaskedTokens}
+            onLogoutAndZeroKey={handleLockAndZero}
+            onInitializeKey={initializeKey}
+            draftsCount={draftsCount}
+          />
         ) : (
           <TaskBoard
             tasks={tasks}

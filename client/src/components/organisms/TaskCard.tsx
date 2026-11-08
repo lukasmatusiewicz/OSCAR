@@ -218,7 +218,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     checked={subtask.completed}
                     onChange={(e) => onSubtaskToggle?.(task.id, index, e.target.checked)}
                     aria-label={subtask.title}
-                    style={{ cursor: 'pointer', accentColor: '#2563eb' }}
+                    style={{
+                      cursor: 'pointer',
+                      accentColor: '#2563eb',
+                      width: '1rem',
+                      height: '1rem',
+                      borderRadius: '4px',
+                      transition: 'all 0.15s ease',
+                    }}
                   />
                   <span>{subtask.title}</span>
                 </li>
@@ -268,6 +275,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 size="sm"
                 variant="secondary"
                 onClick={() => onStatusChange?.(task.id, 'COMPLETED')}
+                style={{
+                  transition: 'all 0.2s ease',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                }}
               >
                 ✓ Mark Done
               </Button>
@@ -276,6 +288,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 size="sm"
                 variant="ghost"
                 onClick={() => onStatusChange?.(task.id, 'PENDING')}
+                style={{
+                  transition: 'all 0.2s ease',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                }}
               >
                 ↺ Reopen
               </Button>

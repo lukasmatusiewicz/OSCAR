@@ -151,4 +151,18 @@ export class GeminiOrchestrator {
       return DeterministicFallbackExtractor.extractWithMetadata(memoText);
     }
   }
+
+  /**
+   * Alias for extractTask conforming to multi-task orchestrator interface.
+   *
+   * @param memoText Sanitized user memo text.
+   * @param options Optional execution options including AbortSignal.
+   * @returns Structured task extraction result with provenance metadata.
+   */
+  public async extractTasks(
+    memoText: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<OrchestratorResult> {
+    return this.extractTask(memoText, options);
+  }
 }
