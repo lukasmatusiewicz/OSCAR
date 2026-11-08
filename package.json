@@ -8,6 +8,7 @@
     "build": "npm --prefix server run build && npm --prefix client run build",
     "test": "npm --prefix server test && npm --prefix client test",
     "test:coverage": "npm --prefix server run test:coverage && npm --prefix client run test:coverage",
+    "test:e2e": "npm --prefix server run test:e2e",
     "lint": "npm --prefix server run lint && npm --prefix client run lint"
   },
   "devDependencies": {

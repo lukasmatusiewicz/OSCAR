@@ -8,6 +8,7 @@
     "build": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "vitest run tests/e2e",
     "lint": "eslint src/ --ext .ts,.tsx",
     "format:check": "prettier --check src/"
   },
