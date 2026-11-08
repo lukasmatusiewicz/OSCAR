@@ -6,7 +6,9 @@ import { createTaskRouter } from './routes/tasks.js';
 import { createDocsRouter } from './routes/docs.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { GeminiOrchestrator } from './agent/GeminiOrchestrator.js';
-import { TaskStore, taskStore as defaultTaskStore } from './store/TaskStore.js';
+import { taskStore as defaultTaskStore } from './store/TaskStore.js';
+import { ITaskRepository } from './store/ITaskRepository.js';
+import { FirestoreTaskStore } from './store/FirestoreTaskStore.js';
 
 export const DEFAULT_CORS_ORIGIN = 'http://localhost:5173';
 export const DEFAULT_PORT = 3000;
@@ -14,7 +16,7 @@ export const DEFAULT_PORT = 3000;
 export interface AppOptions {
   corsOrigin?: string | string[];
   orchestrator?: GeminiOrchestrator;
-  taskStore?: TaskStore;
+  taskStore?: ITaskRepository;
   specPath?: string;
 }
 
@@ -54,7 +56,11 @@ export function createApp(options: AppOptions = {}): Express {
   });
 
   const orchestrator = options.orchestrator ?? new GeminiOrchestrator();
-  const store = options.taskStore ?? defaultTaskStore;
+  const store =
+    options.taskStore ??
+    (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PROJECT_ID.trim().length > 0
+      ? new FirestoreTaskStore()
+      : defaultTaskStore);
 
   // Mount API routers under /api
   app.use('/api', createHealthRouter());

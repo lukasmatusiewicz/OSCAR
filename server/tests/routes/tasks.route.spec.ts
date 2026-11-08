@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createApp } from '../../src/app.js';
 import { TaskStore } from '../../src/store/TaskStore.js';
 import { EncryptionService } from '../../src/security/EncryptionService.js';
@@ -40,6 +40,14 @@ describe('Tasks Route Integration', () => {
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBe(2);
+    });
+
+    it('passes error to next middleware when store.getTasks throws', async () => {
+      vi.spyOn(taskStore, 'getTasks').mockImplementationOnce(() => {
+        throw new Error('Database read failure');
+      });
+      const res = await inProcessApp(app).get('/api/tasks');
+      expect(res.status).toBe(500);
     });
   });
 
@@ -298,6 +306,14 @@ describe('Tasks Route Integration', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('Task not found');
+    });
+
+    it('passes error to next middleware when store.deleteTask throws', async () => {
+      vi.spyOn(taskStore, 'deleteTask').mockImplementationOnce(() => {
+        throw new Error('Database delete failure');
+      });
+      const res = await inProcessApp(app).delete('/api/tasks/task_123');
+      expect(res.status).toBe(500);
     });
   });
 
