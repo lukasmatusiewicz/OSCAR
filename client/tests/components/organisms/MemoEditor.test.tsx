@@ -104,6 +104,26 @@ describe('MemoEditor & detectClientTokens', () => {
     expect(enPerson?.endIndex).toBe(21);
   });
 
+  it('detectClientTokens excludes Slavic, German, French, and English pronouns and reflexive stop-words from lowercase preposition NER', () => {
+    const input = 'kawa z albertem szyszka. jego nr 123412412. note: wziąć ze sobą pasztet.';
+    const res = detectClientTokens(input);
+
+    // Must mask ONLY "albertem szyszka" as PERSON and 123412412 as PHONE
+    expect(res.tokens).toHaveLength(2);
+
+    const personToken = res.tokens.find((t) => t.type === 'PERSON');
+    expect(personToken).toBeDefined();
+    expect(personToken?.originalValue).toBe('albertem szyszka');
+
+    const phoneToken = res.tokens.find((t) => t.type === 'PHONE');
+    expect(phoneToken).toBeDefined();
+    expect(phoneToken?.originalValue).toBe('123412412');
+
+    // Must NOT mask "sobą pasztet" as PERSON
+    expect(res.tokens.some((t) => t.originalValue.includes('sobą'))).toBe(false);
+    expect(res.tokens.some((t) => t.originalValue.includes('pasztet'))).toBe(false);
+  });
+
   it('detectClientTokens detects compound German street names with str. and lowercase names', () => {
     const berlinerRes = detectClientTokens('berlinerstr. 123');
     const berlinerToken = berlinerRes.tokens.find((t) => t.type === 'ADDRESS');

@@ -286,6 +286,28 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(deAddrHaupt?.originalValue).toBe('hauptstr. 5');
     });
 
+    it('excludes Slavic, German, French, and English pronouns and reflexive stop-words from lowercase preposition NER', () => {
+      const input = 'kawa z albertem szyszka. jego nr 123412412. note: wziąć ze sobą pasztet.';
+      const res = PrivacyGuard.mask(input);
+
+      // Must mask ONLY "albertem szyszka" as PERSON and 123412412 as PHONE
+      expect(res.tokens).toHaveLength(2);
+
+      const personToken = res.tokens.find((t) => t.type === 'PERSON');
+      expect(personToken).toBeDefined();
+      expect(personToken?.originalValue).toBe('albertem szyszka');
+
+      const phoneToken = res.tokens.find((t) => t.type === 'PHONE');
+      expect(phoneToken).toBeDefined();
+      expect(phoneToken?.originalValue).toBe('123412412');
+
+      // Must NOT mask "sobą pasztet" as PERSON
+      expect(res.tokens.some((t) => t.originalValue.includes('sobą'))).toBe(false);
+      expect(res.tokens.some((t) => t.originalValue.includes('pasztet'))).toBe(false);
+
+      expect(res.sanitizedText).toBe('kawa z [PERSON_1]. jego nr [PHONE_1]. note: wziąć ze sobą pasztet.');
+    });
+
     it('detects Physical Addresses, Street Patterns, and Major International Hubs (Priority 9)', () => {
       const streetCases = [
         { text: 'Meeting at ul. Marszałkowska 10 tomorrow', addr: 'ul. Marszałkowska 10' },
