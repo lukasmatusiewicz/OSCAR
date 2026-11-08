@@ -25,7 +25,6 @@ export class DeterministicFallbackExtractor {
    * Deterministically parses a sanitized or raw memo into ExtractedTask without AI inference.
    */
   public static extract(memoText: string): ExtractedTask {
-    const rawTrimmed = memoText.trim();
     const lines = memoText
       .split(/\r?\n/)
       .map((l) => l.trim())
@@ -129,10 +128,6 @@ export class DeterministicFallbackExtractor {
         ? subtaskCandidates.slice(0, 10)
         : [{ title: `Review and process: ${title}`.substring(0, 200), completed: false }];
 
-    // Summary: at least 5 chars, max 500 chars
-    const summaryCandidate = rawTrimmed.length > 0 ? rawTrimmed.substring(0, 500) : title;
-    const summary = summaryCandidate.padEnd(5, '.');
-
     // Smart Metadata Extraction (location, contactPerson, amount, scheduledTime)
     let location: string | null = null;
     const addressTokenMatch = memoText.match(/\[ADDRESS_\d+\]/);
@@ -179,6 +174,82 @@ export class DeterministicFallbackExtractor {
     );
     if (timeMatch) {
       scheduledTime = timeMatch[0];
+    }
+
+    // Google Calendar-Style Structured Summary (RFC 5545 alignment)
+    // 1. Core objective / description
+    let coreObjective = cleaned;
+    const firstClauseCleaned = firstClause.replace(/[.?!,:;\s]+$/, '').trim();
+    if (
+      firstClauseCleaned.length > 0 &&
+      cleaned.toLowerCase() === firstClauseCleaned.toLowerCase()
+    ) {
+      coreObjective = firstClauseCleaned;
+    }
+    if (coreObjective.length === 0) {
+      coreObjective = 'Action item';
+    }
+
+    const summaryLines: string[] = [coreObjective];
+
+    if (contactPerson) {
+      summaryLines.push(`👤 Contact: ${contactPerson}`);
+    }
+    if (location) {
+      summaryLines.push(`📍 Location: ${location}`);
+    }
+    if (amount) {
+      summaryLines.push(`💰 Amount: ${amount}`);
+    }
+    if (scheduledTime) {
+      summaryLines.push(`⏰ Time: ${scheduledTime}`);
+    }
+
+    // Notes / extra details (explicit notes, remaining PII tokens, and subsequent clauses)
+    const noteItems: string[] = [];
+    const noteMatch = memoText.match(/(?:notes?|uwag[ai]|notatka)\s*:\s*([^.\n]+)/i);
+    if (noteMatch && noteMatch[1]) {
+      const explicitNote = noteMatch[1].trim();
+      if (explicitNote.length > 0) {
+        noteItems.push(explicitNote);
+      }
+    }
+
+    // Remaining tokens to guarantee zero PII drop and full rehydration
+    const allTokens = memoText.match(/\[[A-Z_]+_\d+\]/g) || [];
+    const remainingTokens = allTokens.filter(
+      (t) => t !== contactPerson && t !== location && t !== amount,
+    );
+    if (remainingTokens.length > 0) {
+      const tokenStr = remainingTokens.join(', ');
+      if (!noteItems.includes(tokenStr)) {
+        noteItems.push(tokenStr);
+      }
+    }
+
+    // Extra clauses from multi-sentence memos
+    for (const clause of rawClauses.slice(1)) {
+      const trimmedClause = clause.replace(/[.?!,:;\s]+$/, '').trim();
+      if (!trimmedClause) continue;
+      if (noteMatch && trimmedClause.toLowerCase().includes(noteMatch[1].trim().toLowerCase()))
+        continue;
+      if (location && trimmedClause.toLowerCase() === location.toLowerCase()) continue;
+      if (amount && trimmedClause.toLowerCase() === amount.toLowerCase()) continue;
+      if (scheduledTime && trimmedClause.toLowerCase() === scheduledTime.toLowerCase()) continue;
+      if (!noteItems.some((n) => n.includes(trimmedClause))) {
+        noteItems.push(trimmedClause);
+      }
+    }
+
+    if (noteItems.length > 0) {
+      summaryLines.push(`📝 Notes: ${noteItems.join('; ')}`);
+    }
+
+    let summary = summaryLines.join('\n');
+    if (summary.length > 500) {
+      summary = summary.substring(0, 497) + '...';
+    } else if (summary.length < 5) {
+      summary = summary.padEnd(5, '.');
     }
 
     const result: ExtractedTask = {

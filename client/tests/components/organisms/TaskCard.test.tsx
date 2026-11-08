@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TaskCard } from '../../../src/components/organisms/TaskCard';
 import { TaskEntity, DecryptedTaskPayload, TaskStatus } from '../../../src/types/contracts';
+import * as calendarExport from '../../../src/utils/calendarExport';
 
 describe('TaskCard', () => {
   const mockTask: TaskEntity = {
@@ -299,5 +300,61 @@ describe('TaskCard', () => {
       />
     );
     expect(screen.getByText('Prepare Audit Report')).toBeInTheDocument();
+  });
+
+  describe('RFC 5545 iCalendar Export Button', () => {
+    let clickSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-calendar-url');
+      window.URL.revokeObjectURL = vi.fn();
+      clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      clickSpy.mockRestore();
+    });
+
+    it('renders "📅 Add to Calendar (.ics)" button on both DRAFT and confirmed tasks', () => {
+      // 1. DRAFT state
+      const { unmount } = render(
+        <TaskCard task={mockTask} decryptedPayload={mockDecrypted} />
+      );
+      const draftExportBtn = screen.getByRole('button', {
+        name: /add to calendar \(\.ics\)/i,
+      });
+      expect(draftExportBtn).toBeInTheDocument();
+      unmount();
+
+      // 2. Confirmed PENDING state
+      const confirmedTask: TaskEntity = { ...mockTask, status: 'PENDING' };
+      const { unmount: unmountConfirmed } = render(
+        <TaskCard task={confirmedTask} decryptedPayload={mockDecrypted} />
+      );
+      expect(
+        screen.getByRole('button', { name: /add to calendar \(\.ics\)/i })
+      ).toBeInTheDocument();
+      unmountConfirmed();
+
+      // 3. COMPLETED state
+      const completedTask: TaskEntity = { ...mockTask, status: 'COMPLETED' };
+      render(<TaskCard task={completedTask} decryptedPayload={mockDecrypted} />);
+      expect(
+        screen.getByRole('button', { name: /add to calendar \(\.ics\)/i })
+      ).toBeInTheDocument();
+    });
+
+    it('invokes downloadICalendarFile when clicked', () => {
+      const downloadSpy = vi.spyOn(calendarExport, 'downloadICalendarFile');
+      render(<TaskCard task={mockTask} decryptedPayload={mockDecrypted} />);
+
+      const exportBtn = screen.getByRole('button', {
+        name: /add to calendar \(\.ics\)/i,
+      });
+      fireEvent.click(exportBtn);
+
+      expect(downloadSpy).toHaveBeenCalledWith(mockTask, mockDecrypted);
+      downloadSpy.mockRestore();
+    });
   });
 });

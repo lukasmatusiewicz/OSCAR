@@ -5,7 +5,7 @@ import { useTasks } from '../../src/hooks/useTasks';
 import { useMemos } from '../../src/hooks/useMemos';
 import { ClientCryptoService } from '../../src/services/ClientCryptoService';
 import { gatewayClient } from '../../src/services/GatewayClient';
-import { TaskEntity, MemoEntitySchema, DecryptedTaskPayload } from '../../src/types/contracts';
+import { TaskEntity, MemoEntitySchema, DecryptedTaskPayload, PIITokenMap } from '../../src/types/contracts';
 
 describe('Reactive State Hooks', () => {
   beforeEach(() => {
@@ -246,6 +246,99 @@ describe('Reactive State Hooks', () => {
       );
 
       consoleErrorSpy.mockRestore();
+    });
+
+    it('synthesizes Google Calendar-style structured summary with tokens in offline fallback', async () => {
+      let createdDecrypted: DecryptedTaskPayload | null = null;
+      let createdTask: TaskEntity | null = null;
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { result } = renderHook(() =>
+        useMemos({
+          onTaskCreated: (task, decrypted) => {
+            createdTask = task;
+            createdDecrypted = decrypted;
+          },
+        })
+      );
+
+      const rawMemo =
+        'Project sync with [PERSON_1] at [ADDRESS_1] regarding budget [AMOUNT_MONEY_1] tomorrow at 14:00';
+      const tokens: PIITokenMap[] = [
+        {
+          token: '[PERSON_1]',
+          type: 'PERSON',
+          originalValue: 'Dr. Alice',
+          startIndex: 18,
+          endIndex: 28,
+        },
+        {
+          token: '[ADDRESS_1]',
+          type: 'ADDRESS',
+          originalValue: 'Berlin Office',
+          startIndex: 32,
+          endIndex: 43,
+        },
+        {
+          token: '[AMOUNT_MONEY_1]',
+          type: 'AMOUNT_MONEY',
+          originalValue: '1000 EUR',
+          startIndex: 61,
+          endIndex: 77,
+        },
+        {
+          token: '[SECRET_KEY_1]',
+          type: 'SECRET_KEY',
+          originalValue: 'sk-12345678901234567890',
+          startIndex: 0,
+          endIndex: 0,
+        },
+      ];
+
+      await act(async () => {
+        await result.current.submitMemo(rawMemo, tokens);
+      });
+
+      expect(createdTask).not.toBeNull();
+      expect(createdTask!.priority).toBe('URGENT'); // SECRET_KEY token triggers URGENT
+      expect(createdDecrypted).not.toBeNull();
+      expect(createdDecrypted!.contactPerson).toBe('Dr. Alice');
+      expect(createdDecrypted!.location).toBe('Berlin Office');
+      expect(createdDecrypted!.amount).toBe('1000 EUR');
+      expect(createdDecrypted!.scheduledTime).toBe('tomorrow at 14:00');
+      expect(createdDecrypted!.summary).toContain('👤 Contact: Dr. Alice');
+      expect(createdDecrypted!.summary).toContain('📍 Location: Berlin Office');
+      expect(createdDecrypted!.summary).toContain('💰 Amount: 1000 EUR');
+      expect(createdDecrypted!.summary).toContain('⏰ Time: tomorrow at 14:00');
+      expect(createdDecrypted!.summary).toContain('📝 Notes: sk-12345678901234567890');
+    });
+
+    it('extracts metadata via regex and pads short summary in offline fallback', async () => {
+      let createdDecrypted: DecryptedTaskPayload | null = null;
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { result } = renderHook(() =>
+        useMemos({
+          onTaskCreated: (_task, decrypted) => {
+            createdDecrypted = decrypted;
+          },
+        })
+      );
+
+      const rawMemo = 'Call Mr. Smith in Paris about 500 EUR today at 10:00. note: follow up';
+
+      await act(async () => {
+        await result.current.submitMemo(rawMemo);
+      });
+
+      expect(createdDecrypted).not.toBeNull();
+      expect(createdDecrypted!.contactPerson).toBe('Mr. Smith');
+      expect(createdDecrypted!.location).toBe('Paris');
+      expect(createdDecrypted!.amount).toBe('500 EUR');
+      expect(createdDecrypted!.summary).toContain('👤 Contact: Mr. Smith');
+      expect(createdDecrypted!.summary).toContain('📍 Location: Paris');
+      expect(createdDecrypted!.summary).toContain('💰 Amount: 500 EUR');
+      expect(createdDecrypted!.summary).toContain('📝 Notes: follow up');
     });
 
     it('submits memo successfully through gatewayClient when online', async () => {
