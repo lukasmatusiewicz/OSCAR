@@ -196,6 +196,23 @@ If an agent encounters any of the following conditions, it must halt execution i
 * Critique loop limit (2 iterations) exceeded without convergence.
 * External API failure or unrecoverable rate limiting.
 
+### 7.5 Ephemeral Subagent Lifecycle & Clean-Slate Invariant
+To eliminate cognitive drift, context saturation, and non-deterministic hallucinations caused by bloated conversational histories, subagent lifecycles are governed by the **Clean-Slate Invariant**:
+
+1. **Strict Ephemerality & Task Boundedness:**
+   - Subagents are strictly ephemeral, single-purpose worker processes instantiated for a tightly scoped engineering task or lifecycle phase.
+   - Reusing bloated subagent execution contexts across distinct phases or divergent deliverables is **strictly prohibited**. Cumulative conversational tokens inevitably cause context saturation, stale assumption propagation, and hallucination risks.
+   - Upon completion of its assigned brief and verification against the 7-Pillar Craftsmanship Gate (Section 7.3), the subagent delivers its final structured report to the Master Orchestrator and terminates immediately.
+
+2. **Clean-Slate Instantiation:**
+   - Every distinct deliverable, architectural milestone, or lifecycle phase must instantiate a fresh subagent starting from a clean slate.
+   - Fresh subagents must never rely on ambient conversational state, memory fragments, or uncommitted assumptions from prior agents or turns.
+   - Upon initialization, the fresh subagent must establish its operational context by directly reading and grounding its work in the authoritative contracts and specifications stored on disk under `docs/spec/` (including `contracts.md`, `privacy-guard-spec.md`, `architecture.md`, and `multi-agent-system.md`).
+
+3. **Deterministic State Handoff & Governance Integration:**
+   - All state transitions between phases must be codified on disk in version-controlled repositories or passed explicitly in structured messages adhering to the Inter-Agent Communication Protocol (Section 8).
+   - If an ephemeral subagent encounters unrecoverable roadblocks, permission boundary violations, or schema discrepancies, it must immediately trigger the Incident Escalation & Circuit Breaker (Section 7.4) rather than attempting heuristic workarounds or continuing with an degraded context.
+
 ---
 
 ## 8. Inter-Agent Communication Protocol
