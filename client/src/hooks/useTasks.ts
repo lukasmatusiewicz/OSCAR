@@ -1,7 +1,14 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { DecryptedTaskPayload, TaskEntity, TaskPriority, TaskStatus } from '../types/contracts';
 import { ClientCryptoService } from '../services/ClientCryptoService';
+import { gatewayClient } from '../services/GatewayClient';
 
+/**
+ * Custom hook for managing tasks, client-side decryption, and gateway synchronization.
+ * Supports optimistic status/priority mutations with background gateway sync and offline fallback.
+ *
+ * @param initialTasks Optional list of initial TaskEntity records.
+ */
 export function useTasks(initialTasks: TaskEntity[] = []) {
   const [tasks, setTasks] = useState<TaskEntity[]>(initialTasks);
   const [decryptedPayloads, setDecryptedPayloads] = useState<Record<string, DecryptedTaskPayload>>(
@@ -9,6 +16,14 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
   );
   const [isDecrypting, setIsDecrypting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isMountedRef = useRef<boolean>(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const decryptTask = useCallback(
     async (task: TaskEntity): Promise<DecryptedTaskPayload | null> => {
@@ -42,11 +57,17 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
             results[t.id] = decrypted;
           }
         }
-        setDecryptedPayloads((prev) => ({ ...prev, ...results }));
+        if (isMountedRef.current) {
+          setDecryptedPayloads((prev) => ({ ...prev, ...results }));
+        }
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Error decrypting tasks');
+        if (isMountedRef.current) {
+          setError(err instanceof Error ? err.message : 'Error decrypting tasks');
+        }
       } finally {
-        setIsDecrypting(false);
+        if (isMountedRef.current) {
+          setIsDecrypting(false);
+        }
       }
     },
     [decryptTask],
@@ -57,6 +78,20 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
     decryptAllTasks(tasks);
   }, [tasks, decryptAllTasks]);
 
+  /**
+   * Fetches latest tasks from backend gateway with offline fallback.
+   */
+  const fetchTasks = useCallback(async () => {
+    try {
+      const remoteTasks = await gatewayClient.fetchTasks();
+      if (isMountedRef.current) {
+        setTasks(remoteTasks);
+      }
+    } catch {
+      // Offline fallback: preserve current local tasks
+    }
+  }, []);
+
   const addTask = useCallback(
     (task: TaskEntity, decrypted?: DecryptedTaskPayload) => {
       setTasks((prev) => [task, ...prev]);
@@ -64,7 +99,7 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
         setDecryptedPayloads((prev) => ({ ...prev, [task.id]: decrypted }));
       } else {
         decryptTask(task).then((res) => {
-          if (res) {
+          if (res && isMountedRef.current) {
             setDecryptedPayloads((prev) => ({ ...prev, [task.id]: res }));
           }
         });
@@ -86,6 +121,11 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
         return t;
       }),
     );
+
+    // Optimistic background sync with gateway
+    gatewayClient.updateTask(taskId, { status: newStatus }).catch(() => {
+      // Keep optimistic state offline
+    });
   }, []);
 
   const updateTaskPriority = useCallback((taskId: string, newPriority: TaskPriority) => {
@@ -101,6 +141,24 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
         return t;
       }),
     );
+
+    // Optimistic background sync with gateway
+    gatewayClient.updateTask(taskId, { priority: newPriority }).catch(() => {
+      // Keep optimistic state offline
+    });
+  }, []);
+
+  const deleteTask = useCallback((taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setDecryptedPayloads((prev) => {
+      const copy = { ...prev };
+      delete copy[taskId];
+      return copy;
+    });
+
+    gatewayClient.deleteTask(taskId).catch(() => {
+      // Keep optimistic deletion
+    });
   }, []);
 
   const toggleSubtask = useCallback((taskId: string, subtaskIndex: number, completed: boolean) => {
@@ -136,6 +194,8 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
     addTask,
     updateTaskStatus,
     updateTaskPriority,
+    deleteTask,
+    fetchTasks,
     toggleSubtask,
     decryptAllTasks,
     clearDecryptedPayloads,

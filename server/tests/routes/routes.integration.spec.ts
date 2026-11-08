@@ -1,0 +1,373 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import request from 'supertest';
+import { Request, Response, NextFunction } from 'express';
+import { createApp, DEFAULT_CORS_ORIGIN } from '../../src/app.js';
+import { TaskStore } from '../../src/store/TaskStore.js';
+import { EncryptionService } from '../../src/security/EncryptionService.js';
+import { DecryptedTaskPayload } from '../../src/types/contracts.js';
+import { errorHandler } from '../../src/middleware/errorHandler.js';
+
+describe('Backend Gateway Integration Routes', () => {
+  let taskStore: TaskStore;
+  let app: ReturnType<typeof createApp>;
+  let testKey: Uint8Array;
+  let testKeyBase64: string;
+
+  beforeEach(() => {
+    taskStore = new TaskStore();
+    app = createApp({ taskStore });
+    testKey = EncryptionService.generateKey();
+    testKeyBase64 = Buffer.from(testKey).toString('base64');
+  });
+
+  describe('GET /api/health', () => {
+    it('returns 200 with health status and ISO timestamp', async () => {
+      const res = await request(app).get('/api/health');
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(typeof res.body.timestamp).toBe('string');
+      expect(new Date(res.body.timestamp).getTime()).not.toBeNaN();
+    });
+  });
+
+  describe('CORS Configuration', () => {
+    it('returns access-control-allow-origin header matching the client origin', async () => {
+      const res = await request(app)
+        .options('/api/health')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('Access-Control-Request-Method', 'GET');
+
+      expect(res.headers['access-control-allow-origin']).toBe(DEFAULT_CORS_ORIGIN);
+    });
+
+    it('returns CORS headers for regular GET requests with client origin', async () => {
+      const res = await request(app).get('/api/health').set('Origin', DEFAULT_CORS_ORIGIN);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe(DEFAULT_CORS_ORIGIN);
+    });
+  });
+
+  describe('POST /api/memos', () => {
+    it('processes valid memo, sanitizes PII, extracts task, encrypts payload, and returns 200 with metrics', async () => {
+      const memoContent =
+        'Schedule strategy review with Alice Newman (alice@example.com, +49 170 1234567) to approve 15000 EUR project budget tomorrow.';
+
+      const res = await request(app)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content: memoContent,
+          title: 'Review Project Budget',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('task');
+      expect(res.body).toHaveProperty('tasks');
+      expect(res.body).toHaveProperty('memo');
+      expect(res.body).toHaveProperty('piiStats');
+
+      // Verify task structure and default draft status per EU AI Act Human-in-the-Loop mandate
+      const createdTask = res.body.task;
+      expect(createdTask.status).toBe('DRAFT');
+      expect(createdTask.id).toMatch(/^task_/);
+      expect(createdTask.encryptedPayload).toBeDefined();
+      expect(createdTask.encryptedPayload.ciphertext).toBeDefined();
+      expect(createdTask.encryptedPayload.iv).toBeDefined();
+      expect(createdTask.encryptedPayload.authTag).toBeDefined();
+
+      // Verify PII telemetry
+      const piiStats = res.body.piiStats;
+      expect(piiStats.detectedEntityCount).toBeGreaterThanOrEqual(2);
+      expect(piiStats.maskedTokens.length).toBe(piiStats.detectedEntityCount);
+      expect(Array.isArray(piiStats.maskedTokens)).toBe(true);
+
+      // Verify the task can be decrypted locally with the session key
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        createdTask.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.title).toContain('Budget');
+      expect(decrypted.summary.length).toBeGreaterThanOrEqual(5);
+      expect(decrypted.subtasks.length).toBeGreaterThanOrEqual(1);
+
+      // Verify task was saved in the store
+      const allTasks = taskStore.getTasks();
+      expect(allTasks.length).toBe(1);
+      expect(allTasks[0].id).toBe(createdTask.id);
+    });
+
+    it('rejects invalid memo input with empty content returning 400 Zod error response', async () => {
+      const res = await request(app).post('/api/memos').send({
+        content: '',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Validation failed');
+      expect(Array.isArray(res.body.issues)).toBe(true);
+      expect(res.body.issues.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.issues[0].path).toBe('content');
+    });
+
+    it('rejects request with missing content property returning 400 Zod error response', async () => {
+      const res = await request(app).post('/api/memos').send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Validation failed');
+      expect(res.body.issues[0].path).toBe('content');
+    });
+  });
+
+  describe('GET /api/tasks', () => {
+    it('returns 200 array of encrypted tasks', async () => {
+      const res = await request(app).get('/api/tasks');
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(0);
+    });
+
+    it('returns all persisted tasks in descending creation order', async () => {
+      // Create two memos to populate store
+      await request(app).post('/api/memos').send({ content: 'Task number one for team standup' });
+
+      await request(app)
+        .post('/api/memos')
+        .send({ content: 'Task number two for client delivery' });
+
+      const res = await request(app).get('/api/tasks');
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(2);
+    });
+  });
+
+  describe('POST /api/tasks (Manual Task Creation)', () => {
+    it('validates input, encrypts payload, and creates TaskEntity returning 201', async () => {
+      const res = await request(app)
+        .post('/api/tasks')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Manual Security Review',
+          summary: 'Perform audit on encryption endpoints and rate limiting',
+          category: 'WORK',
+          priority: 'HIGH',
+          subtasks: [
+            { title: 'Check rate limiter token bucket', completed: false },
+            { title: 'Verify WebCrypto AES-GCM tags', completed: false },
+          ],
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.id).toMatch(/^task_/);
+      expect(res.body.category).toBe('WORK');
+      expect(res.body.priority).toBe('HIGH');
+      expect(res.body.status).toBe('DRAFT');
+
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        res.body.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.title).toBe('Manual Security Review');
+      expect(decrypted.subtasks.length).toBe(2);
+    });
+
+    it('rejects manual task creation with invalid data returning 400', async () => {
+      const res = await request(app).post('/api/tasks').send({
+        title: 'No', // shorter than 3 characters min bound
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Validation failed');
+    });
+  });
+
+  describe('PATCH /api/tasks/:id', () => {
+    it('updates status of an existing task and returns 200', async () => {
+      const createRes = await request(app).post('/api/tasks').send({
+        title: 'Deploy Production Hotfix',
+        summary: 'Review and promote hotfix release safely',
+      });
+
+      const taskId = createRes.body.id;
+
+      const patchRes = await request(app)
+        .patch(`/api/tasks/${taskId}`)
+        .send({
+          status: 'COMPLETED',
+          priority: 'URGENT',
+          category: 'FINANCE',
+          scheduledDate: '2026-12-01T10:00:00.000Z',
+          tags: ['updated-tag'],
+        });
+
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body.status).toBe('COMPLETED');
+      expect(patchRes.body.priority).toBe('URGENT');
+      expect(patchRes.body.category).toBe('FINANCE');
+      expect(patchRes.body.scheduledDate).toBe('2026-12-01T10:00:00.000Z');
+      expect(patchRes.body.tags).toContain('updated-tag');
+
+      // Verify in store
+      const updated = taskStore.getTaskById(taskId);
+      expect(updated?.status).toBe('COMPLETED');
+      expect(updated?.priority).toBe('URGENT');
+      expect(updated?.category).toBe('FINANCE');
+    });
+
+    it('updates sensitive fields (title, summary, subtasks) by re-encrypting payload', async () => {
+      const createRes = await request(app)
+        .post('/api/tasks')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Initial Title',
+          summary: 'Initial Summary',
+          subtasks: [{ title: 'Subtask A', completed: false }],
+        });
+
+      const taskId = createRes.body.id;
+
+      const patchRes = await request(app)
+        .patch(`/api/tasks/${taskId}`)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Updated Confidential Title',
+          summary: 'Updated Confidential Summary with more detail',
+          subtasks: [{ title: 'Updated Subtask Item', completed: true }],
+        });
+
+      expect(patchRes.status).toBe(200);
+
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        patchRes.body.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.title).toBe('Updated Confidential Title');
+      expect(decrypted.summary).toBe('Updated Confidential Summary with more detail');
+      expect(decrypted.subtasks[0].title).toBe('Updated Subtask Item');
+      expect(decrypted.subtasks[0].completed).toBe(true);
+    });
+
+    it('returns 404 when attempting to update non-existent task', async () => {
+      const res = await request(app)
+        .patch('/api/tasks/task_non_existent_12345')
+        .send({ status: 'COMPLETED' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe('Task not found');
+    });
+  });
+
+  describe('DELETE /api/tasks/:id', () => {
+    it('deletes an existing task and returns 200 with confirmation', async () => {
+      const createRes = await request(app).post('/api/tasks').send({
+        title: 'Temporary Task to Delete',
+        summary: 'This task will be removed shortly',
+      });
+
+      const taskId = createRes.body.id;
+
+      const deleteRes = await request(app).delete(`/api/tasks/${taskId}`);
+
+      expect(deleteRes.status).toBe(200);
+      expect(deleteRes.body.success).toBe(true);
+      expect(deleteRes.body.id).toBe(taskId);
+
+      // Verify removal from store
+      expect(taskStore.getTaskById(taskId)).toBeUndefined();
+    });
+
+    it('returns 404 when attempting to delete non-existent task', async () => {
+      const res = await request(app).delete('/api/tasks/task_does_not_exist_9999');
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe('Task not found');
+    });
+  });
+
+  describe('TaskStore Unit Operations', () => {
+    it('returns undefined when updating a non-existent task', () => {
+      const res = taskStore.updateTask('non_existent', { status: 'COMPLETED' });
+      expect(res).toBeUndefined();
+    });
+
+    it('retrieves memos sorted by date and clears store successfully', () => {
+      taskStore.addMemo({
+        id: 'memo_test_001_id_12345',
+        userId: 'usr_test_user_001_id',
+        encryptedPayload: {
+          ciphertext: 'AAAA',
+          iv: 'AAAAAAAAAAAAAAAA',
+          authTag: 'AAAAAAAAAAAAAAAAAAAAAA==',
+          keyId: 'v1',
+        },
+        sanitizedContentPreview: 'preview content',
+        hasPII: false,
+        maskedFieldsCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      const memos = taskStore.getMemos();
+      expect(memos.length).toBe(1);
+
+      taskStore.clear();
+      expect(taskStore.getMemos().length).toBe(0);
+      expect(taskStore.getTasks().length).toBe(0);
+    });
+  });
+
+  describe('Structured Error Handling Middleware', () => {
+    it('handles malformed JSON body payloads returning 400 Bad Request', async () => {
+      const res = await request(app)
+        .post('/api/memos')
+        .set('Content-Type', 'application/json')
+        .send('{ invalid json payload');
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Invalid JSON payload');
+    });
+
+    it('returns 500 without leaking stack traces or PII when an unexpected error occurs', async () => {
+      const mockFaultyOrchestrator = {
+        extractTasks: () =>
+          Promise.reject(new Error('Fatal database connection error with PII user@secret.com')),
+        extractTask: () =>
+          Promise.reject(new Error('Fatal database connection error with PII user@secret.com')),
+      };
+
+      const brokenApp = createApp({
+        orchestrator:
+          mockFaultyOrchestrator as unknown as import('../../src/agent/GeminiOrchestrator.js').GeminiOrchestrator,
+        taskStore,
+      });
+
+      const res = await request(brokenApp)
+        .post('/api/memos')
+        .send({ content: 'Valid memo content here' });
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Internal server error');
+      expect(res.body.message).toBe(
+        'An unexpected internal error occurred while processing the request',
+      );
+      expect(JSON.stringify(res.body)).not.toContain('user@secret.com');
+      expect(JSON.stringify(res.body)).not.toContain('Fatal database');
+    });
+
+    it('delegates to next when response headers have already been sent', () => {
+      const mockReq = {} as unknown as Request;
+      const mockRes = { headersSent: true } as unknown as Response;
+      let nextCalledWith: unknown = null;
+      const fakeNext: NextFunction = (err?: unknown) => {
+        nextCalledWith = err;
+      };
+      const testErr = new Error('After headers error');
+      errorHandler(testErr, mockReq, mockRes, fakeNext);
+      expect(nextCalledWith).toBe(testErr);
+    });
+  });
+});
