@@ -124,6 +124,8 @@ const streetPostfixWords = [
 ];
 const streetPostfixes = streetPostfixWords.join('|');
 
+const germanCompoundStreetPattern =
+  '\\b[a-zA-ZäöüÄÖÜß]+(?:straße|strasse|str\\.)\\s+\\d+[a-zA-Z]?(?:[/-]\\d+)?\\b';
 const streetPattern1 = `\\b(?:${streetPrefixes})\\s+(?:(?:de|d'|von|van)\\s+)?[\\p{Lu}\\p{Ll}'-]+(?:\\s+[\\p{Lu}\\p{Ll}'-]+)*(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
 const streetPattern2 = `\\b\\p{Lu}[\\p{L}'-]*(?:straße|strasse)\\b(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
 const streetPattern3 = `\\b\\p{Lu}[\\p{L}'-]+(?:\\s+\\p{Lu}[\\p{L}'-]+)?\\s+(?:${streetPostfixes})(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?\\b`;
@@ -131,7 +133,7 @@ const streetPattern4 = `\\b\\d+\\s+\\p{Lu}[\\p{L}'-]+\\s+(?:${streetPostfixes})\
 const cityPattern = `(?:${INTERNATIONAL_CITIES.join('|')})(?!\\p{L})`;
 
 const addressRegex = new RegExp(
-  `(?:${streetPattern1}|${streetPattern2}|${streetPattern4}|${streetPattern3}|${cityPattern})`,
+  `(?:${germanCompoundStreetPattern}|${streetPattern1}|${streetPattern2}|${streetPattern4}|${streetPattern3}|${cityPattern})`,
   'gu',
 );
 
@@ -154,6 +156,17 @@ const EXCLUDED_PERSON_WORDS = new Set([
   'weg',
   'platz',
   'gasse',
+  'numer',
+  'nummer',
+  'number',
+  'la',
+  'le',
+  'les',
+  'du',
+  'des',
+  'un',
+  'une',
+  'facture',
   ...INTERNATIONAL_CITIES.map((c) => c.toLowerCase()),
 ]);
 
@@ -468,6 +481,42 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
         startIndex: m.index,
         endIndex: m.index + m[0].length,
       });
+    }
+  }
+
+  // 8b. Lowercase names after contextual prepositions (PL, DE, FR, EN)
+  const lowercasePrepositionPatterns = [
+    /\b(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]+(?:\s+[a-ząćęłńóśźż]+)+)\b/gu,
+    /\b(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]+(?:\s+[a-zäöüß]+)+)\b/gu,
+    /\b(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]+(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]+)+)\b/gu,
+    /\b(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]+(?:\s+[a-z]+)+)\b/gu,
+  ];
+
+  for (const pattern of lowercasePrepositionPatterns) {
+    for (const m of text.matchAll(pattern)) {
+      if (m.index !== undefined && m[1]) {
+        const words = m[1].toLowerCase().split(/\s+/).map((w) => w.replace(/[.,]/g, ''));
+        if (words.some((w) => EXCLUDED_PERSON_WORDS.has(w))) {
+          continue;
+        }
+        const offset = m[0].lastIndexOf(m[1]);
+        const startIndex = m.index + offset;
+        const endIndex = startIndex + m[1].length;
+        const alreadyMatched = rawMatches.some(
+          (existing) =>
+            existing.type === 'PERSON' &&
+            startIndex < existing.endIndex &&
+            endIndex > existing.startIndex,
+        );
+        if (!alreadyMatched) {
+          rawMatches.push({
+            type: 'PERSON',
+            value: m[1],
+            startIndex,
+            endIndex,
+          });
+        }
+      }
     }
   }
 

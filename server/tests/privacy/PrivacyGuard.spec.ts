@@ -264,6 +264,28 @@ describe('PrivacyGuard Engine Suite', () => {
       }
     });
 
+    it('detects lowercase names after contextual prepositions and German compound street abbreviations', () => {
+      const plLowerRes = PrivacyGuard.mask('spotkanie z janem kowalskim');
+      const plPerson = plLowerRes.tokens.find(t => t.type === 'PERSON');
+      expect(plPerson).toBeDefined();
+      expect(plPerson?.originalValue).toBe('janem kowalskim');
+
+      const deLowerRes = PrivacyGuard.mask('treffen mit hans müller');
+      const dePerson = deLowerRes.tokens.find(t => t.type === 'PERSON');
+      expect(dePerson).toBeDefined();
+      expect(dePerson?.originalValue).toBe('hans müller');
+
+      const deStreetRes = PrivacyGuard.mask('Büro in berlinerstr. 123');
+      const deAddr = deStreetRes.tokens.find(t => t.type === 'ADDRESS');
+      expect(deAddr).toBeDefined();
+      expect(deAddr?.originalValue).toBe('berlinerstr. 123');
+
+      const deStreetHaupt = PrivacyGuard.mask('Besuch in hauptstr. 5');
+      const deAddrHaupt = deStreetHaupt.tokens.find(t => t.type === 'ADDRESS');
+      expect(deAddrHaupt).toBeDefined();
+      expect(deAddrHaupt?.originalValue).toBe('hauptstr. 5');
+    });
+
     it('detects Physical Addresses, Street Patterns, and Major International Hubs (Priority 9)', () => {
       const streetCases = [
         { text: 'Meeting at ul. Marszałkowska 10 tomorrow', addr: 'ul. Marszałkowska 10' },

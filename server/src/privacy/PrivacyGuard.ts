@@ -194,6 +194,17 @@ export const EXCLUDED_NAME_WORDS = new Set([
   'telefon',
   'kontakt',
   'przekaż',
+  'numer',
+  'nummer',
+  'number',
+  'la',
+  'le',
+  'les',
+  'du',
+  'des',
+  'un',
+  'une',
+  'facture',
 ]);
 
 /**
@@ -863,6 +874,42 @@ export class PrivacyGuard {
       }
     }
 
+    const lowercasePrepositionPatterns = [
+      /\b(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]+(?:\s+[a-ząćęłńóśźż]+)+)\b/gu,
+      /\b(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]+(?:\s+[a-zäöüß]+)+)\b/gu,
+      /\b(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]+(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]+)+)\b/gu,
+      /\b(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]+(?:\s+[a-z]+)+)\b/gu,
+    ];
+
+    for (const pattern of lowercasePrepositionPatterns) {
+      for (const m of text.matchAll(pattern)) {
+        if (m.index !== undefined && m[1]) {
+          const lowerVal = m[1].toLowerCase();
+          const words = lowerVal.split(/\s+/);
+          const isCityOrExcluded =
+            INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
+            EXCLUDED_NAME_WORDS.has(lowerVal) ||
+            words.some((w) => EXCLUDED_NAME_WORDS.has(w));
+          if (isCityOrExcluded) continue;
+
+          const offset = m[0].lastIndexOf(m[1]);
+          const s = m.index + offset;
+          const e = s + m[1].length;
+          const alreadyMatched = initialPersonMatches.some(
+            (existing) => s < existing.endIndex && e > existing.startIndex,
+          );
+          if (!alreadyMatched) {
+            initialPersonMatches.push({
+              type: 'PERSON',
+              value: m[1],
+              startIndex: s,
+              endIndex: e,
+            });
+          }
+        }
+      }
+    }
+
     const pairRegex = /\b(\p{Lu}[\p{Ll}'-]+)\s+(\p{Lu}[\p{Ll}'-]+)\b/gu;
     for (const m of text.matchAll(pairRegex)) {
       if (m.index !== undefined) {
@@ -978,13 +1025,14 @@ export class PrivacyGuard {
     ];
     const streetPostfixes = streetPostfixWords.join('|');
 
+    const germanCompoundStreetPattern = `\\b[a-zA-ZäöüÄÖÜß]+(?:straße|strasse|str\\.)\\s+\\d+[a-zA-Z]?(?:[/-]\\d+)?\\b`;
     const streetPattern1 = `\\b(?:\\d+[a-zA-Z]?[\\s,]+)?(?:${streetPrefixes})\\s+(?:(?:de|d'|du|des|von|van|der|am)\\s+)?\\p{Lu}[\\p{L}'-]+(?:\\s+(?:(?:de|d'|du|des|von|van|der|am)\\s+)?\\p{Lu}[\\p{L}'-]+){0,2}(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
     const streetPattern2 = `\\b\\p{Lu}[\\p{L}'-]*(?:straße|strasse)\\b(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
     const streetPattern3 = `\\b\\p{Lu}[\\p{L}'-]+(?:\\s+\\p{Lu}[\\p{L}'-]+)?\\s+(?:${streetPostfixes})(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?\\b`;
     const streetPattern4 = `\\b\\d+\\s+\\p{Lu}[\\p{L}'-]+\\s+(?:${streetPostfixes})\\b`;
 
     const addressRegex = new RegExp(
-      `(?:${streetPattern1}|${streetPattern2}|${streetPattern4}|${streetPattern3}|${cityPattern})`,
+      `(?:${germanCompoundStreetPattern}|${streetPattern1}|${streetPattern2}|${streetPattern4}|${streetPattern3}|${cityPattern})`,
       'gu',
     );
 
