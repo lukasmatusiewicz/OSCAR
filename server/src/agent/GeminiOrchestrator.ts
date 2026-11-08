@@ -40,12 +40,16 @@ export const GEMINI_TASK_SCHEMA = {
         required: ['title', 'completed'],
       },
     },
+    location: { type: 'STRING', nullable: true },
+    contactPerson: { type: 'STRING', nullable: true },
+    amount: { type: 'STRING', nullable: true },
+    scheduledTime: { type: 'STRING', nullable: true },
   },
   required: ['title', 'summary', 'category', 'priority', 'scheduledDate', 'tags', 'subtasks'],
 };
 
 export const SYSTEM_INSTRUCTION =
-  "You are OSCAR's AI Task Orchestrator. Your role is to analyze the sanitized user memo enclosed within <user_memo> tags and extract structured task information conforming strictly to the requested schema. Decompose the memo into an action-oriented title, concise summary, appropriate category, priority, optional ISO 8601 scheduled date, contextual tags, and actionable checklist subtasks. You must preserve all synthetic PII tokens (such as [PERSON_1], [EMAIL_1], [PHONE_1], [AMOUNT_MONEY_1], [IBAN_1], [SECRET_KEY_1]) exactly as they appear without alteration or omission.";
+  "You are OSCAR's AI Task Orchestrator. Your role is to analyze the sanitized user memo enclosed within <user_memo> tags and extract structured task information conforming strictly to the requested schema. Decompose the memo into an action-oriented title, concise summary, appropriate category, priority, optional ISO 8601 scheduled date, contextual tags, actionable checklist subtasks, and smart metadata fields (location, contactPerson, amount, scheduledTime). You must preserve all synthetic PII tokens (such as [PERSON_1], [EMAIL_1], [PHONE_1], [AMOUNT_MONEY_1], [IBAN_1], [SECRET_KEY_1], [NATIONAL_ID_1], [HEALTH_DATA_1], [ADDRESS_1]) exactly as they appear without alteration or omission.";
 
 /**
  * Escapes < and > characters and encloses text within structural boundary tags.

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { PrivacyGuard, rehydrate, TOKEN_PATTERN } from '../../src/privacy/PrivacyGuard.js';
+import {
+  PrivacyGuard,
+  rehydrate,
+  TOKEN_PATTERN,
+  isValidPesel,
+  isGermanSteuerId,
+  isValidSsn,
+} from '../../src/privacy/PrivacyGuard.js';
 import {
   SanitizationResultSchema,
   PIITokenMap,
@@ -9,9 +16,9 @@ import {
 
 describe('PrivacyGuard Engine Suite', () => {
   // =========================================================================
-  // 1. Multi-Entity Detection Across All 6 Categories
+  // 1. Multi-Entity Detection Across All 9 GDPR Categories
   // =========================================================================
-  describe('Multi-Entity Detection Across All 6 Categories', () => {
+  describe('Multi-Entity Detection Across All 9 GDPR Categories', () => {
     it('detects API and Secret Keys (Priority 1)', () => {
       const samples = [
         {
@@ -74,7 +81,81 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(resPlLower.sanitizedText).toBe('Account: [IBAN_1]');
     });
 
-    it('detects Email Addresses (Priority 3)', () => {
+    it('detects National Identifiers (Priority 3): Polish PESEL with 11-digit checksum, German Steuer-ID, US SSN', () => {
+      // Polish PESEL: 90010112349, 44051401359 are valid statutory checksums
+      const validPesels = ['90010112349', '44051401359'];
+      for (const pesel of validPesels) {
+        const res = PrivacyGuard.mask(`PESEL obywatela: ${pesel} do weryfikacji.`);
+        expect(res.tokens.length).toBeGreaterThanOrEqual(1);
+        const token = res.tokens.find((t) => t.type === 'NATIONAL_ID');
+        expect(token).toBeDefined();
+        expect(token?.originalValue).toBe(pesel);
+        expect(res.sanitizedText).toContain('[NATIONAL_ID_1]');
+        expect(res.sanitizedText).not.toContain(pesel);
+      }
+
+      // Invalid PESEL checksum must NOT be masked as NATIONAL_ID
+      const invalidPesel = '90010112348'; // Incorrect control digit (should be 9)
+      const resInvalid = PrivacyGuard.mask(`Numer PESEL ${invalidPesel} jest błędny.`);
+      expect(resInvalid.tokens.some((t) => t.type === 'NATIONAL_ID')).toBe(false);
+
+      // German Steuer-ID / Steueridentifikationsnummer (formatted or with trigger)
+      const germanSteuerFormatted = '03 245 678 912';
+      const resSteuerForm = PrivacyGuard.mask(`Steuernummer ist ${germanSteuerFormatted} bitte eintragen.`);
+      expect(resSteuerForm.tokens.length).toBeGreaterThanOrEqual(1);
+      const steuerToken1 = resSteuerForm.tokens.find((t) => t.type === 'NATIONAL_ID');
+      expect(steuerToken1).toBeDefined();
+      expect(steuerToken1?.originalValue).toBe(germanSteuerFormatted);
+
+      const resSteuerTrig = PrivacyGuard.mask('Steuer-ID: 03245678912 für das Finanzamt.');
+      expect(resSteuerTrig.tokens.length).toBeGreaterThanOrEqual(1);
+      const steuerToken2 = resSteuerTrig.tokens.find((t) => t.type === 'NATIONAL_ID');
+      expect(steuerToken2).toBeDefined();
+      expect(steuerToken2?.originalValue).toBe('03245678912');
+
+      // US SSN
+      const usSsn = '123-45-6789';
+      const resSsn = PrivacyGuard.mask(`Social Security Number is ${usSsn} confidential.`);
+      expect(resSsn.tokens.length).toBeGreaterThanOrEqual(1);
+      const ssnToken = resSsn.tokens.find((t) => t.type === 'NATIONAL_ID');
+      expect(ssnToken).toBeDefined();
+      expect(ssnToken?.originalValue).toBe(usSsn);
+      expect(resSsn.sanitizedText).toContain('[NATIONAL_ID_1]');
+    });
+
+    it('detects Health Data (Priority 4): German KVNR and multilingual medical terms/prescriptions/diagnoses', () => {
+      // German KVNR: [A-Z]\d{9} (e.g. A123456789, T123456789)
+      const kvnrSamples = ['A123456789', 'T123456789'];
+      for (const kvnr of kvnrSamples) {
+        const res = PrivacyGuard.mask(`KVNR: ${kvnr} der Versicherten.`);
+        expect(res.tokens.length).toBeGreaterThanOrEqual(1);
+        const hToken = res.tokens.find((t) => t.type === 'HEALTH_DATA');
+        expect(hToken).toBeDefined();
+        expect(hToken?.originalValue).toBe(kvnr);
+        expect(res.sanitizedText).toContain('[HEALTH_DATA_1]');
+        expect(res.sanitizedText).not.toContain(kvnr);
+      }
+
+      // Medical terms, diagnoses, and prescriptions in context across PL, DE, EN, FR
+      const medicalCases = [
+        { text: 'diagnoza: nadciśnienie tętnicze u pacjenta', expectedTerm: 'diagnoza: nadciśnienie tętnicze' },
+        { text: 'Wystawiono recepta na ibuprofen 400mg rano', expectedTerm: 'recepta na ibuprofen 400mg' },
+        { text: 'Patientenakte Diagnose: Hypertonie chronisch', expectedTerm: 'Diagnose: Hypertonie chronisch' },
+        { text: 'Der Arzt gab Rezept: Ibuprofen 600mg', expectedTerm: 'Rezept: Ibuprofen 600mg' },
+        { text: 'Patient prescription for amoxicillin capsules', expectedTerm: 'prescription for amoxicillin capsules' },
+        { text: 'Médecin a donné ordonnance: Doliprane 1000mg', expectedTerm: 'ordonnance: Doliprane 1000mg' }
+      ];
+
+      for (const { text, expectedTerm } of medicalCases) {
+        const res = PrivacyGuard.mask(text);
+        expect(res.tokens.length).toBeGreaterThanOrEqual(1);
+        const hToken = res.tokens.find((t) => t.type === 'HEALTH_DATA');
+        expect(hToken).toBeDefined();
+        expect(res.sanitizedText).toContain('[HEALTH_DATA_1]');
+      }
+    });
+
+    it('detects Email Addresses (Priority 5)', () => {
       const text = 'Send questions to contact@example.com or user.name+tag@sub.domain.co.uk please.';
       const result = PrivacyGuard.mask(text);
 
@@ -86,7 +167,7 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(result.sanitizedText).toBe('Send questions to [EMAIL_1] or [EMAIL_2] please.');
     });
 
-    it('detects Phone Numbers (Priority 4)', () => {
+    it('detects Phone Numbers (Priority 6)', () => {
       const samples = [
         '+49 170 1234567',
         '(030) 9876-5432',
@@ -104,7 +185,7 @@ describe('PrivacyGuard Engine Suite', () => {
       }
     });
 
-    it('detects Monetary Amounts (Priority 5) including colloquial multipliers and spacing', () => {
+    it('detects Monetary Amounts (Priority 7) including colloquial multipliers and spacing', () => {
       const samples = [
         { text: 'Invoice of 15000 EUR is pending', val: '15000 EUR' },
         { text: 'Total is $450.00 for the license', val: '$450.00' },
@@ -134,7 +215,7 @@ describe('PrivacyGuard Engine Suite', () => {
       }
     });
 
-    it('detects Person Names via Honorifics, Declined Polish Cases, and Context Markers (Priority 6)', () => {
+    it('detects Person Names via Honorifics, Declined Polish Cases, and Context Markers (Priority 8)', () => {
       const honorifics = [
         'Mr. John Doe',
         'Ms. Alice Smith',
@@ -183,7 +264,7 @@ describe('PrivacyGuard Engine Suite', () => {
       }
     });
 
-    it('detects Physical Addresses, Street Patterns, and Major International Hubs (Priority 7)', () => {
+    it('detects Physical Addresses, Street Patterns, and Major International Hubs (Priority 9)', () => {
       const streetCases = [
         { text: 'Meeting at ul. Marszałkowska 10 tomorrow', addr: 'ul. Marszałkowska 10' },
         { text: 'Office address is Friedrichstraße 42 in the center', addr: 'Friedrichstraße 42' },
@@ -306,7 +387,7 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(PrivacyGuard.resolveOverlaps(singleMatch)).toEqual(singleMatch);
     });
 
-    it('prefers PERSON (Priority 6) over ADDRESS (Priority 7) in overlapping candidate spans', () => {
+    it('prefers PERSON (Priority 8) over ADDRESS (Priority 9) in overlapping candidate spans', () => {
       const rawMatches = [
         {
           type: 'ADDRESS' as PIIType,
@@ -327,7 +408,7 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(resolved[0].type).toBe('PERSON');
     });
 
-    it('prefers AMOUNT_MONEY (Priority 5) over ADDRESS (Priority 7) in overlapping spans', () => {
+    it('prefers AMOUNT_MONEY (Priority 7) over ADDRESS (Priority 9) in overlapping spans', () => {
       const rawMatches = [
         {
           type: 'ADDRESS' as PIIType,
@@ -348,6 +429,121 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(resolved[0].type).toBe('AMOUNT_MONEY');
     });
 
+    it('prefers NATIONAL_ID (Priority 3) over PHONE (Priority 6) in overlapping spans', () => {
+      const rawMatches = [
+        {
+          type: 'PHONE' as PIIType,
+          value: '90010112349',
+          startIndex: 0,
+          endIndex: 11
+        },
+        {
+          type: 'NATIONAL_ID' as PIIType,
+          value: '90010112349',
+          startIndex: 0,
+          endIndex: 11
+        }
+      ];
+
+      const resolved = PrivacyGuard.resolveOverlaps(rawMatches);
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0].type).toBe('NATIONAL_ID');
+    });
+
+    it('prefers HEALTH_DATA (Priority 4) over EMAIL (Priority 5) and PERSON (Priority 8)', () => {
+      const overlappingWithEmail = [
+        {
+          type: 'EMAIL' as PIIType,
+          value: 'patient@clinic.de',
+          startIndex: 5,
+          endIndex: 22
+        },
+        {
+          type: 'HEALTH_DATA' as PIIType,
+          value: 'A123456789',
+          startIndex: 0,
+          endIndex: 10
+        }
+      ];
+
+      const resolvedEmail = PrivacyGuard.resolveOverlaps(overlappingWithEmail);
+      expect(resolvedEmail).toHaveLength(1);
+      expect(resolvedEmail[0].type).toBe('HEALTH_DATA');
+
+      const nonOverlapping = [
+        {
+          type: 'HEALTH_DATA' as PIIType,
+          value: 'A123456789',
+          startIndex: 0,
+          endIndex: 10
+        },
+        {
+          type: 'EMAIL' as PIIType,
+          value: 'patient@clinic.de',
+          startIndex: 15,
+          endIndex: 32
+        }
+      ];
+      expect(PrivacyGuard.resolveOverlaps(nonOverlapping)).toHaveLength(2);
+
+      const overlappingMatches = [
+        {
+          type: 'PERSON' as PIIType,
+          value: 'A123456789 Dr',
+          startIndex: 0,
+          endIndex: 13
+        },
+        {
+          type: 'HEALTH_DATA' as PIIType,
+          value: 'A123456789',
+          startIndex: 0,
+          endIndex: 10
+        }
+      ];
+
+      const resolvedOverlap = PrivacyGuard.resolveOverlaps(overlappingMatches);
+      expect(resolvedOverlap).toHaveLength(1);
+      expect(resolvedOverlap[0].type).toBe('HEALTH_DATA');
+    });
+
+    it('strictly enforces all 9 priority tiers (1: SECRET_KEY down to 9: ADDRESS)', () => {
+      const all9Types: PIIType[] = [
+        'SECRET_KEY',
+        'IBAN',
+        'NATIONAL_ID',
+        'HEALTH_DATA',
+        'EMAIL',
+        'PHONE',
+        'AMOUNT_MONEY',
+        'PERSON',
+        'ADDRESS'
+      ];
+
+      for (let i = 0; i < all9Types.length - 1; i++) {
+        const higherType = all9Types[i];
+        const lowerType = all9Types[i + 1];
+
+        const candidateMatches = [
+          {
+            type: lowerType,
+            value: 'CandidateOverlapValue',
+            startIndex: 0,
+            endIndex: 21
+          },
+          {
+            type: higherType,
+            value: 'CandidateOverlapValue',
+            startIndex: 0,
+            endIndex: 21
+          }
+        ];
+
+        const resolved = PrivacyGuard.resolveOverlaps(candidateMatches);
+        expect(resolved).toHaveLength(1);
+        expect(resolved[0].type).toBe(higherType);
+      }
+    });
+
     it('resolves ties with same priority and start index by choosing longer span', () => {
       const ties = [
         {
@@ -366,6 +562,186 @@ describe('PrivacyGuard Engine Suite', () => {
       const resolved = PrivacyGuard.resolveOverlaps(ties);
       expect(resolved).toHaveLength(1);
       expect(resolved[0].value).toBe('Alice Newman');
+    });
+  });
+
+  // =========================================================================
+  // Tier 3: Context-Aware Generic Matcher
+  // =========================================================================
+  describe('Tier 3: Context-Aware Generic Matcher', () => {
+    it('detects unformatted health/policy cards within proximity (+-30 chars) of keywords', () => {
+      const healthSamples = [
+        { text: 'Numer polisa 83726194 w aktach', expectedId: '83726194' },
+        { text: 'Ubezpieczenie zdrowotne POL-982341 dla pracownika', expectedId: 'POL-982341' },
+        { text: 'Versichert bei Versicherung DE982341 gültig', expectedId: 'DE982341' },
+        { text: 'Krankenkasse Nummer: KK-847291 sofort vorlegen', expectedId: 'KK-847291' },
+        { text: 'Insurance policy ID: POL83726194 on file', expectedId: 'POL83726194' }
+      ];
+
+      for (const { text, expectedId } of healthSamples) {
+        const res = PrivacyGuard.mask(text);
+        expect(res.tokens.length).toBeGreaterThanOrEqual(1);
+        const token = res.tokens.find((t) => t.type === 'HEALTH_DATA');
+        expect(token).toBeDefined();
+        expect(token?.originalValue).toBe(expectedId);
+        expect(res.sanitizedText).toContain('[HEALTH_DATA_1]');
+        expect(res.sanitizedText).not.toContain(expectedId);
+      }
+    });
+
+    it('detects citizen / national identity cards within proximity (+-30 chars) of keywords', () => {
+      const nationalSamples = [
+        { text: 'Numer dowód osobisty: ABC123456 w rejestrze', expectedId: 'ABC123456' },
+        { text: 'Personalausweis Nummer XY765432 bitte angeben', expectedId: 'XY765432' },
+        { text: 'National citizen ID card 83726194 for entry', expectedId: '83726194' }
+      ];
+
+      for (const { text, expectedId } of nationalSamples) {
+        const res = PrivacyGuard.mask(text);
+        expect(res.tokens.length).toBeGreaterThanOrEqual(1);
+        const token = res.tokens.find((t) => t.type === 'NATIONAL_ID');
+        expect(token).toBeDefined();
+        expect(token?.originalValue).toBe(expectedId);
+        expect(res.sanitizedText).toContain('[NATIONAL_ID_1]');
+        expect(res.sanitizedText).not.toContain(expectedId);
+      }
+    });
+
+    it('ignores dictionary words of 6-16 characters far from trigger keywords', () => {
+      const cleanText = 'This is an important regular sentence without card numbers or credentials.';
+      const res = PrivacyGuard.mask(cleanText);
+      expect(res.tokens).toHaveLength(0);
+      expect(res.sanitizedText).toBe(cleanText);
+    });
+  });
+
+  // =========================================================================
+  // Tier 2: Transformers.js Local In-Memory Semantic NER & Graceful Fallback
+  // =========================================================================
+  describe('Tier 2: Transformers.js Local In-Memory Semantic NER & Graceful Fallback', () => {
+    it('provides maskAsync that returns SanitizationResult', async () => {
+      const text = 'Spotkanie z dr Anną Nowak w Warszawie jutro o 15:00.';
+      const result = await PrivacyGuard.maskAsync(text);
+
+      expect(result).toBeDefined();
+      expect(result.sanitizedText).toBeDefined();
+      expect(result.tokens.length).toBeGreaterThanOrEqual(1);
+      expect(result.riskLevel).toBeDefined();
+    });
+
+    it('gracefully falls back to Tier 1 and Tier 3 when model fails or environment is offline', async () => {
+      // Mock pipeline to simulate model failure/rejection
+      PrivacyGuard.setPipeline(async () => {
+        throw new Error('ONNX runtime offline or model file not found');
+      });
+
+      const text = 'Meeting with Alice Newman, email alice@example.com, PESEL 90010112349';
+      const result = await PrivacyGuard.maskAsync(text);
+
+      expect(result).toBeDefined();
+      expect(result.sanitizedText).toContain('[EMAIL_1]');
+      expect(result.sanitizedText).toContain('[NATIONAL_ID_1]');
+      expect(result.sanitizedText).not.toContain('90010112349');
+      expect(result.sanitizedText).not.toContain('alice@example.com');
+
+      // Reset pipeline
+      PrivacyGuard.setPipeline(null);
+    });
+
+    it('gracefully times out and falls back when pipeline takes > 100ms', async () => {
+      // Mock pipeline to simulate excessive delay > 100ms
+      PrivacyGuard.setPipeline(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return [];
+      });
+
+      const text = 'Transfer to DE89 3704 0044 0532 0130 00 today';
+      const result = await PrivacyGuard.maskAsync(text);
+
+      expect(result).toBeDefined();
+      expect(result.sanitizedText).toBe('Transfer to [IBAN_1] today');
+      expect(result.tokens).toHaveLength(1);
+      expect(result.tokens[0].type).toBe('IBAN');
+
+      // Reset pipeline
+      PrivacyGuard.setPipeline(null);
+    });
+
+    it('ensures synchronous mask() remains 100% operational with pure zero-network isolation', () => {
+      const text = 'Meeting with Dr. Gregory House in Berlin, budget 50k zł';
+      const start = performance.now();
+      const result = PrivacyGuard.mask(text);
+      const duration = performance.now() - start;
+
+      expect(duration).toBeLessThan(50); // < 50ms requirement
+      expect(result.tokens.length).toBeGreaterThanOrEqual(2);
+      expect(result.sanitizedText).toContain('[AMOUNT_MONEY_1]');
+      expect(result.sanitizedText).toContain('[ADDRESS_1]');
+    });
+
+    it('integrates semantic token classification outputs (PER, LOC) from in-memory NER pipeline', async () => {
+      PrivacyGuard.setPipeline(async (_text: string) => [
+        { entity_group: 'PER', word: 'Alice Newman', start: 13, end: 25 },
+        { entity_group: 'LOC', word: 'Berlin', start: 29, end: 35 },
+        { entity_group: 'MISC', word: 'IgnoredMisc', start: 0, end: 11 },
+        { entity_group: 'PER', word: '', start: 0, end: 0 },
+        { entity_group: 'LOC', word: 'Invalid', start: null, end: null },
+      ]);
+
+      const text = 'Meeting with Alice Newman in Berlin';
+      const result = await PrivacyGuard.maskAsync(text);
+
+      expect(result.tokens).toHaveLength(2);
+      expect(result.tokens[0].token).toBe('[PERSON_1]');
+      expect(result.tokens[1].token).toBe('[ADDRESS_1]');
+      expect(result.sanitizedText).toBe('Meeting with [PERSON_1] in [ADDRESS_1]');
+
+      PrivacyGuard.setPipeline(null);
+    });
+
+    it('handles non-array output from NER pipeline gracefully', async () => {
+      PrivacyGuard.setPipeline(async () => ({ unexpected: true }));
+
+      const text = 'Meeting with Alice Newman';
+      const result = await PrivacyGuard.maskAsync(text);
+      expect(result).toBeDefined();
+      expect(result.tokens.length).toBeGreaterThanOrEqual(1);
+
+      PrivacyGuard.setPipeline(null);
+    });
+
+    it('returns cached pipeline from getPipeline when cachedPipeline is already set', async () => {
+      (PrivacyGuard as any).cachedPipeline = async () => [];
+      const pipe = await PrivacyGuard.getPipeline();
+      expect(pipe).toBeDefined();
+      (PrivacyGuard as any).cachedPipeline = null;
+    });
+
+    it('validates standalone national identifier helpers: isValidPesel, isGermanSteuerId, isValidSsn', () => {
+      // isValidPesel
+      expect(isValidPesel('90010112349')).toBe(true);
+      expect(isValidPesel('90010112348')).toBe(false);
+      expect(isValidPesel('123')).toBe(false);
+      expect(isValidPesel('abcdefghijk')).toBe(false);
+
+      // isGermanSteuerId
+      expect(isGermanSteuerId('03 245 678 912', 'plain text', 0)).toBe(true);
+      expect(isGermanSteuerId('03245678912', 'Steuer-ID 03245678912 hier', 10)).toBe(true);
+      expect(isGermanSteuerId('11234567890', 'Text without triggers', 0)).toBe(true);
+      expect(isGermanSteuerId('11123456789', 'Text without triggers', 0)).toBe(true);
+      expect(isGermanSteuerId('01234567890', 'Text without triggers', 0)).toBe(false);
+      expect(isGermanSteuerId('11223456789', 'Text without triggers', 0)).toBe(false);
+      expect(isGermanSteuerId('12345678901', 'Text without triggers', 0)).toBe(false);
+      expect(isGermanSteuerId('12345', 'Text', 0)).toBe(false);
+
+      // isValidSsn
+      expect(isValidSsn('123-45-6789')).toBe(true);
+      expect(isValidSsn('000-12-3456')).toBe(false);
+      expect(isValidSsn('666-12-3456')).toBe(false);
+      expect(isValidSsn('900-12-3456')).toBe(false);
+      expect(isValidSsn('123-00-4567')).toBe(false);
+      expect(isValidSsn('123-45-0000')).toBe(false);
+      expect(isValidSsn('not-a-ssn')).toBe(false);
     });
   });
 
@@ -475,10 +851,12 @@ describe('PrivacyGuard Engine Suite', () => {
   // 5. Single-Pass Atomic Regex Re-hydration (Zero Prefix Collision & Injection)
   // =========================================================================
   describe('Single-Pass Atomic Regex Re-hydration', () => {
-    it('matches TOKEN_PATTERN across all 7 PII types', () => {
+    it('matches TOKEN_PATTERN across all 9 PII types', () => {
       const validTokens = [
         '[SECRET_KEY_1]',
         '[IBAN_10]',
+        '[NATIONAL_ID_7]',
+        '[HEALTH_DATA_12]',
         '[EMAIL_3]',
         '[PHONE_99]',
         '[AMOUNT_MONEY_42]',
@@ -579,6 +957,20 @@ describe('PrivacyGuard Engine Suite', () => {
       const result = rehydrate(input, tokenMap);
       expect(result).toBe('Offices: Street Number 1 and Street Number 10');
       expect(result).not.toContain('Street Number 100');
+    });
+
+    it('asserts zero prefix collision with NATIONAL_ID and HEALTH_DATA entities ([NATIONAL_ID_1] vs [NATIONAL_ID_10])', () => {
+      const tokenMap = new Map<string, string>();
+      for (let i = 1; i <= 15; i++) {
+        tokenMap.set(`[NATIONAL_ID_${i}]`, `ID-NUMBER-${i}`);
+        tokenMap.set(`[HEALTH_DATA_${i}]`, `HEALTH-CARD-${i}`);
+      }
+
+      const input = 'IDs: [NATIONAL_ID_1], [NATIONAL_ID_10], [HEALTH_DATA_1], [HEALTH_DATA_10]';
+      const result = rehydrate(input, tokenMap);
+      expect(result).toBe('IDs: ID-NUMBER-1, ID-NUMBER-10, HEALTH-CARD-1, HEALTH-CARD-10');
+      expect(result).not.toContain('ID-NUMBER-100');
+      expect(result).not.toContain('HEALTH-CARD-100');
     });
   });
 
@@ -753,19 +1145,22 @@ describe('PrivacyGuard Engine Suite', () => {
   // 8. Deterministic Roundtrip Invariance
   // =========================================================================
   describe('Deterministic Roundtrip Invariance', () => {
-    it('guarantees roundtrip invariance across all 7 categories: rehydrate(mask(text).sanitizedText, result.tokens) === text', () => {
+    it('guarantees roundtrip invariance across all 9 GDPR categories: rehydrate(mask(text).sanitizedText, result.tokens) === text', () => {
       const complexText =
         'Meeting with Alice Newman to review invoice $1,500.00.\n' +
         'Please transfer to DE89 3704 0044 0532 0130 00 or notify contact@example.com.\n' +
         'Call +49 170 1234567 if bearer token bearer abcdef1234567890abcdef123456 is compromised.\n' +
-        'Follow up at Friedrichstraße 42 in Berlin afterwards.';
+        'Follow up at Friedrichstraße 42 in Berlin afterwards.\n' +
+        'PESEL obywatela: 90010112349, KVNR: A123456789 oraz diagnoza: nadciśnienie tętnicze.';
 
       const maskResult = PrivacyGuard.mask(complexText);
 
-      // Verify all 7 categories are detected
-      const detectedTypes = new Set(maskResult.tokens.map(t => t.type));
+      // Verify all 9 categories are detected
+      const detectedTypes = new Set(maskResult.tokens.map((t) => t.type));
       expect(detectedTypes.has('SECRET_KEY')).toBe(true);
       expect(detectedTypes.has('IBAN')).toBe(true);
+      expect(detectedTypes.has('NATIONAL_ID')).toBe(true);
+      expect(detectedTypes.has('HEALTH_DATA')).toBe(true);
       expect(detectedTypes.has('EMAIL')).toBe(true);
       expect(detectedTypes.has('PHONE')).toBe(true);
       expect(detectedTypes.has('AMOUNT_MONEY')).toBe(true);
@@ -827,6 +1222,20 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(res.tokens).toHaveLength(1);
       expect(res.riskLevel).toBe('HIGH');
     });
+
+    it('calculates HIGH when NATIONAL_ID is present even if count is 1', () => {
+      const res = PrivacyGuard.mask('Numer PESEL to 90010112349 poufny');
+      expect(res.tokens.length).toBeGreaterThanOrEqual(1);
+      expect(res.tokens.some((t) => t.type === 'NATIONAL_ID')).toBe(true);
+      expect(res.riskLevel).toBe('HIGH');
+    });
+
+    it('calculates HIGH when HEALTH_DATA is present even if count is 1', () => {
+      const res = PrivacyGuard.mask('KVNR: A123456789');
+      expect(res.tokens).toHaveLength(1);
+      expect(res.tokens[0].type).toBe('HEALTH_DATA');
+      expect(res.riskLevel).toBe('HIGH');
+    });
   });
 
   // =========================================================================
@@ -846,6 +1255,59 @@ describe('PrivacyGuard Engine Suite', () => {
         expect(new Date(parsed.data.timestamp).getTime()).not.toBeNaN();
         expect(['NONE', 'LOW', 'MEDIUM', 'HIGH']).toContain(parsed.data.riskLevel);
       }
+    });
+  });
+
+  // =========================================================================
+  // 11. Smart Task Metadata Re-hydration
+  // =========================================================================
+  describe('Smart Task Metadata Re-hydration', () => {
+    it('recursively rehydrates smart metadata fields (location, contactPerson, amount, scheduledTime)', () => {
+      const tokens: PIITokenMap[] = [
+        {
+          token: '[PERSON_1]',
+          type: 'PERSON',
+          originalValue: 'Dr. Anna Nowak',
+          startIndex: 0,
+          endIndex: 14
+        },
+        {
+          token: '[ADDRESS_1]',
+          type: 'ADDRESS',
+          originalValue: 'Warszawa, ul. Marszałkowska 10',
+          startIndex: 20,
+          endIndex: 50
+        },
+        {
+          token: '[AMOUNT_MONEY_1]',
+          type: 'AMOUNT_MONEY',
+          originalValue: '1,500 EUR',
+          startIndex: 60,
+          endIndex: 69
+        }
+      ];
+
+      const rawTask = {
+        title: 'Spotkanie z [PERSON_1]',
+        summary: 'Konsultacja w [ADDRESS_1] na kwotę [AMOUNT_MONEY_1]',
+        location: '[ADDRESS_1]',
+        contactPerson: '[PERSON_1]',
+        amount: '[AMOUNT_MONEY_1]',
+        scheduledTime: 'jutro o 15:00',
+        subtasks: [
+          { title: 'Przygotować dokumenty dla [PERSON_1]', completed: false }
+        ]
+      };
+
+      const rehydrated = rehydrate(rawTask, tokens);
+
+      expect(rehydrated.title).toBe('Spotkanie z Dr. Anna Nowak');
+      expect(rehydrated.summary).toBe('Konsultacja w Warszawa, ul. Marszałkowska 10 na kwotę 1,500 EUR');
+      expect(rehydrated.location).toBe('Warszawa, ul. Marszałkowska 10');
+      expect(rehydrated.contactPerson).toBe('Dr. Anna Nowak');
+      expect(rehydrated.amount).toBe('1,500 EUR');
+      expect(rehydrated.scheduledTime).toBe('jutro o 15:00');
+      expect(rehydrated.subtasks[0].title).toBe('Przygotować dokumenty dla Dr. Anna Nowak');
     });
   });
 });

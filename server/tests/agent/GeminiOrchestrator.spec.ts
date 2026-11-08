@@ -77,10 +77,18 @@ describe('GeminiOrchestrator', () => {
         'HIGH',
         'URGENT'
       ]);
+
+      // Smart metadata schema verification conforming to contracts.md Section 4.2
+      expect((GEMINI_TASK_SCHEMA.properties as any).location).toEqual({ type: 'STRING', nullable: true });
+      expect((GEMINI_TASK_SCHEMA.properties as any).contactPerson).toEqual({ type: 'STRING', nullable: true });
+      expect((GEMINI_TASK_SCHEMA.properties as any).amount).toEqual({ type: 'STRING', nullable: true });
+      expect((GEMINI_TASK_SCHEMA.properties as any).scheduledTime).toEqual({ type: 'STRING', nullable: true });
     });
 
     it('should include explicit PII token preservation directives in SYSTEM_INSTRUCTION', () => {
       expect(SYSTEM_INSTRUCTION).toContain('preserve all synthetic PII tokens');
+      expect(SYSTEM_INSTRUCTION).toContain('[NATIONAL_ID_1]');
+      expect(SYSTEM_INSTRUCTION).toContain('[HEALTH_DATA_1]');
       expect(SYSTEM_INSTRUCTION).toContain('<user_memo>');
     });
   });
