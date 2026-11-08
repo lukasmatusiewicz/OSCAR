@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  DecryptedTaskPayload,
-  TaskEntity,
-  TaskPriority,
-  TaskStatus
-} from '../../types/contracts';
+import { DecryptedTaskPayload, TaskEntity, TaskPriority, TaskStatus } from '../../types/contracts';
 import { Badge } from '../atoms/Badge';
 import { Button } from '../atoms/Button';
 import { CategoryBadge } from '../molecules/CategoryBadge';
@@ -27,7 +22,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onStatusChange,
   onPriorityChange,
   onSubtaskToggle,
-  className = ''
+  className = '',
 }) => {
   const isDraft = task.status === 'DRAFT';
   const isCompleted = task.status === 'COMPLETED';
@@ -37,7 +32,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     PENDING: { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
     IN_PROGRESS: { bg: '#f3e8ff', text: '#7e22ce', border: '#e9d5ff' },
     COMPLETED: { bg: '#dcfce7', text: '#15803d', border: '#bbf7d0' },
-    CANCELLED: { bg: '#f1f5f9', text: '#64748b', border: '#cbd5e1' }
+    CANCELLED: { bg: '#f1f5f9', text: '#64748b', border: '#cbd5e1' },
   };
 
   const currentStatusStyle = statusColors[task.status] || statusColors.PENDING;
@@ -51,16 +46,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         borderRadius: '12px',
         border: `1px solid ${isDraft ? '#f59e0b' : '#e2e8f0'}`,
         padding: '1.25rem',
-        boxShadow: isDraft ? '0 0 0 1px #f59e0b, 0 2px 4px rgba(245, 158, 11, 0.1)' : '0 1px 3px rgba(0,0,0,0.05)',
+        boxShadow: isDraft
+          ? '0 0 0 1px #f59e0b, 0 2px 4px rgba(245, 158, 11, 0.1)'
+          : '0 1px 3px rgba(0,0,0,0.05)',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.875rem',
         transition: 'all 0.2s ease',
-        opacity: isCompleted ? 0.75 : 1
+        opacity: isCompleted ? 0.75 : 1,
       }}
     >
       {/* Header bar: Category, Priority, Status, Provenance */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <CategoryBadge category={task.category} />
           <PrioritySelector
@@ -80,7 +85,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               fontWeight: 700,
               backgroundColor: currentStatusStyle.bg,
               color: currentStatusStyle.text,
-              border: `1px solid ${currentStatusStyle.border}`
+              border: `1px solid ${currentStatusStyle.border}`,
             }}
           >
             {task.status}
@@ -93,7 +98,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               borderRadius: '4px',
               backgroundColor: '#f1f5f9',
               color: '#475569',
-              fontWeight: 500
+              fontWeight: 500,
             }}
           >
             🤖 {task.provenance === 'GEMINI_FLASH' ? 'Gemini 2.5' : 'Fallback Engine'}
@@ -114,10 +119,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             justifyContent: 'space-between',
             alignItems: 'center',
             fontSize: '0.8125rem',
-            color: '#92400e'
+            color: '#92400e',
           }}
         >
-          <span>⚖️ <strong>Human Oversight Required:</strong> Review AI-extracted task before confirming.</span>
+          <span>
+            ⚖️ <strong>Human Oversight Required:</strong> Review AI-extracted task before
+            confirming.
+          </span>
           <div style={{ display: 'flex', gap: '0.35rem' }}>
             <Button
               size="sm"
@@ -147,7 +155,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             fontSize: '1.125rem',
             fontWeight: 700,
             color: '#0f172a',
-            textDecoration: isCompleted ? 'line-through' : 'none'
+            textDecoration: isCompleted ? 'line-through' : 'none',
           }}
         >
           {isDecrypted && decryptedPayload ? decryptedPayload.title : '🔒 Encrypted Task Content'}
@@ -157,56 +165,97 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             margin: 0,
             fontSize: '0.875rem',
             color: '#475569',
-            lineHeight: 1.5
+            lineHeight: 1.5,
           }}
         >
-          {isDecrypted && decryptedPayload ? decryptedPayload.summary : 'Encrypted with AES-256-GCM. Active session key required to view cleartext.'}
+          {isDecrypted && decryptedPayload
+            ? decryptedPayload.summary
+            : 'Encrypted with AES-256-GCM. Active session key required to view cleartext.'}
         </p>
       </div>
 
       {/* Subtasks Checklist */}
-      {isDecrypted && decryptedPayload && decryptedPayload.subtasks && decryptedPayload.subtasks.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
-          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>
-            Action Checklist ({decryptedPayload.subtasks.filter(s => s.completed).length}/{decryptedPayload.subtasks.length}):
-          </span>
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            {decryptedPayload.subtasks.map((subtask, index) => (
-              <li
-                key={`${task.id}-subtask-${index}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.8125rem',
-                  color: subtask.completed ? '#94a3b8' : '#1e293b',
-                  textDecoration: subtask.completed ? 'line-through' : 'none'
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={subtask.completed}
-                  onChange={(e) => onSubtaskToggle?.(task.id, index, e.target.checked)}
-                  aria-label={subtask.title}
-                  style={{ cursor: 'pointer', accentColor: '#2563eb' }}
-                />
-                <span>{subtask.title}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {isDecrypted &&
+        decryptedPayload &&
+        decryptedPayload.subtasks &&
+        decryptedPayload.subtasks.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.35rem',
+              marginTop: '0.25rem',
+            }}
+          >
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>
+              Action Checklist ({decryptedPayload.subtasks.filter((s) => s.completed).length}/
+              {decryptedPayload.subtasks.length}):
+            </span>
+            <ul
+              style={{
+                listStyle: 'none',
+                margin: 0,
+                padding: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.25rem',
+              }}
+            >
+              {decryptedPayload.subtasks.map((subtask, index) => (
+                <li
+                  key={`${task.id}-subtask-${index}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.8125rem',
+                    color: subtask.completed ? '#94a3b8' : '#1e293b',
+                    textDecoration: subtask.completed ? 'line-through' : 'none',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={subtask.completed}
+                    onChange={(e) => onSubtaskToggle?.(task.id, index, e.target.checked)}
+                    aria-label={subtask.title}
+                    style={{ cursor: 'pointer', accentColor: '#2563eb' }}
+                  />
+                  <span>{subtask.title}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
       {/* Footer: Tags, Scheduled Date, Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '0.75rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+          borderTop: '1px solid #f1f5f9',
+          paddingTop: '0.75rem',
+        }}
+      >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', alignItems: 'center' }}>
-          {task.tags && task.tags.map((tag) => (
-            <Badge key={tag} variant="outline" size="sm">
-              #{tag}
-            </Badge>
-          ))}
+          {task.tags &&
+            task.tags.map((tag) => (
+              <Badge key={tag} variant="outline" size="sm">
+                #{tag}
+              </Badge>
+            ))}
           {task.scheduledDate && (
-            <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                color: '#64748b',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+              }}
+            >
               📅 {new Date(task.scheduledDate).toLocaleDateString()}
             </span>
           )}

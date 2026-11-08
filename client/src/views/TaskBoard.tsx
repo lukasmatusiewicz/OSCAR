@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  DecryptedTaskPayload,
-  TaskEntity,
-  TaskPriority,
-  TaskStatus
-} from '../types/contracts';
+import { DecryptedTaskPayload, TaskEntity, TaskPriority, TaskStatus } from '../types/contracts';
 import { TaskCard } from '../components/organisms/TaskCard';
 
 export interface TaskBoardProps {
@@ -24,13 +19,13 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   onStatusChange,
   onPriorityChange,
   onSubtaskToggle,
-  className = ''
+  className = '',
 }) => {
   const columns: { status: TaskStatus; title: string; color: string; badgeBg: string }[] = [
     { status: 'DRAFT', title: '⚖️ Review (Drafts)', color: '#b45309', badgeBg: '#fef3c7' },
     { status: 'PENDING', title: '📋 Active Backlog', color: '#1d4ed8', badgeBg: '#eff6ff' },
     { status: 'IN_PROGRESS', title: '⚡ In Progress', color: '#7e22ce', badgeBg: '#f3e8ff' },
-    { status: 'COMPLETED', title: '✅ Done', color: '#15803d', badgeBg: '#dcfce7' }
+    { status: 'COMPLETED', title: '✅ Done', color: '#15803d', badgeBg: '#dcfce7' },
   ];
 
   return (
@@ -43,7 +38,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
         padding: '1rem',
         maxWidth: '1440px',
         margin: '0 auto',
-        alignItems: 'start'
+        alignItems: 'start',
       }}
     >
       {columns.map((col) => {
@@ -60,11 +55,19 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
               display: 'flex',
               flexDirection: 'column',
               gap: '0.75rem',
-              minHeight: '400px'
+              minHeight: '400px',
             }}
           >
             {/* Column Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid #e2e8f0' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingBottom: '0.5rem',
+                borderBottom: '1px solid #e2e8f0',
+              }}
+            >
               <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 700, color: '#1e293b' }}>
                 {col.title}
               </h3>
@@ -75,7 +78,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                   padding: '0.15rem 0.5rem',
                   borderRadius: '9999px',
                   backgroundColor: col.badgeBg,
-                  color: col.color
+                  color: col.color,
                 }}
               >
                 {colTasks.length}
@@ -85,7 +88,14 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             {/* Task list in column */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {colTasks.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2rem 0.5rem', color: '#94a3b8', fontSize: '0.8125rem' }}>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '2rem 0.5rem',
+                    color: '#94a3b8',
+                    fontSize: '0.8125rem',
+                  }}
+                >
                   No tasks
                 </div>
               ) : (

@@ -8,7 +8,9 @@ export class InvalidKeyError extends Error {
 }
 
 export class DecryptionError extends Error {
-  constructor(message = 'Failed to decrypt payload: authentication tag mismatch or corrupted ciphertext') {
+  constructor(
+    message = 'Failed to decrypt payload: authentication tag mismatch or corrupted ciphertext',
+  ) {
     super(message);
     this.name = 'DecryptionError';
   }
@@ -44,7 +46,7 @@ export class EncryptionService {
    */
   public static async withSessionKey<R>(
     keyBuffer: Uint8Array,
-    fn: (key: Uint8Array) => Promise<R>
+    fn: (key: Uint8Array) => Promise<R>,
   ): Promise<R> {
     try {
       return await fn(keyBuffer);
@@ -76,7 +78,7 @@ export class EncryptionService {
 
     if (raw.byteLength !== this.KEY_LENGTH_BYTES) {
       throw new InvalidKeyError(
-        `Invalid key length: expected ${this.KEY_LENGTH_BYTES} bytes, got ${raw.byteLength} bytes`
+        `Invalid key length: expected ${this.KEY_LENGTH_BYTES} bytes, got ${raw.byteLength} bytes`,
       );
     }
 
@@ -88,14 +90,14 @@ export class EncryptionService {
    */
   private static async importCryptoKey(
     keyBytes: Uint8Array,
-    usages: KeyUsage[]
+    usages: KeyUsage[],
   ): Promise<CryptoKey> {
     return await globalThis.crypto.subtle.importKey(
       'raw',
       keyBytes as unknown as BufferSource,
       { name: this.ALGORITHM },
       false,
-      usages
+      usages,
     );
   }
 
@@ -105,7 +107,7 @@ export class EncryptionService {
   public static async encrypt<T = unknown>(
     data: T,
     key: Uint8Array | string,
-    keyId = 'v1'
+    keyId = 'v1',
   ): Promise<EncryptedPayload> {
     const rawKey = this.normalizeKey(key);
     const cryptoKey = await this.importCryptoKey(rawKey, ['encrypt']);
@@ -122,10 +124,10 @@ export class EncryptionService {
       {
         name: this.ALGORITHM,
         iv: iv as unknown as BufferSource,
-        tagLength: this.TAG_LENGTH_BITS
+        tagLength: this.TAG_LENGTH_BITS,
       },
       cryptoKey,
-      encodedData as unknown as BufferSource
+      encodedData as unknown as BufferSource,
     );
 
     const encryptedBytes = new Uint8Array(encryptedBuffer);
@@ -137,7 +139,7 @@ export class EncryptionService {
       ciphertext: Buffer.from(ciphertextBytes).toString('base64'),
       iv: Buffer.from(iv).toString('base64'),
       authTag: Buffer.from(authTagBytes).toString('base64'),
-      keyId
+      keyId,
     };
 
     return EncryptedPayloadSchema.parse(payload);
@@ -148,7 +150,7 @@ export class EncryptionService {
    */
   public static async decrypt<T = unknown>(
     payload: EncryptedPayload,
-    key: Uint8Array | string
+    key: Uint8Array | string,
   ): Promise<T> {
     // Validate payload schema structure
     const validated = EncryptedPayloadSchema.parse(payload);
@@ -164,7 +166,9 @@ export class EncryptionService {
     }
 
     if (authTag.byteLength !== this.TAG_LENGTH_BITS / 8) {
-      throw new DecryptionError(`Invalid authTag length: expected ${this.TAG_LENGTH_BITS / 8} bytes`);
+      throw new DecryptionError(
+        `Invalid authTag length: expected ${this.TAG_LENGTH_BITS / 8} bytes`,
+      );
     }
 
     // Reconstruct combined WebCrypto buffer: [ciphertext, authTag]
@@ -177,17 +181,17 @@ export class EncryptionService {
         {
           name: this.ALGORITHM,
           iv: iv as unknown as BufferSource,
-          tagLength: this.TAG_LENGTH_BITS
+          tagLength: this.TAG_LENGTH_BITS,
         },
         cryptoKey,
-        combined as unknown as BufferSource
+        combined as unknown as BufferSource,
       );
 
       const jsonString = new TextDecoder().decode(decryptedBuffer);
       return JSON.parse(jsonString) as T;
     } catch (err: unknown) {
       throw new DecryptionError(
-        err instanceof Error ? err.message : 'Decryption authentication tag verification failed'
+        err instanceof Error ? err.message : 'Decryption authentication tag verification failed',
       );
     }
   }

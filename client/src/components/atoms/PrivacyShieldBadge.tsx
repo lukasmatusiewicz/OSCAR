@@ -14,7 +14,7 @@ export const PrivacyShieldBadge: React.FC<PrivacyShieldBadgeProps> = ({
   isSecured = true,
   tokenCount = 0,
   className = '',
-  onClick
+  onClick,
 }) => {
   const getRiskColor = (level: RiskLevel) => {
     switch (level) {
@@ -25,7 +25,12 @@ export const PrivacyShieldBadge: React.FC<PrivacyShieldBadgeProps> = ({
       case 'MEDIUM':
         return { bg: '#fffbeb', text: '#b45309', border: '#fde68a', label: 'Sanitized' };
       case 'HIGH':
-        return { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca', label: 'High Privacy Sensitivity' };
+        return {
+          bg: '#fef2f2',
+          text: '#b91c1c',
+          border: '#fecaca',
+          label: 'High Privacy Sensitivity',
+        };
       default:
         return { bg: '#f1f5f9', text: '#334155', border: '#cbd5e1', label: 'Shield Active' };
     }
@@ -52,7 +57,7 @@ export const PrivacyShieldBadge: React.FC<PrivacyShieldBadgeProps> = ({
         fontWeight: 600,
         cursor: onClick ? 'pointer' : 'default',
         transition: 'all 0.2s ease',
-        userSelect: 'none'
+        userSelect: 'none',
       }}
     >
       <span aria-hidden="true" style={{ fontSize: '0.875rem' }}>
@@ -68,7 +73,7 @@ export const PrivacyShieldBadge: React.FC<PrivacyShieldBadgeProps> = ({
             borderRadius: '9999px',
             padding: '0.05rem 0.35rem',
             fontSize: '0.6875rem',
-            fontWeight: 700
+            fontWeight: 700,
           }}
         >
           {tokenCount}

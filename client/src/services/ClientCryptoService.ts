@@ -8,14 +8,18 @@ export class InvalidKeyError extends Error {
 }
 
 export class DecryptionError extends Error {
-  constructor(message = 'Failed to decrypt payload: authentication tag mismatch or corrupted ciphertext') {
+  constructor(
+    message = 'Failed to decrypt payload: authentication tag mismatch or corrupted ciphertext',
+  ) {
     super(message);
     this.name = 'DecryptionError';
   }
 }
 
 export class NoActiveKeyError extends Error {
-  constructor(message = 'No active encryption key found in session KEY_STORE. Please login or initialize a key.') {
+  constructor(
+    message = 'No active encryption key found in session KEY_STORE. Please login or initialize a key.',
+  ) {
     super(message);
     this.name = 'NoActiveKeyError';
   }
@@ -76,7 +80,8 @@ export class ClientCryptoService {
    * Generates a cryptographically secure random 256-bit (32-byte) key.
    */
   public static generateKey(): Uint8Array {
-    const cryptoObj = globalThis.crypto || (typeof window !== 'undefined' ? window.crypto : undefined);
+    const cryptoObj =
+      globalThis.crypto || (typeof window !== 'undefined' ? window.crypto : undefined);
     if (!cryptoObj) {
       throw new Error('WebCrypto API is not supported in this runtime environment');
     }
@@ -117,7 +122,7 @@ export class ClientCryptoService {
 
     if (raw.byteLength !== this.KEY_LENGTH_BYTES) {
       throw new InvalidKeyError(
-        `Invalid key length: expected ${this.KEY_LENGTH_BYTES} bytes, got ${raw.byteLength} bytes`
+        `Invalid key length: expected ${this.KEY_LENGTH_BYTES} bytes, got ${raw.byteLength} bytes`,
       );
     }
 
@@ -129,9 +134,10 @@ export class ClientCryptoService {
    */
   private static async importCryptoKey(
     keyBytes: Uint8Array,
-    usages: KeyUsage[]
+    usages: KeyUsage[],
   ): Promise<CryptoKey> {
-    const cryptoObj = globalThis.crypto || (typeof window !== 'undefined' ? window.crypto : undefined);
+    const cryptoObj =
+      globalThis.crypto || (typeof window !== 'undefined' ? window.crypto : undefined);
     if (!cryptoObj?.subtle) {
       throw new Error('WebCrypto subtle API is not available');
     }
@@ -140,7 +146,7 @@ export class ClientCryptoService {
       keyBytes as unknown as BufferSource,
       { name: this.ALGORITHM },
       false,
-      usages
+      usages,
     );
   }
 
@@ -166,7 +172,7 @@ export class ClientCryptoService {
    * Checks whether an active session key exists in KEY_STORE.
    */
   public static hasSessionKey(): boolean {
-    return this.KEY_STORE !== null && this.KEY_STORE.some(byte => byte !== 0);
+    return this.KEY_STORE !== null && this.KEY_STORE.some((byte) => byte !== 0);
   }
 
   /**
@@ -204,7 +210,7 @@ export class ClientCryptoService {
   public static async encrypt<T = unknown>(
     data: T,
     key?: Uint8Array | string,
-    keyId = 'v1'
+    keyId = 'v1',
   ): Promise<EncryptedPayload> {
     const rawKey = key ? this.normalizeKey(key) : this.KEY_STORE;
     if (!rawKey) {
@@ -212,7 +218,8 @@ export class ClientCryptoService {
     }
 
     const cryptoKey = await this.importCryptoKey(rawKey, ['encrypt']);
-    const cryptoObj = globalThis.crypto || (typeof window !== 'undefined' ? window.crypto : undefined)!;
+    const cryptoObj =
+      globalThis.crypto || (typeof window !== 'undefined' ? window.crypto : undefined)!;
 
     // Generate random 96-bit (12-byte) IV
     const iv = cryptoObj.getRandomValues(new Uint8Array(this.IV_LENGTH_BYTES));
@@ -226,10 +233,10 @@ export class ClientCryptoService {
       {
         name: this.ALGORITHM,
         iv: iv as unknown as BufferSource,
-        tagLength: this.TAG_LENGTH_BITS
+        tagLength: this.TAG_LENGTH_BITS,
       },
       cryptoKey,
-      encodedData as unknown as BufferSource
+      encodedData as unknown as BufferSource,
     );
 
     const encryptedBytes = new Uint8Array(encryptedBuffer);
@@ -241,7 +248,7 @@ export class ClientCryptoService {
       ciphertext: toBase64(ciphertextBytes),
       iv: toBase64(iv),
       authTag: toBase64(authTagBytes),
-      keyId
+      keyId,
     };
 
     return EncryptedPayloadSchema.parse(payload);
@@ -253,7 +260,7 @@ export class ClientCryptoService {
    */
   public static async decrypt<T = unknown>(
     payload: EncryptedPayload,
-    key?: Uint8Array | string
+    key?: Uint8Array | string,
   ): Promise<T> {
     const validated = EncryptedPayloadSchema.parse(payload);
     const rawKey = key ? this.normalizeKey(key) : this.KEY_STORE;
@@ -262,7 +269,8 @@ export class ClientCryptoService {
     }
 
     const cryptoKey = await this.importCryptoKey(rawKey, ['decrypt']);
-    const cryptoObj = globalThis.crypto || (typeof window !== 'undefined' ? window.crypto : undefined)!;
+    const cryptoObj =
+      globalThis.crypto || (typeof window !== 'undefined' ? window.crypto : undefined)!;
 
     const iv = fromBase64(validated.iv);
     const ciphertext = fromBase64(validated.ciphertext);
@@ -273,7 +281,9 @@ export class ClientCryptoService {
     }
 
     if (authTag.byteLength !== this.TAG_LENGTH_BITS / 8) {
-      throw new DecryptionError(`Invalid authTag length: expected ${this.TAG_LENGTH_BITS / 8} bytes`);
+      throw new DecryptionError(
+        `Invalid authTag length: expected ${this.TAG_LENGTH_BITS / 8} bytes`,
+      );
     }
 
     // Reconstruct combined WebCrypto buffer: [ciphertext, authTag]
@@ -286,17 +296,17 @@ export class ClientCryptoService {
         {
           name: this.ALGORITHM,
           iv: iv as unknown as BufferSource,
-          tagLength: this.TAG_LENGTH_BITS
+          tagLength: this.TAG_LENGTH_BITS,
         },
         cryptoKey,
-        combined as unknown as BufferSource
+        combined as unknown as BufferSource,
       );
 
       const jsonString = new TextDecoder().decode(decryptedBuffer);
       return JSON.parse(jsonString) as T;
     } catch (err: unknown) {
       throw new DecryptionError(
-        err instanceof Error ? err.message : 'Decryption authentication tag verification failed'
+        err instanceof Error ? err.message : 'Decryption authentication tag verification failed',
       );
     }
   }
@@ -322,11 +332,18 @@ export class ClientCryptoService {
     ClientCryptoService.logout();
   }
 
-  public async encrypt<T = unknown>(data: T, key?: Uint8Array | string, keyId = 'v1'): Promise<EncryptedPayload> {
+  public async encrypt<T = unknown>(
+    data: T,
+    key?: Uint8Array | string,
+    keyId = 'v1',
+  ): Promise<EncryptedPayload> {
     return ClientCryptoService.encrypt<T>(data, key, keyId);
   }
 
-  public async decrypt<T = unknown>(payload: EncryptedPayload, key?: Uint8Array | string): Promise<T> {
+  public async decrypt<T = unknown>(
+    payload: EncryptedPayload,
+    key?: Uint8Array | string,
+  ): Promise<T> {
     return ClientCryptoService.decrypt<T>(payload, key);
   }
 }

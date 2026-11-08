@@ -3,7 +3,7 @@ import {
   ExtractedTask,
   ExtractedTaskSchema,
   AIProvenance,
-  validateContract
+  validateContract,
 } from '../types/contracts.js';
 import { RateLimiter } from '../gateway/RateLimiter.js';
 import { DeterministicFallbackExtractor } from './DeterministicFallbackExtractor.js';
@@ -15,17 +15,17 @@ export const GEMINI_TASK_SCHEMA = {
     summary: { type: 'STRING', minLength: 5, maxLength: 500 },
     category: {
       type: 'STRING',
-      enum: ['WORK', 'INTERVIEW_PREP', 'FINANCE', 'PERSONAL', 'HEALTH', 'OTHER']
+      enum: ['WORK', 'INTERVIEW_PREP', 'FINANCE', 'PERSONAL', 'HEALTH', 'OTHER'],
     },
     priority: {
       type: 'STRING',
-      enum: ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
+      enum: ['LOW', 'MEDIUM', 'HIGH', 'URGENT'],
     },
     scheduledDate: { type: 'STRING', nullable: true },
     tags: {
       type: 'ARRAY',
       items: { type: 'STRING', minLength: 1, maxLength: 30 },
-      maxItems: 8
+      maxItems: 8,
     },
     subtasks: {
       type: 'ARRAY',
@@ -35,13 +35,13 @@ export const GEMINI_TASK_SCHEMA = {
         type: 'OBJECT',
         properties: {
           title: { type: 'STRING', minLength: 1, maxLength: 200 },
-          completed: { type: 'BOOLEAN' }
+          completed: { type: 'BOOLEAN' },
         },
-        required: ['title', 'completed']
-      }
-    }
+        required: ['title', 'completed'],
+      },
+    },
   },
-  required: ['title', 'summary', 'category', 'priority', 'scheduledDate', 'tags', 'subtasks']
+  required: ['title', 'summary', 'category', 'priority', 'scheduledDate', 'tags', 'subtasks'],
 };
 
 export const SYSTEM_INSTRUCTION =
@@ -62,11 +62,17 @@ export interface OrchestratorResult {
   modelVersion: string;
 }
 
+export interface GenAiClientLike {
+  models: {
+    generateContent: (params: unknown) => Promise<{ text?: string | null }>;
+  };
+}
+
 export interface GeminiOrchestratorOptions {
   apiKey?: string;
   model?: string;
   rateLimiter?: RateLimiter;
-  genAiClient?: GoogleGenAI | any;
+  genAiClient?: GoogleGenAI | GenAiClientLike;
 }
 
 /**
@@ -74,7 +80,7 @@ export interface GeminiOrchestratorOptions {
  * Incorporates token-bucket rate limiting, 8,000ms SLA timeouts, and deterministic fallback.
  */
 export class GeminiOrchestrator {
-  private readonly client: GoogleGenAI | any | null = null;
+  private readonly client: GoogleGenAI | GenAiClientLike | null = null;
   private readonly model: string;
   private readonly rateLimiter: RateLimiter;
 
@@ -98,9 +104,10 @@ export class GeminiOrchestrator {
    */
   public async extractTask(
     memoText: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal },
   ): Promise<OrchestratorResult> {
-    if (!this.client) {
+    const client = this.client;
+    if (!client) {
       return DeterministicFallbackExtractor.extractWithMetadata(memoText);
     }
 
@@ -108,15 +115,15 @@ export class GeminiOrchestrator {
       return await this.rateLimiter.execute(async (signal) => {
         const prompt = sanitizeForPrompt(memoText);
 
-        const response = await this.client.models.generateContent({
+        const response = await client.models.generateContent({
           model: this.model,
           contents: prompt,
           config: {
             systemInstruction: SYSTEM_INSTRUCTION,
             responseMimeType: 'application/json',
             responseSchema: GEMINI_TASK_SCHEMA,
-            abortSignal: signal
-          }
+            abortSignal: signal,
+          },
         });
 
         const text = response?.text;
@@ -129,14 +136,14 @@ export class GeminiOrchestrator {
 
         if (!validation.success) {
           throw new Error(
-            `Gemini response does not satisfy ExtractedTaskSchema: ${validation.errors.message}`
+            `Gemini response does not satisfy ExtractedTaskSchema: ${validation.errors.message}`,
           );
         }
 
         return {
           task: validation.data,
           provenance: 'GEMINI_FLASH' as const,
-          modelVersion: this.model
+          modelVersion: this.model,
         };
       }, options?.signal);
     } catch {

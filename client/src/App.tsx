@@ -10,21 +10,11 @@ import { ClientCryptoService } from './services/ClientCryptoService';
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'board'>('dashboard');
 
-  const {
-    tasks,
-    decryptedPayloads,
-    updateTaskStatus,
-    updateTaskPriority,
-    toggleSubtask
-  } = useTasks();
+  const { tasks, decryptedPayloads, updateTaskStatus, updateTaskPriority, toggleSubtask } =
+    useTasks();
 
-  const {
-    hasActiveKey,
-    sessionRiskLevel,
-    totalTokensMasked,
-    logoutAndZeroKey,
-    initializeKey
-  } = usePrivacyShield();
+  const { hasActiveKey, sessionRiskLevel, totalTokensMasked, logoutAndZeroKey, initializeKey } =
+    usePrivacyShield();
 
   useEffect(() => {
     // Automatically initialize ephemeral session key on app launch
@@ -34,7 +24,15 @@ export const App: React.FC = () => {
   }, [initializeKey]);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', color: '#0f172a', display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: '#f8fafc',
+        color: '#0f172a',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       {/* Top Application Header */}
       <header
         style={{
@@ -44,14 +42,35 @@ export const App: React.FC = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: '1.25rem',
+                fontWeight: 800,
+                color: '#0f172a',
+                letterSpacing: '-0.02em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
+            >
               🎙️ OSCAR
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#2563eb', backgroundColor: '#eff6ff', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #bfdbfe' }}>
+              <span
+                style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  color: '#2563eb',
+                  backgroundColor: '#eff6ff',
+                  padding: '0.1rem 0.4rem',
+                  borderRadius: '4px',
+                  border: '1px solid #bfdbfe',
+                }}
+              >
                 CLIENT ENCLAVE
               </span>
             </h1>
@@ -61,7 +80,16 @@ export const App: React.FC = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <nav role="tablist" style={{ display: 'flex', gap: '0.25rem', backgroundColor: '#f1f5f9', padding: '0.2rem', borderRadius: '8px' }}>
+          <nav
+            role="tablist"
+            style={{
+              display: 'flex',
+              gap: '0.25rem',
+              backgroundColor: '#f1f5f9',
+              padding: '0.2rem',
+              borderRadius: '8px',
+            }}
+          >
             <button
               role="tab"
               aria-selected={activeTab === 'dashboard'}
@@ -75,7 +103,7 @@ export const App: React.FC = () => {
                 borderRadius: '6px',
                 fontSize: '0.8125rem',
                 cursor: 'pointer',
-                boxShadow: activeTab === 'dashboard' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                boxShadow: activeTab === 'dashboard' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
               }}
             >
               Dashboard
@@ -93,7 +121,7 @@ export const App: React.FC = () => {
                 borderRadius: '6px',
                 fontSize: '0.8125rem',
                 cursor: 'pointer',
-                boxShadow: activeTab === 'board' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                boxShadow: activeTab === 'board' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
               }}
             >
               Task Board
@@ -156,10 +184,11 @@ export const App: React.FC = () => {
           padding: '0.75rem 1.5rem',
           textAlign: 'center',
           fontSize: '0.75rem',
-          color: '#94a3b8'
+          color: '#94a3b8',
         }}
       >
-        OSCAR Confidential Computing • Zero Cleartext PII to Cloud • EU AI Act Articles 13 & 14 Human Oversight Compliant
+        OSCAR Confidential Computing • Zero Cleartext PII to Cloud • EU AI Act Articles 13 & 14
+        Human Oversight Compliant
       </footer>
     </div>
   );

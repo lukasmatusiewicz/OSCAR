@@ -12,10 +12,13 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
   value,
   onChange,
   placeholder = 'Search tasks or tags...',
-  className = ''
+  className = '',
 }) => {
   return (
-    <div className={`oscar-search-box ${className}`.trim()} style={{ position: 'relative', width: '100%' }}>
+    <div
+      className={`oscar-search-box ${className}`.trim()}
+      style={{ position: 'relative', width: '100%' }}
+    >
       <Input
         type="search"
         placeholder={placeholder}
@@ -24,7 +27,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
         onClear={() => onChange('')}
         aria-label="Search"
         style={{
-          paddingLeft: '2rem'
+          paddingLeft: '2rem',
         }}
       />
       <span
@@ -36,7 +39,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
           transform: 'translateY(-50%)',
           color: '#94a3b8',
           fontSize: '0.875rem',
-          pointerEvents: 'none'
+          pointerEvents: 'none',
         }}
       >
         🔍

@@ -4,7 +4,7 @@ import {
   TaskCategory,
   TaskEntity,
   TaskPriority,
-  TaskStatus
+  TaskStatus,
 } from '../../types/contracts';
 import { Button } from '../atoms/Button';
 import { SearchBox } from '../molecules/SearchBox';
@@ -27,7 +27,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   onStatusChange,
   onPriorityChange,
   onSubtaskToggle,
-  className = ''
+  className = '',
 }) => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory | 'ALL'>('ALL');
@@ -48,7 +48,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         const payload = decryptedPayloads[t.id];
         const titleMatch = payload?.title?.toLowerCase().includes(query) ?? false;
         const summaryMatch = payload?.summary?.toLowerCase().includes(query) ?? false;
-        const tagMatch = t.tags?.some(tag => tag.toLowerCase().includes(query)) ?? false;
+        const tagMatch = t.tags?.some((tag) => tag.toLowerCase().includes(query)) ?? false;
         if (!titleMatch && !summaryMatch && !tagMatch) return false;
       }
       return true;
@@ -62,7 +62,7 @@ export const TaskList: React.FC<TaskListProps> = ({
     'FINANCE',
     'PERSONAL',
     'HEALTH',
-    'OTHER'
+    'OTHER',
   ];
 
   const statuses: (TaskStatus | 'ALL')[] = [
@@ -71,11 +71,14 @@ export const TaskList: React.FC<TaskListProps> = ({
     'PENDING',
     'IN_PROGRESS',
     'COMPLETED',
-    'CANCELLED'
+    'CANCELLED',
   ];
 
   return (
-    <section className={`oscar-task-list ${className}`.trim()} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <section
+      className={`oscar-task-list ${className}`.trim()}
+      style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+    >
       {/* Search & Filter Header */}
       <div
         style={{
@@ -86,7 +89,7 @@ export const TaskList: React.FC<TaskListProps> = ({
           borderRadius: '10px',
           padding: '1rem',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         }}
       >
         <SearchBox
@@ -95,7 +98,15 @@ export const TaskList: React.FC<TaskListProps> = ({
           placeholder="Search decrypted tasks by keyword or #tag..."
         />
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', fontSize: '0.8125rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            alignItems: 'center',
+            fontSize: '0.8125rem',
+          }}
+        >
           {/* Status filter buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600, color: '#64748b' }}>Status:</span>
@@ -113,7 +124,7 @@ export const TaskList: React.FC<TaskListProps> = ({
                   color: selectedStatus === s ? '#1d4ed8' : '#475569',
                   fontWeight: selectedStatus === s ? 700 : 500,
                   fontSize: '0.75rem',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
                 }}
               >
                 {s}
@@ -123,7 +134,9 @@ export const TaskList: React.FC<TaskListProps> = ({
 
           {/* Category filter select */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <label htmlFor="category-filter-select" style={{ fontWeight: 600, color: '#64748b' }}>Category:</label>
+            <label htmlFor="category-filter-select" style={{ fontWeight: 600, color: '#64748b' }}>
+              Category:
+            </label>
             <select
               id="category-filter-select"
               value={selectedCategory}
@@ -133,18 +146,22 @@ export const TaskList: React.FC<TaskListProps> = ({
                 borderRadius: '4px',
                 border: '1px solid #cbd5e1',
                 fontSize: '0.75rem',
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
               }}
             >
               {categories.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Priority filter select */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <label htmlFor="priority-filter-select" style={{ fontWeight: 600, color: '#64748b' }}>Priority:</label>
+            <label htmlFor="priority-filter-select" style={{ fontWeight: 600, color: '#64748b' }}>
+              Priority:
+            </label>
             <select
               id="priority-filter-select"
               value={selectedPriority}
@@ -154,7 +171,7 @@ export const TaskList: React.FC<TaskListProps> = ({
                 borderRadius: '4px',
                 border: '1px solid #cbd5e1',
                 fontSize: '0.75rem',
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
               }}
             >
               <option value="ALL">ALL</option>
@@ -165,7 +182,10 @@ export const TaskList: React.FC<TaskListProps> = ({
             </select>
           </div>
 
-          {(search || selectedCategory !== 'ALL' || selectedPriority !== 'ALL' || selectedStatus !== 'ALL') && (
+          {(search ||
+            selectedCategory !== 'ALL' ||
+            selectedPriority !== 'ALL' ||
+            selectedStatus !== 'ALL') && (
             <Button
               size="sm"
               variant="ghost"
@@ -183,7 +203,14 @@ export const TaskList: React.FC<TaskListProps> = ({
       </div>
 
       {/* Results Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.25rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '0 0.25rem',
+        }}
+      >
         <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, color: '#334155' }}>
           Tasks ({filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'} found)
         </h3>
@@ -199,10 +226,12 @@ export const TaskList: React.FC<TaskListProps> = ({
             border: '2px dashed #e2e8f0',
             padding: '2.5rem 1rem',
             textAlign: 'center',
-            color: '#64748b'
+            color: '#64748b',
           }}
         >
-          <p style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 500 }}>No tasks found matching your criteria.</p>
+          <p style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 500 }}>
+            No tasks found matching your criteria.
+          </p>
           <span style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>
             Compose a confidential memo above to extract actionable structured tasks.
           </span>

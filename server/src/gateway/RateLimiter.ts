@@ -162,7 +162,7 @@ export class RateLimiter {
    */
   public async execute<T>(
     operation: (signal: AbortSignal) => Promise<T>,
-    customSignal?: AbortSignal
+    customSignal?: AbortSignal,
   ): Promise<T> {
     const timeoutSignal = this.createTimeoutSignal();
     const effectiveSignal = customSignal
@@ -231,7 +231,7 @@ export class RateLimiter {
 
         if (this.isRetryableError(err)) {
           throw new RateLimitError(
-            err instanceof Error ? err.message : 'Upstream rate limit exhausted after retries'
+            err instanceof Error ? err.message : 'Upstream rate limit exhausted after retries',
           );
         }
 

@@ -20,16 +20,9 @@ export interface PrivacyAuditPanelProps {
 export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
   metrics,
   onLogoutAndZeroKey,
-  className = ''
+  className = '',
 }) => {
-  const piiTypes: PIIType[] = [
-    'SECRET_KEY',
-    'IBAN',
-    'EMAIL',
-    'PHONE',
-    'AMOUNT_MONEY',
-    'PERSON'
-  ];
+  const piiTypes: PIIType[] = ['SECRET_KEY', 'IBAN', 'EMAIL', 'PHONE', 'AMOUNT_MONEY', 'PERSON'];
 
   return (
     <aside
@@ -43,7 +36,7 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
         boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '1rem'
+        gap: '1rem',
       }}
     >
       {/* Header */}
@@ -71,16 +64,28 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
           borderRadius: '8px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.25rem'
+          gap: '0.25rem',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: metrics.hasActiveKey ? '#166534' : '#991b1b' }}>
+          <span
+            style={{
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              color: metrics.hasActiveKey ? '#166534' : '#991b1b',
+            }}
+          >
             {metrics.hasActiveKey ? '🟢 WebCrypto AES-256-GCM Active' : '🔴 No Active Session Key'}
           </span>
           <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Ephemeral Session</span>
         </div>
-        <p style={{ margin: 0, fontSize: '0.75rem', color: metrics.hasActiveKey ? '#15803d' : '#b91c1c' }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: '0.75rem',
+            color: metrics.hasActiveKey ? '#15803d' : '#b91c1c',
+          }}
+        >
           {metrics.hasActiveKey
             ? 'Sensitive task content is envelope-encrypted on-device before sync. Zero cleartext PII reaches Firestore.'
             : 'Key is not initialized or memory has been cleared.'}
@@ -89,14 +94,23 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
 
       {/* Masking Telemetry */}
       <div>
-        <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.8125rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <h4
+          style={{
+            margin: '0 0 0.5rem 0',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: '#475569',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}
+        >
           Masked PII Occurrences ({metrics.totalTokensMasked} Total)
         </h4>
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '0.5rem'
+            gap: '0.5rem',
           }}
         >
           {piiTypes.map((type) => {
@@ -112,7 +126,7 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
                   backgroundColor: '#f8fafc',
                   borderRadius: '6px',
                   border: '1px solid #f1f5f9',
-                  fontSize: '0.75rem'
+                  fontSize: '0.75rem',
                 }}
               >
                 <span style={{ color: '#475569', fontWeight: 500 }}>{type}</span>
@@ -120,7 +134,7 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
                   data-testid={`metric-${type.toLowerCase()}`}
                   style={{
                     fontWeight: 700,
-                    color: count > 0 ? '#2563eb' : '#94a3b8'
+                    color: count > 0 ? '#2563eb' : '#94a3b8',
                   }}
                 >
                   {count}
@@ -144,18 +158,36 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
             color: '#92400e',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
           }}
         >
-          <span>⚖️ <strong>Drafts Pending Review:</strong></span>
-          <span style={{ fontWeight: 700, backgroundColor: '#fef3c7', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+          <span>
+            ⚖️ <strong>Drafts Pending Review:</strong>
+          </span>
+          <span
+            style={{
+              fontWeight: 700,
+              backgroundColor: '#fef3c7',
+              padding: '0.1rem 0.4rem',
+              borderRadius: '4px',
+            }}
+          >
             {metrics.draftsAwaitingReviewCount}
           </span>
         </div>
       )}
 
       {/* Memory Zeroing Action */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid #f1f5f9' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem',
+          marginTop: 'auto',
+          paddingTop: '0.5rem',
+          borderTop: '1px solid #f1f5f9',
+        }}
+      >
         <Button
           variant="danger"
           size="sm"

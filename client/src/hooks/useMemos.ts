@@ -4,7 +4,7 @@ import {
   MemoEntity,
   PIITokenMap,
   TaskEntity,
-  DecryptedTaskPayload
+  DecryptedTaskPayload,
 } from '../types/contracts';
 import { ClientCryptoService } from '../services/ClientCryptoService';
 
@@ -42,7 +42,7 @@ export function useMemos(options?: UseMemosOptions) {
         // 2. Encrypt the raw cleartext with WebCrypto AES-256-GCM
         const encryptedPayload: EncryptedPayload = await ClientCryptoService.encrypt({
           rawContent,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
 
         // 3. Construct MemoEntity conformant with MemoEntitySchema
@@ -57,7 +57,7 @@ export function useMemos(options?: UseMemosOptions) {
           hasPII: tokens.length > 0,
           maskedFieldsCount: tokens.length,
           createdAt: nowIso,
-          updatedAt: nowIso
+          updatedAt: nowIso,
         };
 
         setMemos((prev) => [memoEntity, ...prev]);
@@ -67,15 +67,18 @@ export function useMemos(options?: UseMemosOptions) {
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         const firstLine = rawContent.split('\n')[0].trim();
         const title = firstLine.length > 5 ? firstLine.substring(0, 80) : 'Voice Memo Action Items';
-        const summary = rawContent.length > 10 ? rawContent.substring(0, 200) : 'Extracted action items from confidential voice recording.';
+        const summary =
+          rawContent.length > 10
+            ? rawContent.substring(0, 200)
+            : 'Extracted action items from confidential voice recording.';
 
         const decryptedTaskPayload: DecryptedTaskPayload = {
           title,
           summary,
           subtasks: [
             { title: 'Review memo details and verify parameters', completed: false },
-            { title: 'Follow up on referenced items securely', completed: false }
-          ]
+            { title: 'Follow up on referenced items securely', completed: false },
+          ],
         };
 
         const encryptedTaskPayload = await ClientCryptoService.encrypt(decryptedTaskPayload);
@@ -93,7 +96,7 @@ export function useMemos(options?: UseMemosOptions) {
           provenance: 'GEMINI_FLASH',
           modelVersion: 'gemini-2.5-flash-001',
           createdAt: nowIso,
-          updatedAt: nowIso
+          updatedAt: nowIso,
         };
 
         options?.onTaskCreated?.(taskEntity, decryptedTaskPayload);
@@ -107,13 +110,13 @@ export function useMemos(options?: UseMemosOptions) {
         setIsSubmitting(false);
       }
     },
-    [options]
+    [options],
   );
 
   return {
     memos,
     isSubmitting,
     error,
-    submitMemo
+    submitMemo,
   };
 }

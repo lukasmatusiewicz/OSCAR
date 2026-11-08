@@ -10,7 +10,9 @@ export interface PrivacyShieldState {
 }
 
 export function usePrivacyShield() {
-  const [hasActiveKey, setHasActiveKey] = useState<boolean>(() => ClientCryptoService.hasSessionKey());
+  const [hasActiveKey, setHasActiveKey] = useState<boolean>(() =>
+    ClientCryptoService.hasSessionKey(),
+  );
   const [totalTokensMasked, setTotalTokensMasked] = useState<number>(0);
   const [tokensByType, setTokensByType] = useState<Partial<Record<PIIType, number>>>({
     SECRET_KEY: 0,
@@ -18,7 +20,7 @@ export function usePrivacyShield() {
     EMAIL: 0,
     PHONE: 0,
     AMOUNT_MONEY: 0,
-    PERSON: 0
+    PERSON: 0,
   });
   const [sessionRiskLevel, setSessionRiskLevel] = useState<RiskLevel>('NONE');
 
@@ -51,7 +53,10 @@ export function usePrivacyShield() {
     setTokensByType((currentMap) => {
       const hasSecret = (currentMap.SECRET_KEY || 0) > 0;
       const financialCount = (currentMap.IBAN || 0) + (currentMap.AMOUNT_MONEY || 0);
-      const totalCount = Object.values(currentMap).reduce((acc: number, val) => acc + (val || 0), 0);
+      const totalCount = Object.values(currentMap).reduce(
+        (acc: number, val) => acc + (val || 0),
+        0,
+      );
 
       if (hasSecret || totalCount >= 8) {
         setSessionRiskLevel('HIGH');
@@ -84,6 +89,6 @@ export function usePrivacyShield() {
     recordMaskedTokens,
     logoutAndZeroKey,
     initializeKey,
-    refreshKeyState
+    refreshKeyState,
   };
 }

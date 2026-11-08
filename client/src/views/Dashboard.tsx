@@ -16,7 +16,7 @@ export interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({
   initialTasks = [],
   initialDecrypted = {},
-  className = ''
+  className = '',
 }) => {
   const {
     tasks,
@@ -26,7 +26,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     updateTaskPriority,
     toggleSubtask,
     clearDecryptedPayloads,
-    draftsCount
+    draftsCount,
   } = useTasks(initialTasks);
 
   const {
@@ -36,7 +36,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     sessionRiskLevel,
     recordMaskedTokens,
     logoutAndZeroKey,
-    initializeKey
+    initializeKey,
   } = usePrivacyShield();
 
   const { isSubmitting, submitMemo } = useMemos({
@@ -45,7 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     },
     onTokensDetected: (tokens) => {
       recordMaskedTokens(tokens);
-    }
+    },
   });
 
   const handleLogout = () => {
@@ -67,7 +67,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         maxWidth: '1280px',
         margin: '0 auto',
         padding: '1rem',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
       }}
     >
       {/* Main Content Area: MemoEditor + TaskList */}
@@ -83,13 +83,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
               border: '1px solid #fecaca',
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center'
+              alignItems: 'center',
             }}
           >
             <div>
-              <strong style={{ color: '#991b1b', display: 'block' }}>Ephemeral Key Memory Cleared</strong>
+              <strong style={{ color: '#991b1b', display: 'block' }}>
+                Ephemeral Key Memory Cleared
+              </strong>
               <span style={{ fontSize: '0.8125rem', color: '#b91c1c' }}>
-                Key buffer zeroed. Initialize a fresh session key to encrypt memos and decrypt sensitive tasks.
+                Key buffer zeroed. Initialize a fresh session key to encrypt memos and decrypt
+                sensitive tasks.
               </span>
             </div>
             <button
@@ -103,7 +106,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 padding: '0.4rem 0.8rem',
                 fontSize: '0.8125rem',
                 fontWeight: 600,
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               Generate Session Key
@@ -111,10 +114,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        <MemoEditor
-          onSubmit={submitMemo}
-          isLoading={isSubmitting}
-        />
+        <MemoEditor onSubmit={submitMemo} isLoading={isSubmitting} />
 
         <TaskList
           tasks={tasks}
@@ -135,7 +135,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               tokensByType,
               sessionRiskLevel,
               hasActiveKey,
-              draftsAwaitingReviewCount: draftsCount
+              draftsAwaitingReviewCount: draftsCount,
             }}
             onLogoutAndZeroKey={handleLogout}
           />

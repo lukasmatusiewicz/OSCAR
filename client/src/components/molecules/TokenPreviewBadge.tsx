@@ -13,13 +13,13 @@ const TYPE_CONFIG: Record<PIIType, { icon: string; label: string; color: string;
   EMAIL: { icon: '📧', label: 'Email', color: '#2563eb', bg: '#eff6ff' },
   PHONE: { icon: '📱', label: 'Phone', color: '#059669', bg: '#ecfdf5' },
   AMOUNT_MONEY: { icon: '💰', label: 'Amount', color: '#7c3aed', bg: '#f5f3ff' },
-  PERSON: { icon: '👤', label: 'Person', color: '#d97706', bg: '#fffbeb' }
+  PERSON: { icon: '👤', label: 'Person', color: '#d97706', bg: '#fffbeb' },
 };
 
 export const TokenPreviewBadge: React.FC<TokenPreviewBadgeProps> = ({
   token,
   type,
-  className = ''
+  className = '',
 }) => {
   const cfg = TYPE_CONFIG[type] || { icon: '🔒', label: type, color: '#475569', bg: '#f1f5f9' };
 
@@ -27,7 +27,7 @@ export const TokenPreviewBadge: React.FC<TokenPreviewBadgeProps> = ({
     <span
       role="note"
       aria-label={`Sanitized Token: ${token} (${cfg.label})`}
-      data-testid={`token-badge-${token.replace(/[\[\]]/g, '')}`}
+      data-testid={`token-badge-${token.replace(/[[\]]/g, '')}`}
       className={`oscar-token-badge ${className}`.trim()}
       style={{
         display: 'inline-flex',
@@ -41,7 +41,7 @@ export const TokenPreviewBadge: React.FC<TokenPreviewBadgeProps> = ({
         fontSize: '0.75rem',
         fontFamily: 'monospace',
         fontWeight: 600,
-        userSelect: 'none'
+        userSelect: 'none',
       }}
     >
       <span aria-hidden="true">{cfg.icon}</span>

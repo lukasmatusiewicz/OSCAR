@@ -17,12 +17,20 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
   let tokenIndex = 1;
 
   const patterns: { type: PIIType; regex: RegExp }[] = [
-    { type: 'SECRET_KEY', regex: /(?:sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|AIza[0-9A-Za-z-_]{35}|[0-9a-fA-F]{32,64})/g },
+    {
+      type: 'SECRET_KEY',
+      regex:
+        /(?:sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|AIza[0-9A-Za-z-_]{35}|[0-9a-fA-F]{32,64})/g,
+    },
     { type: 'IBAN', regex: /[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}(?:[A-Z0-9]{0,16})/g },
     { type: 'EMAIL', regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g },
     { type: 'PHONE', regex: /(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g },
-    { type: 'AMOUNT_MONEY', regex: /(?:[$€£¥]\s*\d+(?:,\d{3})*(?:\.\d{2})?|\d+(?:,\d{3})*(?:\.\d{2})?\s*(?:USD|EUR|GBP|PLN))/g },
-    { type: 'PERSON', regex: /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?/g }
+    {
+      type: 'AMOUNT_MONEY',
+      regex:
+        /(?:[$€£¥]\s*\d+(?:,\d{3})*(?:\.\d{2})?|\d+(?:,\d{3})*(?:\.\d{2})?\s*(?:USD|EUR|GBP|PLN))/g,
+    },
+    { type: 'PERSON', regex: /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?/g },
   ];
 
   for (const { type, regex } of patterns) {
@@ -33,7 +41,7 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
         type,
         originalValue: match[0],
         startIndex: match.index,
-        endIndex: match.index + match[0].length
+        endIndex: match.index + match[0].length,
       });
     }
   }
@@ -41,8 +49,8 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
   // Calculate risk level based on token presence
   let riskLevel: RiskLevel = 'NONE';
   if (tokens.length > 0) {
-    const hasSecret = tokens.some(t => t.type === 'SECRET_KEY');
-    const hasFinancial = tokens.some(t => t.type === 'IBAN' || t.type === 'AMOUNT_MONEY');
+    const hasSecret = tokens.some((t) => t.type === 'SECRET_KEY');
+    const hasFinancial = tokens.some((t) => t.type === 'IBAN' || t.type === 'AMOUNT_MONEY');
     if (hasSecret || tokens.length >= 5) {
       riskLevel = 'HIGH';
     } else if (hasFinancial || tokens.length >= 2) {
@@ -59,7 +67,7 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
   onSubmit,
   isLoading = false,
   className = '',
-  placeholder = 'Speak or type your memo... Confidential details (emails, phone numbers, keys, financial data) are client-side shielded before transmission.'
+  placeholder = 'Speak or type your memo... Confidential details (emails, phone numbers, keys, financial data) are client-side shielded before transmission.',
 }) => {
   const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -92,21 +100,20 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
         boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.875rem'
+        gap: '0.875rem',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#0f172a' }}>
           📝 New Confidential Voice/Text Memo
         </h3>
-        <PrivacyShieldBadge
-          riskLevel={riskLevel}
-          isSecured={true}
-          tokenCount={tokens.length}
-        />
+        <PrivacyShieldBadge riskLevel={riskLevel} isSecured={true} tokenCount={tokens.length} />
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <form
+        onSubmit={handleSubmit}
+        style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
+      >
         <Input
           isTextArea
           rows={4}
@@ -131,7 +138,7 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
               padding: '0.5rem 0.75rem',
               backgroundColor: '#f8fafc',
               borderRadius: '6px',
-              border: '1px solid #e2e8f0'
+              border: '1px solid #e2e8f0',
             }}
           >
             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>
@@ -139,26 +146,24 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
             </span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
               {tokens.map((tok, i) => (
-                <TokenPreviewBadge
-                  key={`${tok.token}-${i}`}
-                  token={tok.token}
-                  type={tok.type}
-                />
+                <TokenPreviewBadge key={`${tok.token}-${i}`} token={tok.token} type={tok.type} />
               ))}
             </div>
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '0.25rem',
+          }}
+        >
           <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
             {content.length} characters • AES-256-GCM envelope
           </span>
-          <Button
-            type="submit"
-            variant="primary"
-            isLoading={isLoading}
-            disabled={isLoading}
-          >
+          <Button type="submit" variant="primary" isLoading={isLoading} disabled={isLoading}>
             Encrypt & Process
           </Button>
         </div>
