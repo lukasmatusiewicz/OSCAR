@@ -5,57 +5,106 @@ import { PrivacyAuditPanel } from '../components/organisms/PrivacyAuditPanel';
 import { useTasks } from '../hooks/useTasks';
 import { usePrivacyShield } from '../hooks/usePrivacyShield';
 import { useMemos } from '../hooks/useMemos';
-import { TaskEntity, DecryptedTaskPayload } from '../types/contracts';
+import {
+  TaskEntity,
+  DecryptedTaskPayload,
+  TaskPriority,
+  TaskStatus,
+  PIIType,
+  RiskLevel,
+} from '../types/contracts';
 
 export interface DashboardProps {
   initialTasks?: TaskEntity[];
   initialDecrypted?: Record<string, DecryptedTaskPayload>;
   className?: string;
+  tasks?: TaskEntity[];
+  decryptedPayloads?: Record<string, DecryptedTaskPayload>;
+  onTaskCreated?: (task: TaskEntity, decrypted?: DecryptedTaskPayload) => void;
+  onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
+  onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
+  onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
+  hasActiveKey?: boolean;
+  totalTokensMasked?: number;
+  tokensByType?: Partial<Record<PIIType, number>>;
+  sessionRiskLevel?: RiskLevel;
+  recordMaskedTokens?: (tokens: { type: PIIType }[]) => void;
+  onLogoutAndZeroKey?: () => void;
+  onInitializeKey?: (key?: Uint8Array | string) => void;
+  draftsCount?: number;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   initialTasks = [],
   initialDecrypted = {},
   className = '',
+  tasks: propTasks,
+  decryptedPayloads: propDecryptedPayloads,
+  onTaskCreated,
+  onStatusChange,
+  onPriorityChange,
+  onSubtaskToggle,
+  hasActiveKey: propHasActiveKey,
+  totalTokensMasked: propTotalTokensMasked,
+  tokensByType: propTokensByType,
+  sessionRiskLevel: propSessionRiskLevel,
+  recordMaskedTokens: propRecordMaskedTokens,
+  onLogoutAndZeroKey,
+  onInitializeKey,
+  draftsCount: propDraftsCount,
 }) => {
-  const {
-    tasks,
-    decryptedPayloads,
-    addTask,
-    updateTaskStatus,
-    updateTaskPriority,
-    toggleSubtask,
-    clearDecryptedPayloads,
-    draftsCount,
-  } = useTasks(initialTasks);
+  // Always call fallback hooks unconditionally to satisfy React Rules of Hooks
+  const fallbackTasks = useTasks(initialTasks);
+  const fallbackShield = usePrivacyShield();
 
-  const {
-    hasActiveKey,
-    totalTokensMasked,
-    tokensByType,
-    sessionRiskLevel,
-    recordMaskedTokens,
-    logoutAndZeroKey,
-    initializeKey,
-  } = usePrivacyShield();
+  // If props are passed, use them; otherwise gracefully fall back to internal hooks
+  const tasks = propTasks !== undefined ? propTasks : fallbackTasks.tasks;
+  const decryptedPayloads =
+    propDecryptedPayloads !== undefined
+      ? { ...initialDecrypted, ...propDecryptedPayloads }
+      : { ...initialDecrypted, ...fallbackTasks.decryptedPayloads };
+  const handleTaskCreated = onTaskCreated || fallbackTasks.addTask;
+  const handleStatusChange = onStatusChange || fallbackTasks.updateTaskStatus;
+  const handlePriorityChange = onPriorityChange || fallbackTasks.updateTaskPriority;
+  const handleSubtaskToggle = onSubtaskToggle || fallbackTasks.toggleSubtask;
+  const draftsCount =
+    propDraftsCount !== undefined ? propDraftsCount : fallbackTasks.draftsCount;
+
+  const hasActiveKey =
+    propHasActiveKey !== undefined ? propHasActiveKey : fallbackShield.hasActiveKey;
+  const totalTokensMasked =
+    propTotalTokensMasked !== undefined ? propTotalTokensMasked : fallbackShield.totalTokensMasked;
+  const tokensByType =
+    propTokensByType !== undefined ? propTokensByType : fallbackShield.tokensByType;
+  const sessionRiskLevel =
+    propSessionRiskLevel !== undefined ? propSessionRiskLevel : fallbackShield.sessionRiskLevel;
+  const recordMaskedTokens = propRecordMaskedTokens || fallbackShield.recordMaskedTokens;
+
+  const handleLogout = () => {
+    if (onLogoutAndZeroKey) {
+      onLogoutAndZeroKey();
+    } else {
+      fallbackShield.logoutAndZeroKey();
+      fallbackTasks.clearDecryptedPayloads();
+    }
+  };
+
+  const handleInitKey = () => {
+    if (onInitializeKey) {
+      onInitializeKey();
+    } else {
+      fallbackShield.initializeKey();
+    }
+  };
 
   const { isSubmitting, submitMemo } = useMemos({
     onTaskCreated: (task, decrypted) => {
-      addTask(task, decrypted);
+      handleTaskCreated(task, decrypted);
     },
     onTokensDetected: (tokens) => {
       recordMaskedTokens(tokens);
     },
   });
-
-  const handleLogout = () => {
-    logoutAndZeroKey();
-    clearDecryptedPayloads();
-  };
-
-  const handleInitKey = () => {
-    initializeKey();
-  };
 
   return (
     <div
@@ -118,11 +167,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         <TaskList
           tasks={tasks}
-          decryptedPayloads={{ ...initialDecrypted, ...decryptedPayloads }}
+          decryptedPayloads={decryptedPayloads}
           isDecrypted={hasActiveKey}
-          onStatusChange={updateTaskStatus}
-          onPriorityChange={updateTaskPriority}
-          onSubtaskToggle={toggleSubtask}
+          onStatusChange={handleStatusChange}
+          onPriorityChange={handlePriorityChange}
+          onSubtaskToggle={handleSubtaskToggle}
         />
       </main>
 

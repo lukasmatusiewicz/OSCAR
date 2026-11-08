@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { App } from '../src/App';
 import { ClientCryptoService } from '../src/services/ClientCryptoService';
 
@@ -49,5 +49,40 @@ describe('App Root Component', () => {
     expect(initBtn).toBeInTheDocument();
     fireEvent.click(initBtn);
     expect(ClientCryptoService.hasSessionKey()).toBe(true);
+  });
+
+  it('persists created tasks across tabs and displays them in Task Board', async () => {
+    render(<App />);
+
+    // In Dashboard, submit a new memo
+    const textarea = screen.getByLabelText(/confidential memo input/i);
+    fireEvent.change(textarea, {
+      target: { value: 'Launch project kickoff meeting with team' },
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /encrypt & process/i });
+    fireEvent.click(submitBtn);
+
+    // Wait for task creation to complete and render on Dashboard
+    await waitFor(() => {
+      expect(screen.getByText('#voice-memo')).toBeInTheDocument();
+    });
+
+    // Switch to Task Board tab
+    const boardTab = screen.getByRole('tab', { name: /task board/i });
+    fireEvent.click(boardTab);
+
+    // Verify task is present on the Task Board immediately without re-fetching
+    expect(screen.getAllByText('Launch project kickoff meeting with team').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('#voice-memo')).toBeInTheDocument();
+
+    // Now lock & zero key
+    const lockBtn = screen.getByRole('button', { name: /logout and zero key/i });
+    fireEvent.click(lockBtn);
+
+    // Once locked and zeroed, cleartext payload is cleared
+    expect(ClientCryptoService.hasSessionKey()).toBe(false);
+    expect(screen.queryAllByText('Launch project kickoff meeting with team').length).toBe(0);
+    expect(screen.getByText('🔒 Encrypted Task Content')).toBeInTheDocument();
   });
 });

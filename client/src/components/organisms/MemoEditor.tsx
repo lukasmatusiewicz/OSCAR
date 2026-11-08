@@ -24,13 +24,21 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
     },
     { type: 'IBAN', regex: /[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}(?:[A-Z0-9]{0,16})/g },
     { type: 'EMAIL', regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g },
-    { type: 'PHONE', regex: /(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g },
+    {
+      type: 'PHONE',
+      regex:
+        /(?:\+\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{3,4}|\b\d{3}[-\s]?\d{3}[-\s]?\d{3}\b)/gu,
+    },
     {
       type: 'AMOUNT_MONEY',
       regex:
-        /(?:[$€£¥]\s*\d+(?:,\d{3})*(?:\.\d{2})?|\d+(?:,\d{3})*(?:\.\d{2})?\s*(?:USD|EUR|GBP|PLN))/g,
+        /(?:[$€£¥]\s*\d+[\s\d]*(?:[.,]\d{2})?|\d+[\s\d]*(?:[.,]\d{2})?\s*(?:USD|EUR|GBP|PLN|euro|Euro|zł|złotych|CHF))/giu,
     },
-    { type: 'PERSON', regex: /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?/g },
+    {
+      type: 'PERSON',
+      regex:
+        /(?:(?:Mr\.|Mrs\.|Ms\.|Dr\.|Pan|Pani|Pana|Panią|dr|mec)\.?\s+)?[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+(?:\s+[A-ZĄĆĘŁŃÓŚŹŻÄÖÜ][a-ząćęłńóśźżäöüß]+)+/gu,
+    },
   ];
 
   for (const { type, regex } of patterns) {
@@ -101,6 +109,7 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: '0.875rem',
+        transition: 'all 0.2s ease',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
