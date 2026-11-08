@@ -33,6 +33,15 @@ describe('Documentation Route Integration (/api/docs)', () => {
         'The authoritative openapi.yaml specification could not be located on the server',
       );
     });
+
+    it('returns structured 500 JSON error when reading specification file throws', async () => {
+      const isolatedApp = createApp({ specPath: process.cwd() });
+      const res = await inProcessApp(isolatedApp).get('/api/docs/openapi.yaml');
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Internal server error');
+      expect(res.body.message).toBe('Failed to read the OpenAPI specification file');
+    });
   });
 
   describe('GET /api/docs', () => {

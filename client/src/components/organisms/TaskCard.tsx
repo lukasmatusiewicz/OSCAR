@@ -5,6 +5,7 @@ import { Button } from '../atoms/Button';
 import { Input } from '../atoms/Input';
 import { CategoryBadge } from '../molecules/CategoryBadge';
 import { PrioritySelector } from '../molecules/PrioritySelector';
+import { downloadICalendarFile } from '../../utils/calendarExport';
 
 export interface TaskCardProps {
   task: TaskEntity;
@@ -512,6 +513,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 fontSize: '0.875rem',
                 color: '#475569',
                 lineHeight: 1.5,
+                whiteSpace: 'pre-line',
+                wordBreak: 'break-word',
               }}
             >
               {isDecrypted && decryptedPayload
@@ -616,37 +619,53 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
         </div>
 
-        {!isDraft && (
-          <div style={{ display: 'flex', gap: '0.35rem' }}>
-            {task.status !== 'COMPLETED' ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => onStatusChange?.(task.id, 'COMPLETED')}
-                style={{
-                  transition: 'all 0.2s ease',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                }}
-              >
-                ✓ Mark Done
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onStatusChange?.(task.id, 'PENDING')}
-                style={{
-                  transition: 'all 0.2s ease',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                }}
-              >
-                ↺ Reopen
-              </Button>
-            )}
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => downloadICalendarFile(task, decryptedPayload || undefined)}
+            aria-label="Add to Calendar (.ics)"
+            style={{
+              transition: 'all 0.2s ease',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+            }}
+          >
+            📅 Add to Calendar (.ics)
+          </Button>
+
+          {!isDraft && (
+            <>
+              {task.status !== 'COMPLETED' ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onStatusChange?.(task.id, 'COMPLETED')}
+                  style={{
+                    transition: 'all 0.2s ease',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  ✓ Mark Done
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onStatusChange?.(task.id, 'PENDING')}
+                  style={{
+                    transition: 'all 0.2s ease',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  ↺ Reopen
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </article>
   );

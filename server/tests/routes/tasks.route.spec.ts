@@ -93,6 +93,28 @@ describe('Tasks Route Integration', () => {
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Validation failed');
     });
+
+    it('applies default values for summary, category, priority, status, and tags when omitted', async () => {
+      const res = await inProcessApp(app)
+        .post('/api/tasks')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Minimal Task',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.category).toBe('OTHER');
+      expect(res.body.priority).toBe('MEDIUM');
+      expect(res.body.status).toBe('DRAFT');
+      expect(res.body.tags).toEqual([]);
+
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        res.body.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.summary.length).toBeGreaterThanOrEqual(5);
+      expect(decrypted.subtasks.length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('PATCH /api/tasks/:id', () => {
@@ -180,6 +202,42 @@ describe('Tasks Route Integration', () => {
       expect(decrypted.contactPerson).toBe('Agent 007');
       expect(decrypted.amount).toBe('10000 EUR');
       expect(decrypted.scheduledTime).toBe('11:00');
+    });
+
+    it('updates title only preserving existing decrypted payload fields', async () => {
+      const createRes = await inProcessApp(app)
+        .post('/api/tasks')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Initial Title',
+          summary: 'Initial Summary',
+          subtasks: [{ title: 'Subtask A', completed: false }],
+          location: 'Initial Venue',
+          contactPerson: 'Initial Contact',
+          amount: '100 EUR',
+          scheduledTime: '10:00',
+        });
+
+      const taskId = createRes.body.id;
+
+      const patchRes = await inProcessApp(app)
+        .patch(`/api/tasks/${taskId}`)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Updated Title Only',
+        });
+
+      expect(patchRes.status).toBe(200);
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        patchRes.body.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.title).toBe('Updated Title Only');
+      expect(decrypted.summary).toBe('Initial Summary');
+      expect(decrypted.location).toBe('Initial Venue');
+      expect(decrypted.contactPerson).toBe('Initial Contact');
+      expect(decrypted.amount).toBe('100 EUR');
+      expect(decrypted.scheduledTime).toBe('10:00');
     });
 
     it('returns 404 when attempting to update non-existent task', async () => {

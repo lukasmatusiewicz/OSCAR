@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoEditor, detectClientTokens } from '../../../src/components/organisms/MemoEditor';
+import { MemoEditor, detectClientTokens, isGermanSteuerId } from '../../../src/components/organisms/MemoEditor';
 
 describe('MemoEditor & detectClientTokens', () => {
   it('detectClientTokens identifies multiple PII types and assigns correct risk levels', () => {
@@ -102,6 +102,26 @@ describe('MemoEditor & detectClientTokens', () => {
     expect(enPerson?.originalValue).toBe('john doe');
     expect(enPerson?.startIndex).toBe(13);
     expect(enPerson?.endIndex).toBe(21);
+  });
+
+  it('detectClientTokens excludes Slavic, German, French, and English pronouns and reflexive stop-words from lowercase preposition NER', () => {
+    const input = 'kawa z albertem szyszka. jego nr 123412412. note: wziąć ze sobą pasztet.';
+    const res = detectClientTokens(input);
+
+    // Must mask ONLY "albertem szyszka" as PERSON and 123412412 as PHONE
+    expect(res.tokens).toHaveLength(2);
+
+    const personToken = res.tokens.find((t) => t.type === 'PERSON');
+    expect(personToken).toBeDefined();
+    expect(personToken?.originalValue).toBe('albertem szyszka');
+
+    const phoneToken = res.tokens.find((t) => t.type === 'PHONE');
+    expect(phoneToken).toBeDefined();
+    expect(phoneToken?.originalValue).toBe('123412412');
+
+    // Must NOT mask "sobą pasztet" as PERSON
+    expect(res.tokens.some((t) => t.originalValue.includes('sobą'))).toBe(false);
+    expect(res.tokens.some((t) => t.originalValue.includes('pasztet'))).toBe(false);
   });
 
   it('detectClientTokens detects compound German street names with str. and lowercase names', () => {
@@ -224,5 +244,90 @@ describe('MemoEditor & detectClientTokens', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent(/please enter a memo/i);
     expect(handleSubmit).not.toHaveBeenCalled();
+  });
+
+  it('handles non-Error rejection in handleSubmit with default fallback message', async () => {
+    const handleSubmit = vi.fn().mockRejectedValue('String rejection error');
+    render(<MemoEditor onSubmit={handleSubmit} />);
+
+    const textarea = screen.getByLabelText(/confidential memo input/i);
+    fireEvent.change(textarea, { target: { value: 'Valid memo' } });
+
+    const submitBtn = screen.getByRole('button', { name: /encrypt & process/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Failed to submit memo');
+    });
+  });
+
+  it('detectClientTokens handles German Steuer-ID variations, phone exclusion, and unformatted tax context', () => {
+    // Leading + phone exclusion in isGermanSteuerId
+    expect(isGermanSteuerId('03 245 678 912', '+03 245 678 912', 1)).toBe(false);
+    expect(isGermanSteuerId('03 245 678 912', ' 03 245 678 912', 1)).toBe(true);
+
+    // Unformatted 11-digit number near tax keyword (matching peselRegex but valid German Steuer-ID)
+    const unformattedSteuer = 'Steuer-ID 11234567890 für das Finanzamt';
+    const steuerRes = detectClientTokens(unformattedSteuer);
+    expect(steuerRes.tokens.some((t) => t.type === 'NATIONAL_ID')).toBe(true);
+
+    // Number starting with 0 in clean[0] === '0' and no tax context
+    expect(isGermanSteuerId('01234567890', 'Ref: 01234567890', 5)).toBe(false);
+
+    // Clean number with multiple repeated digits (invalid Steuer-ID)
+    expect(isGermanSteuerId('11224567890', 'Ref: 11224567890', 5)).toBe(false);
+
+    // Clean number with no repeated digits (invalid Steuer-ID)
+    expect(isGermanSteuerId('12345678901', 'Ref: 12345678901', 5)).toBe(false);
+  });
+
+  it('detectClientTokens handles German, French, and English stop words in lowercase preposition patterns', () => {
+    // German stop words / pronouns
+    const deRes = detectClientTokens('treffen mit mir dir und bei uns euch');
+    expect(deRes.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+    // French stop words / pronouns
+    const frRes = detectClientTokens('rendez-vous avec moi toi et pour lui elle');
+    expect(frRes.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+    // English stop words / pronouns
+    const enRes = detectClientTokens('meeting with him her and for us them');
+    expect(enRes.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+    // International cities after prepositions
+    const cityRes = detectClientTokens('treffen mit Berlin und rendez-vous avec Paris und meeting with London');
+    expect(cityRes.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+  });
+
+  it('detectClientTokens handles Tier 3 context matcher for candidate IDs with and without digits', () => {
+    // Candidate ID without digits is skipped
+    const textNoDigits = 'ubezpieczenie POLISABEZCYFR dla klienta';
+    const resNoDigits = detectClientTokens(textNoDigits);
+    expect(resNoDigits.tokens.filter((t) => t.type === 'HEALTH_DATA')).toHaveLength(0);
+
+    // Candidate ID near German insurance keyword krankenkasse
+    const deHealthText = 'versichert bei krankenkasse TK-987654321';
+    const deHealthRes = detectClientTokens(deHealthText);
+    expect(deHealthRes.tokens.some((t) => t.type === 'HEALTH_DATA')).toBe(true);
+
+    // Candidate ID near German national ID keyword personalausweis
+    const deNatText = 'personalausweis PA-123456789';
+    const deNatRes = detectClientTokens(deNatText);
+    expect(deNatRes.tokens.some((t) => t.type === 'NATIONAL_ID')).toBe(true);
+  });
+
+  it('detectClientTokens comprehensively assigns all risk levels', () => {
+    // Single ADDRESS token -> MEDIUM
+    const addrRes = detectClientTokens('Visit Berlin tomorrow');
+    expect(addrRes.riskLevel).toBe('MEDIUM');
+
+    // Single AMOUNT_MONEY token -> MEDIUM
+    const moneyRes = detectClientTokens('Price is 500 EUR');
+    expect(moneyRes.riskLevel).toBe('MEDIUM');
+
+    // 3 or more non-high risk tokens -> HIGH
+    const threeTokens = detectClientTokens('Contact a@b.com or c@d.com or e@f.com');
+    expect(threeTokens.tokens.length).toBe(3);
+    expect(threeTokens.riskLevel).toBe('HIGH');
   });
 });

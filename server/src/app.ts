@@ -41,6 +41,18 @@ export function createApp(options: AppOptions = {}): Express {
 
   app.use(express.json());
 
+  // Live request logging middleware
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      process.stdout.write(
+        `[${new Date().toISOString()}] ${req.method} ${req.path} -> ${res.statusCode} (${duration}ms)\n`,
+      );
+    });
+    next();
+  });
+
   const orchestrator = options.orchestrator ?? new GeminiOrchestrator();
   const store = options.taskStore ?? defaultTaskStore;
 

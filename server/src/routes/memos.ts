@@ -8,6 +8,10 @@ import {
   DecryptedTaskPayloadSchema,
 } from '../types/contracts.js';
 import { PrivacyGuard } from '../privacy/PrivacyGuard.js';
+import {
+  normalizePersonToNominative,
+  normalizeAddressCasing,
+} from '../privacy/LinguisticNormalizer.js';
 import { GeminiOrchestrator } from '../agent/GeminiOrchestrator.js';
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
@@ -51,10 +55,10 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       // 5. Re-hydrate synthetic tokens in the extracted task structure
       const rehydratedTask = PrivacyGuard.rehydrate(orchestratorResult.task, sanitization.tokens);
 
-      const location = rehydratedTask.location
+      const rawLocation = rehydratedTask.location
         ? PrivacyGuard.rehydrate(rehydratedTask.location, sanitization.tokens)
         : (rehydratedTask.location ?? null);
-      const contactPerson = rehydratedTask.contactPerson
+      const rawContactPerson = rehydratedTask.contactPerson
         ? PrivacyGuard.rehydrate(rehydratedTask.contactPerson, sanitization.tokens)
         : (rehydratedTask.contactPerson ?? null);
       const amount = rehydratedTask.amount
@@ -64,11 +68,69 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         ? PrivacyGuard.rehydrate(rehydratedTask.scheduledTime, sanitization.tokens)
         : (rehydratedTask.scheduledTime ?? null);
 
+      const location = rawLocation ? normalizeAddressCasing(rawLocation) : null;
+      const contactPerson = rawContactPerson ? normalizePersonToNominative(rawContactPerson) : null;
+
+      let summary = rehydratedTask.summary ?? '';
+      if (contactPerson) {
+        const contactLine = `• 👤 Contact: ${contactPerson}`;
+        const contactPattern = /(?:•\s*)?👤\s*Contact:[^\r\n]*/i;
+        const lines = summary.split('\n');
+        const contactIndices: number[] = [];
+        lines.forEach((l, idx) => {
+          if (contactPattern.test(l)) {
+            contactIndices.push(idx);
+          }
+        });
+
+        if (contactIndices.length > 0) {
+          lines[contactIndices[0]] = contactLine;
+          for (let i = contactIndices.length - 1; i >= 1; i--) {
+            lines.splice(contactIndices[i], 1);
+          }
+          summary = lines.join('\n');
+        } else {
+          lines.splice(1, 0, contactLine);
+          summary = lines.join('\n');
+        }
+      }
+
+      if (location) {
+        const locationLine = `• 📍 Location: ${location}`;
+        const locationPattern = /(?:•\s*)?📍\s*Location:[^\r\n]*/i;
+        const lines = summary.split('\n');
+        const locationIndices: number[] = [];
+        lines.forEach((l, idx) => {
+          if (locationPattern.test(l)) {
+            locationIndices.push(idx);
+          }
+        });
+
+        if (locationIndices.length > 0) {
+          lines[locationIndices[0]] = locationLine;
+          for (let i = locationIndices.length - 1; i >= 1; i--) {
+            lines.splice(locationIndices[i], 1);
+          }
+          summary = lines.join('\n');
+        } else {
+          const contactIdx = lines.findIndex((l) => l.includes('👤 Contact:'));
+          const insertIdx = contactIdx !== -1 ? contactIdx + 1 : Math.min(1, lines.length);
+          lines.splice(insertIdx, 0, locationLine);
+          summary = lines.join('\n');
+        }
+      }
+
+      if (summary.length < 5) {
+        summary = summary.padEnd(5, '.');
+      } else if (summary.length > 1000) {
+        summary = `${summary.substring(0, 997)}...`;
+      }
+
       // 6. Validate re-hydrated task against DecryptedTaskPayloadSchema (bounds expansion accommodation)
       const decryptedPayload: DecryptedTaskPayload = DecryptedTaskPayloadSchema.parse({
         title:
           input.title && input.title.trim().length > 0 ? input.title.trim() : rehydratedTask.title,
-        summary: rehydratedTask.summary,
+        summary,
         subtasks: rehydratedTask.subtasks,
         location,
         contactPerson,
@@ -96,7 +158,7 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
 
       const memoEntity: MemoEntity = {
         id: memoId,
-        userId: 'usr_session_default',
+        userId: 'usr_session_default_01',
         encryptedPayload: encryptedMemoPayload,
         sanitizedContentPreview: sanitization.sanitizedText.substring(0, 150),
         hasPII: sanitization.tokenCount > 0,
@@ -108,7 +170,7 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       const taskEntity: TaskEntity = {
         id: taskId,
         memoId,
-        userId: 'usr_session_default',
+        userId: 'usr_session_default_01',
         encryptedPayload: encryptedTaskPayload,
         category: rehydratedTask.category,
         priority: rehydratedTask.priority,

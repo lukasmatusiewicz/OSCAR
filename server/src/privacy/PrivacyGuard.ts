@@ -1,4 +1,8 @@
 import { PIITokenMap, PIIType, SanitizationResult, RiskLevel } from '../types/contracts.js';
+import {
+  normalizePersonToNominative,
+  normalizeAddressCasing,
+} from './LinguisticNormalizer.js';
 
 export interface RawMatch {
   type: PIIType;
@@ -205,6 +209,47 @@ export const EXCLUDED_NAME_WORDS = new Set([
   'un',
   'une',
   'facture',
+  // Pronouns and reflexive / non-name prepositional idioms
+  'sobą',
+  'mną',
+  'tobą',
+  'nim',
+  'nią',
+  'nami',
+  'wami',
+  'nimi',
+  'siebie',
+  'razu',
+  'czasu',
+  'powodu',
+  'tego',
+  'tamtego',
+  'każdym',
+  'wszystkim',
+  'mir',
+  'dir',
+  'ihm',
+  'ihr',
+  'uns',
+  'euch',
+  'ihnen',
+  'sich',
+  'moi',
+  'toi',
+  'lui',
+  'elle',
+  'nous',
+  'vous',
+  'eux',
+  'soi',
+  'me',
+  'you',
+  'him',
+  'her',
+  'us',
+  'them',
+  'myself',
+  'yourself',
 ]);
 
 /**
@@ -269,6 +314,18 @@ export function isValidSsn(ssn: string): boolean {
   return true;
 }
 
+function titleCasePersonToken(value: string): string {
+  return value
+    .split(' ')
+    .map((word) =>
+      word
+        .split('-')
+        .map((part) => (part.length > 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+        .join('-'),
+    )
+    .join(' ');
+}
+
 /**
  * Recursively re-hydrates tokens in a parsed JSON structure using atomic single-pass regex replacement.
  * Accepts either an ephemeral Map<string, string> or an array of PIITokenMap records (e.g. from SanitizationResult.tokens).
@@ -285,7 +342,17 @@ export function rehydrate<T>(target: T, tokenMapOrTokens: Map<string, string> | 
   if (typeof target === 'string') {
     const pattern = new RegExp(TOKEN_PATTERN.source, TOKEN_PATTERN.flags);
     return target.replace(pattern, (match) => {
-      return tokenMap.get(match) ?? match;
+      const cleartext = tokenMap.get(match);
+      if (cleartext === undefined) {
+        return match;
+      }
+      if (match.startsWith('[PERSON_')) {
+        return titleCasePersonToken(cleartext);
+      }
+      if (match.startsWith('[ADDRESS_')) {
+        return normalizeAddressCasing(cleartext);
+      }
+      return cleartext;
     }) as unknown as T;
   }
 
@@ -301,7 +368,12 @@ export function rehydrate<T>(target: T, tokenMapOrTokens: Map<string, string> | 
     }
     const clone: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(target)) {
-      clone[key] = rehydrate(value, tokenMap);
+      const rehydratedValue = rehydrate(value, tokenMap);
+      if (key === 'contactPerson' && typeof rehydratedValue === 'string') {
+        clone[key] = normalizePersonToNominative(rehydratedValue);
+      } else {
+        clone[key] = rehydratedValue;
+      }
     }
     return clone as unknown as T;
   }
@@ -698,8 +770,8 @@ export class PrivacyGuard {
         // 3. Delimited 10-digit US/CAN: 555-123-4567 or 555.123.4567
         '\\b\\d{3}[.-]\\d{3}[.-]\\d{4}' +
         '|' +
-        // 4. Delimited 9-digit PL/EU: 601 234 567 or 601-234-567
-        '\\b\\d{3}[\\s.-]\\d{3}[\\s.-]\\d{3}' +
+        // 4. 9-digit PL/EU (delimited or continuous): 601 234 567 or 123412412
+        '\\b\\d{3}[\\s.-]?\\d{3}[\\s.-]?\\d{3}' +
       ')\\b',
       'gu',
     );
@@ -875,17 +947,17 @@ export class PrivacyGuard {
     }
 
     const lowercasePrepositionPatterns = [
-      /\b(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]+(?:\s+[a-ząćęłńóśźż]+)+)\b/gu,
-      /\b(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]+(?:\s+[a-zäöüß]+)+)\b/gu,
-      /\b(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]+(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]+)+)\b/gu,
-      /\b(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]+(?:\s+[a-z]+)+)\b/gu,
+      /\b(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]{2,}(?:\s+[a-ząćęłńóśźż]{2,})+)\b/gu,
+      /\b(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]{2,}(?:\s+[a-zäöüß]{2,})+)\b/gu,
+      /\b(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]{2,}(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]{2,})+)\b/gu,
+      /\b(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]{2,}(?:\s+[a-z]{2,})+)\b/gu,
     ];
 
     for (const pattern of lowercasePrepositionPatterns) {
       for (const m of text.matchAll(pattern)) {
         if (m.index !== undefined && m[1]) {
           const lowerVal = m[1].toLowerCase();
-          const words = lowerVal.split(/\s+/);
+          const words = lowerVal.split(/\s+/).map((w) => w.replace(/[.,]/g, ''));
           const isCityOrExcluded =
             INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
             EXCLUDED_NAME_WORDS.has(lowerVal) ||

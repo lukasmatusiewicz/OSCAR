@@ -286,6 +286,28 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(deAddrHaupt?.originalValue).toBe('hauptstr. 5');
     });
 
+    it('excludes Slavic, German, French, and English pronouns and reflexive stop-words from lowercase preposition NER', () => {
+      const input = 'kawa z albertem szyszka. jego nr 123412412. note: wziąć ze sobą pasztet.';
+      const res = PrivacyGuard.mask(input);
+
+      // Must mask ONLY "albertem szyszka" as PERSON and 123412412 as PHONE
+      expect(res.tokens).toHaveLength(2);
+
+      const personToken = res.tokens.find((t) => t.type === 'PERSON');
+      expect(personToken).toBeDefined();
+      expect(personToken?.originalValue).toBe('albertem szyszka');
+
+      const phoneToken = res.tokens.find((t) => t.type === 'PHONE');
+      expect(phoneToken).toBeDefined();
+      expect(phoneToken?.originalValue).toBe('123412412');
+
+      // Must NOT mask "sobą pasztet" as PERSON
+      expect(res.tokens.some((t) => t.originalValue.includes('sobą'))).toBe(false);
+      expect(res.tokens.some((t) => t.originalValue.includes('pasztet'))).toBe(false);
+
+      expect(res.sanitizedText).toBe('kawa z [PERSON_1]. jego nr [PHONE_1]. note: wziąć ze sobą pasztet.');
+    });
+
     it('detects Physical Addresses, Street Patterns, and Major International Hubs (Priority 9)', () => {
       const streetCases = [
         { text: 'Meeting at ul. Marszałkowska 10 tomorrow', addr: 'ul. Marszałkowska 10' },
@@ -1330,6 +1352,111 @@ describe('PrivacyGuard Engine Suite', () => {
       expect(rehydrated.amount).toBe('1,500 EUR');
       expect(rehydrated.scheduledTime).toBe('jutro o 15:00');
       expect(rehydrated.subtasks[0].title).toBe('Przygotować dokumenty dla Dr. Anna Nowak');
+    });
+  });
+
+  // =========================================================================
+  // 12. Multilingual Prepositions, Phone Formats, Deduplication & Pipeline Edge Coverage
+  // =========================================================================
+  describe('Multilingual Prepositions, Phone Formats, and Deduplication Branch Coverage', () => {
+    it('detects lowercase person names after prepositions across German, French, and English', () => {
+      const deResult = PrivacyGuard.mask('treffen mit max mustermann');
+      expect(deResult.tokens.some((t) => t.type === 'PERSON')).toBe(true);
+
+      const deBei = PrivacyGuard.mask('bei hans schmidt');
+      expect(deBei.tokens.some((t) => t.type === 'PERSON')).toBe(true);
+
+      const frResult = PrivacyGuard.mask('rendez-vous avec jean dupont');
+      expect(frResult.tokens.some((t) => t.type === 'PERSON')).toBe(true);
+
+      const frPour = PrivacyGuard.mask('pour pierre dubois');
+      expect(frPour.tokens.some((t) => t.type === 'PERSON')).toBe(true);
+
+      const enResult = PrivacyGuard.mask('meeting with john doe');
+      expect(enResult.tokens.some((t) => t.type === 'PERSON')).toBe(true);
+
+      const enFrom = PrivacyGuard.mask('from charlie chaplin');
+      expect(enFrom.tokens.some((t) => t.type === 'PERSON')).toBe(true);
+    });
+
+    it('ignores excluded pronouns and stop words after prepositions across German, French, and English', () => {
+      // German stop words / pronouns
+      const deStop1 = PrivacyGuard.mask('treffen mit mir dir');
+      expect(deStop1.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+      const deStop2 = PrivacyGuard.mask('bei uns euch');
+      expect(deStop2.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+      // French stop words / pronouns
+      const frStop1 = PrivacyGuard.mask('rendez-vous avec moi toi');
+      expect(frStop1.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+      const frStop2 = PrivacyGuard.mask('pour lui elle');
+      expect(frStop2.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+      // English stop words / pronouns
+      const enStop1 = PrivacyGuard.mask('meeting with him her');
+      expect(enStop1.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+      const enStop2 = PrivacyGuard.mask('for me you');
+      expect(enStop2.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+      // International cities after prepositions
+      const cityDe = PrivacyGuard.mask('treffen mit Berlin');
+      expect(cityDe.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+      const cityFr = PrivacyGuard.mask('rendez-vous avec Paris');
+      expect(cityFr.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+      const cityEn = PrivacyGuard.mask('meeting with London');
+      expect(cityEn.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+    });
+
+    it('detects diverse phone number patterns: continuous, dashed, parenthesized, and international', () => {
+      // Continuous 9-digit
+      const res9 = PrivacyGuard.mask('Call 601234567 regarding the report');
+      expect(res9.tokens.some((t) => t.type === 'PHONE')).toBe(true);
+
+      // Parenthesized area code
+      const resParen = PrivacyGuard.mask('Office phone: (030) 9876-5432');
+      expect(resParen.tokens.some((t) => t.type === 'PHONE')).toBe(true);
+
+      // Delimited US 10-digit
+      const resUs = PrivacyGuard.mask('Direct line: 555-123-4567');
+      expect(resUs.tokens.some((t) => t.type === 'PHONE')).toBe(true);
+
+      // International prefix with periods
+      const resIntlDot = PrivacyGuard.mask('Mobile: +49.170.1234567');
+      expect(resIntlDot.tokens.some((t) => t.type === 'PHONE')).toBe(true);
+    });
+
+    it('deduplicates recurring entities and assigns identical tokens in processMatches', () => {
+      const text = 'Call Dr. Alice Smith today. Later remind Dr. Alice Smith about the agreement.';
+      const res = PrivacyGuard.mask(text);
+
+      const personTokens = res.tokens.filter((t) => t.type === 'PERSON');
+      expect(personTokens.length).toBe(2);
+      expect(personTokens[0].token).toBe(personTokens[1].token);
+      expect(res.sanitizedText).not.toContain('Dr. Alice Smith');
+    });
+
+    it('exercises cached pipeline branches in getPipeline and maskAsync', async () => {
+      const mockPipe = ((text: string) => Promise.resolve([{ entity_group: 'PER', word: 'Alice', start: 0, end: 5 }])) as unknown as any;
+      PrivacyGuard.setPipeline(mockPipe);
+
+      const pipe1 = await PrivacyGuard.getPipeline();
+      expect(pipe1).toBe(mockPipe);
+
+      const result = await PrivacyGuard.maskAsync('Alice attended the meeting');
+      expect(result.tokens.length).toBeGreaterThanOrEqual(1);
+
+      // Reset custom pipeline and test fallback
+      PrivacyGuard.setPipeline(null);
+      const fallbackResult = await PrivacyGuard.maskAsync('Alice attended the meeting');
+      expect(fallbackResult).toBeDefined();
+
+      // Restore pipeline undefined
+      PrivacyGuard.setPipeline(undefined);
     });
   });
 });

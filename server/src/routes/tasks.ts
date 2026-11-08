@@ -64,7 +64,7 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
       const taskEntity: TaskEntity = {
         id: taskId,
         memoId: `memo_manual_${taskId}`,
-        userId: 'usr_session_default',
+        userId: 'usr_session_default_01',
         encryptedPayload,
         category: input.category ?? 'OTHER',
         priority: input.priority ?? 'MEDIUM',
@@ -95,8 +95,7 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
   router.patch('/tasks/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = UpdateTaskInputSchema.parse(req.body);
-      const rawId = req.params.id;
-      const taskId = Array.isArray(rawId) ? rawId[0] : rawId;
+      const taskId = req.params.id as string;
       const existing = deps.taskStore.getTaskById(taskId);
 
       if (!existing) {
@@ -168,8 +167,7 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
    * Removes a task from the store.
    */
   router.delete('/tasks/:id', (req: Request, res: Response) => {
-    const rawId = req.params.id;
-    const taskId = Array.isArray(rawId) ? rawId[0] : rawId;
+    const taskId = req.params.id as string;
     const deleted = deps.taskStore.deleteTask(taskId);
 
     if (!deleted) {
