@@ -185,6 +185,16 @@ describe('DeterministicFallbackExtractor', () => {
       }
     });
 
+    it('synthesizes concise clause titles from single-paragraph multi-sentence memos', () => {
+      const memo =
+        'spotkanie z kazikiem bąkiem. za tydzień o 15. berlinerstr. 123. note: 15 tys euro.';
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.title).toBe('Spotkanie z kazikiem bąkiem');
+      expect(task.summary).toContain('spotkanie z kazikiem bąkiem');
+      expect(task.summary).toContain('15 tys euro');
+    });
+
     it('extracts and populates smart metadata fields: location, contactPerson, amount, scheduledTime', () => {
       const memo =
         'Hey Lukas, remind me to meet with [PERSON_1] at [ADDRESS_1] regarding budget [AMOUNT_MONEY_1] tomorrow at 14:30.\n' +
