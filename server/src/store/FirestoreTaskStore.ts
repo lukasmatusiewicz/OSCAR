@@ -1,5 +1,10 @@
 import { initializeApp, getApps, cert, applicationDefault, App } from 'firebase-admin/app';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import {
+  getFirestore,
+  Firestore,
+  QueryDocumentSnapshot,
+  DocumentData,
+} from 'firebase-admin/firestore';
 import { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
 import { ITaskRepository } from './ITaskRepository.js';
 
@@ -92,7 +97,7 @@ export class FirestoreTaskStore implements ITaskRepository {
   public async getTasks(): Promise<TaskEntity[]> {
     const snapshot = await this.db.collection(COLLECTION_TASKS).get();
     const tasks: TaskEntity[] = [];
-    snapshot.forEach((doc) => {
+    snapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
       tasks.push(doc.data() as TaskEntity);
     });
     return tasks.sort(
@@ -182,7 +187,7 @@ export class FirestoreTaskStore implements ITaskRepository {
   public async getMemos(): Promise<MemoEntity[]> {
     const snapshot = await this.db.collection(COLLECTION_MEMOS).get();
     const memos: MemoEntity[] = [];
-    snapshot.forEach((doc) => {
+    snapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
       memos.push(doc.data() as MemoEntity);
     });
     return memos.sort(
@@ -221,7 +226,7 @@ export class FirestoreTaskStore implements ITaskRepository {
       const snapshot = await this.db.collection(colName).get();
       if (!snapshot.empty) {
         const batch = this.db.batch();
-        snapshot.forEach((doc) => {
+        snapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
           batch.delete(doc.ref);
         });
         await batch.commit();

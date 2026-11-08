@@ -1,4 +1,42 @@
 import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('firebase-admin', () => ({
+  default: {
+    apps: [],
+    initializeApp: vi.fn(),
+    credential: {
+      cert: vi.fn(),
+      applicationDefault: vi.fn(),
+    },
+  },
+  apps: [],
+  initializeApp: vi.fn(),
+  credential: {
+    cert: vi.fn(),
+    applicationDefault: vi.fn(),
+  },
+}));
+
+vi.mock('firebase-admin/app', () => ({
+  default: {
+    initializeApp: vi.fn(),
+    getApps: vi.fn(() => []),
+    cert: vi.fn(),
+    applicationDefault: vi.fn(),
+  },
+  initializeApp: vi.fn(),
+  getApps: vi.fn(() => []),
+  cert: vi.fn(),
+  applicationDefault: vi.fn(),
+}));
+
+vi.mock('firebase-admin/firestore', () => ({
+  getFirestore: vi.fn(() => ({
+    collection: vi.fn(),
+    batch: vi.fn(),
+  })),
+}));
+
 import { Server } from 'node:http';
 import { server, PORT, handleShutdown } from '../src/index.js';
 
