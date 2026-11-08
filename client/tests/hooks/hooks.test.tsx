@@ -5,7 +5,7 @@ import { useTasks } from '../../src/hooks/useTasks';
 import { useMemos } from '../../src/hooks/useMemos';
 import { ClientCryptoService } from '../../src/services/ClientCryptoService';
 import { gatewayClient } from '../../src/services/GatewayClient';
-import { TaskEntity, MemoEntitySchema } from '../../src/types/contracts';
+import { TaskEntity, MemoEntitySchema, DecryptedTaskPayload } from '../../src/types/contracts';
 
 describe('Reactive State Hooks', () => {
   beforeEach(() => {
@@ -217,6 +217,35 @@ describe('Reactive State Hooks', () => {
       expect(createdTask!.modelVersion).toBe('rule-based-v1');
       expect(result.current.isOfflineFallback).toBe(true);
       expect(result.current.warning).toContain('Deterministic rule-based fallback');
+    });
+
+    it('synthesizes clean clause title and logs gateway error on offline fallback', async () => {
+      let createdDecryptedPayload: DecryptedTaskPayload | null = null;
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { result } = renderHook(() =>
+        useMemos({
+          onTaskCreated: (_task, decrypted) => {
+            createdDecryptedPayload = decrypted;
+          },
+        })
+      );
+
+      const rawMemo =
+        'spotkanie z kazikiem bąkiem. za tydzień o 15. berlinerstr. 123. note: 15 tys euro.';
+
+      await act(async () => {
+        await result.current.submitMemo(rawMemo);
+      });
+
+      expect(createdDecryptedPayload).not.toBeNull();
+      expect(createdDecryptedPayload!.title).toBe('Spotkanie z kazikiem bąkiem');
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[useMemos] Gateway submission error:',
+        expect.anything()
+      );
+
+      consoleErrorSpy.mockRestore();
     });
 
     it('submits memo successfully through gatewayClient when online', async () => {

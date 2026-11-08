@@ -50,20 +50,39 @@ export class GatewayError extends Error {
  * and handles network failures gracefully.
  */
 export class GatewayClient {
-  private readonly baseUrl: string;
+  public readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: GatewayClientOptions = {}) {
-    this.baseUrl =
-      options.baseUrl ??
-      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+    const isBrowser = typeof window !== 'undefined';
+    const defaultUrl = isBrowser ? '' : DEFAULT_GATEWAY_URL;
+    const configuredUrl =
+      typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
         ? import.meta.env.VITE_API_URL
-        : DEFAULT_GATEWAY_URL);
+        : defaultUrl;
+    const rawUrl = options.baseUrl !== undefined ? options.baseUrl : configuredUrl;
+    this.baseUrl = rawUrl ? rawUrl.replace(/\/+$/, '') : '';
+
     this.fetchImpl =
       options.fetchFn ??
-      (typeof window !== 'undefined' && window.fetch
+      (isBrowser && window.fetch
         ? window.fetch.bind(window)
         : globalThis.fetch);
+  }
+
+  /**
+   * Returns current active baseUrl.
+   */
+  public getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  /**
+   * Formats API endpoint cleanly with baseUrl, preventing double slashes and supporting relative proxy routing.
+   */
+  public formatUrl(endpoint: string): string {
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    return this.baseUrl ? `${this.baseUrl}${cleanEndpoint}` : cleanEndpoint;
   }
 
   /**
@@ -117,7 +136,7 @@ export class GatewayClient {
 
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}/api/memos`, {
+      response = await this.fetchImpl(this.formatUrl('/api/memos'), {
         method: 'POST',
         headers: this.buildHeaders(),
         body: JSON.stringify(payload),
@@ -146,7 +165,7 @@ export class GatewayClient {
   public async fetchTasks(): Promise<TaskEntity[]> {
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}/api/tasks`, {
+      response = await this.fetchImpl(this.formatUrl('/api/tasks'), {
         method: 'GET',
         headers: this.buildHeaders(),
       });
@@ -177,7 +196,7 @@ export class GatewayClient {
 
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}/api/tasks`, {
+      response = await this.fetchImpl(this.formatUrl('/api/tasks'), {
         method: 'POST',
         headers: this.buildHeaders(),
         body: JSON.stringify(payload),
@@ -210,7 +229,7 @@ export class GatewayClient {
 
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}/api/tasks/${encodeURIComponent(id)}`, {
+      response = await this.fetchImpl(this.formatUrl(`/api/tasks/${encodeURIComponent(id)}`), {
         method: 'PATCH',
         headers: this.buildHeaders(),
         body: JSON.stringify(payload),
@@ -240,7 +259,7 @@ export class GatewayClient {
   public async deleteTask(id: string): Promise<boolean> {
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}/api/tasks/${encodeURIComponent(id)}`, {
+      response = await this.fetchImpl(this.formatUrl(`/api/tasks/${encodeURIComponent(id)}`), {
         method: 'DELETE',
         headers: this.buildHeaders(),
       });
@@ -267,7 +286,7 @@ export class GatewayClient {
   public async healthCheck(): Promise<HealthResponse> {
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}/api/health`, {
+      response = await this.fetchImpl(this.formatUrl('/api/health'), {
         method: 'GET',
         headers: this.buildHeaders(),
       });

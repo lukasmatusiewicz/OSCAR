@@ -206,4 +206,58 @@ describe('GatewayClient', () => {
       expect(health.timestamp).toBe('2026-11-08T00:00:00.000Z');
     });
   });
+
+  describe('baseUrl initialization and proxy routing', () => {
+    it("defaults to '' (relative reverse proxy root) in browser environment (window defined)", () => {
+      const browserClient = new GatewayClient({ fetchFn: mockFetch });
+      expect(browserClient.baseUrl).toBe('');
+      expect(browserClient.getBaseUrl()).toBe('');
+    });
+
+    it('defaults to DEFAULT_GATEWAY_URL in Node.js environment (window undefined)', () => {
+      const originalWindow = globalThis.window;
+      try {
+        // simulate Node.js environment without window
+        delete (globalThis as Record<string, unknown>).window;
+        const nodeClient = new GatewayClient({ fetchFn: mockFetch });
+        expect(nodeClient.baseUrl).toBe(DEFAULT_GATEWAY_URL);
+        expect(nodeClient.getBaseUrl()).toBe(DEFAULT_GATEWAY_URL);
+      } finally {
+        globalThis.window = originalWindow;
+      }
+    });
+
+    it('formats paths cleanly without double slashes when baseUrl has trailing slash', async () => {
+      const trailingSlashClient = new GatewayClient({
+        baseUrl: 'http://localhost:3000/',
+        fetchFn: mockFetch,
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 'ok', timestamp: '2026-11-08T00:00:00.000Z' }),
+      });
+
+      await trailingSlashClient.healthCheck();
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe('http://localhost:3000/api/health');
+      expect(url).not.toContain('//api');
+    });
+
+    it('routes requests to relative /api paths when in browser (empty baseUrl)', async () => {
+      const relativeClient = new GatewayClient({
+        baseUrl: '',
+        fetchFn: mockFetch,
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 'ok', timestamp: '2026-11-08T00:00:00.000Z' }),
+      });
+
+      await relativeClient.healthCheck();
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/health');
+    });
+  });
 });

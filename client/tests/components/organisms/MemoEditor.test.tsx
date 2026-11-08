@@ -70,6 +70,61 @@ describe('MemoEditor & detectClientTokens', () => {
     expect(personTokensHon.some((t) => t.originalValue.includes('Anna Zielińska'))).toBe(true);
   });
 
+  it('detectClientTokens detects lowercase names after prepositions across Polish, German, French, and English', () => {
+    // Polish
+    const plRes = detectClientTokens('spotkanie z janem kowalskim');
+    const plPerson = plRes.tokens.find((t) => t.type === 'PERSON');
+    expect(plPerson).toBeDefined();
+    expect(plPerson?.originalValue).toBe('janem kowalskim');
+    expect(plPerson?.startIndex).toBe(12);
+    expect(plPerson?.endIndex).toBe(27);
+
+    // German
+    const deRes = detectClientTokens('treffen mit hans müller');
+    const dePerson = deRes.tokens.find((t) => t.type === 'PERSON');
+    expect(dePerson).toBeDefined();
+    expect(dePerson?.originalValue).toBe('hans müller');
+    expect(dePerson?.startIndex).toBe(12);
+    expect(dePerson?.endIndex).toBe(23);
+
+    // French
+    const frRes = detectClientTokens('rendez-vous avec jean dupont');
+    const frPerson = frRes.tokens.find((t) => t.type === 'PERSON');
+    expect(frPerson).toBeDefined();
+    expect(frPerson?.originalValue).toBe('jean dupont');
+    expect(frPerson?.startIndex).toBe(17);
+    expect(frPerson?.endIndex).toBe(28);
+
+    // English
+    const enRes = detectClientTokens('meeting with john doe');
+    const enPerson = enRes.tokens.find((t) => t.type === 'PERSON');
+    expect(enPerson).toBeDefined();
+    expect(enPerson?.originalValue).toBe('john doe');
+    expect(enPerson?.startIndex).toBe(13);
+    expect(enPerson?.endIndex).toBe(21);
+  });
+
+  it('detectClientTokens detects compound German street names with str. and lowercase names', () => {
+    const berlinerRes = detectClientTokens('berlinerstr. 123');
+    const berlinerToken = berlinerRes.tokens.find((t) => t.type === 'ADDRESS');
+    expect(berlinerToken).toBeDefined();
+    expect(berlinerToken?.originalValue).toBe('berlinerstr. 123');
+    expect(berlinerToken?.startIndex).toBe(0);
+    expect(berlinerToken?.endIndex).toBe(16);
+
+    const hauptRes = detectClientTokens('Termin in hauptstr. 5');
+    const hauptToken = hauptRes.tokens.find((t) => t.type === 'ADDRESS');
+    expect(hauptToken).toBeDefined();
+    expect(hauptToken?.originalValue).toBe('hauptstr. 5');
+
+    // Combined detection
+    const comboRes = detectClientTokens('spotkanie z janem kowalskim, berlinerstr. 123');
+    const comboPerson = comboRes.tokens.find((t) => t.type === 'PERSON');
+    const comboAddress = comboRes.tokens.find((t) => t.type === 'ADDRESS');
+    expect(comboPerson?.originalValue).toBe('janem kowalskim');
+    expect(comboAddress?.originalValue).toBe('berlinerstr. 123');
+  });
+
   it('detectClientTokens accurately detects 9-digit, formatted, and international phone numbers', () => {
     const phoneText = 'Direct line: +48 123 456 789 or mobile 500-600-700 or US (555) 123-4567';
     const result = detectClientTokens(phoneText);

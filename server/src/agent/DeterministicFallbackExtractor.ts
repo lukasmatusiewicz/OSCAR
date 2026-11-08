@@ -31,10 +31,16 @@ export class DeterministicFallbackExtractor {
       .map((l) => l.trim())
       .filter(Boolean);
 
-    const firstLine = lines[0] ?? 'New Memo Action Item';
+    // Extract first clause/sentence by splitting on sentence terminators ([.?!]) or newlines
+    const rawClauses = memoText
+      .split(/(?:(?<!\d)[.?!](?:\s+|$)|(?<!\d)[.?!]$|\r?\n)+/)
+      .map((c) => c.trim())
+      .filter((c) => c.length > 0);
+
+    const firstClause = rawClauses[0] ?? (lines[0] ?? 'New Memo Action Item');
 
     // Title: Synthesized semantic title invariant conforming to contracts.md Section 4.3
-    let cleaned = firstLine;
+    let cleaned = firstClause;
 
     // Strip conversational preambles and directive fillers
     const preambleRegex =
@@ -61,7 +67,14 @@ export class DeterministicFallbackExtractor {
       }
     }
 
-    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    // Trim trailing punctuation ([.?!,:;])
+    cleaned = cleaned.replace(/[.?!,:;\s]+$/, '').trim();
+
+    if (cleaned.length > 0) {
+      cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    } else {
+      cleaned = 'New Memo Action Item';
+    }
 
     let title: string;
     if (cleaned.length > 120) {

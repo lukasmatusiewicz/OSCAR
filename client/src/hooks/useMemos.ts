@@ -52,7 +52,9 @@ export function useMemos(options?: UseMemosOptions) {
           options?.onTaskCreated?.(gatewayResponse.task, decryptedTask);
 
           return gatewayResponse.memo;
-        } catch {
+        } catch (err: unknown) {
+          // eslint-disable-next-line no-console
+          console.error('[useMemos] Gateway submission error:', err);
           // Graceful fallback to offline deterministic mode when gateway is unavailable (EU AI Act Article 13)
           setIsOfflineFallback(true);
           setWarning(
@@ -91,9 +93,19 @@ export function useMemos(options?: UseMemosOptions) {
           options?.onTokensDetected?.(tokens);
 
           const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-          const firstLine = rawContent.split('\n')[0].trim();
+          const firstClauseMatch =
+            rawContent
+              .split(/(?:(?<!\d)[.?!](?:\s+|$)|(?<!\d)[.?!]$|\r?\n)+/)
+              .map((c) => c.trim())
+              .filter((c) => c.length > 0)[0] || '';
+          let cleanedTitle = firstClauseMatch.replace(/[.?!,:;\s]+$/, '').trim();
+          if (cleanedTitle.length > 0) {
+            cleanedTitle = cleanedTitle.charAt(0).toUpperCase() + cleanedTitle.slice(1);
+          }
           const title =
-            firstLine.length > 5 ? firstLine.substring(0, 80) : 'Voice Memo Action Items';
+            cleanedTitle.length >= 3
+              ? (cleanedTitle.length > 80 ? `${cleanedTitle.substring(0, 77)}...` : cleanedTitle)
+              : 'Voice Memo Action Items';
           const summary =
             rawContent.length > 10
               ? rawContent.substring(0, 200)

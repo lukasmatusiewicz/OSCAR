@@ -3,7 +3,7 @@ import { app, DEFAULT_PORT } from './app.js';
 
 export const PORT = Number(process.env.PORT) || DEFAULT_PORT;
 
-export const server: Server = app.listen(PORT, () => {
+export const server: Server = app.listen(PORT, '0.0.0.0', () => {
   const startupLog = {
     event: 'SERVER_STARTUP',
     port: PORT,
