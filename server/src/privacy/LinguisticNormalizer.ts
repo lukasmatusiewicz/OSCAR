@@ -206,7 +206,7 @@ const CITY_CANONICAL_MAP: Record<string, string> = {
   madryt: 'Madrid',
   madrycie: 'Madrid',
   munich: 'Munich',
-  münchen: 'Munich',
+  münchen: 'München',
   monachium: 'Munich',
   hamburg: 'Hamburg',
   hamburgu: 'Hamburg',
@@ -471,8 +471,11 @@ export function normalizeAddressCasing(address: string): string {
   const normalizedWords = words.map((word, index) => {
     const lower = word.toLowerCase();
 
-    // Preserve lowercase street prefixes at the beginning
-    if (index === 0 && LOWERCASE_PREFIXES.has(lower)) {
+    // Preserve lowercase street prefixes at the beginning or after numbers / commas
+    if (
+      LOWERCASE_PREFIXES.has(lower) &&
+      (index === 0 || /^\d+[a-zA-Z]?[.,;]?$/.test(words[index - 1]) || words[index - 1].endsWith(','))
+    ) {
       return lower;
     }
 

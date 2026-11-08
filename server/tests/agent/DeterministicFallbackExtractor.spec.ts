@@ -238,5 +238,14 @@ describe('DeterministicFallbackExtractor', () => {
       expect(task.amount).toBeNull();
       expect(task.scheduledTime).toBeNull();
     });
+
+    it('formats multi-line summary with bullet • prefix for metadata and notes', () => {
+      const memo = 'spotkanie z [PERSON_1]. [ADDRESS_1]. note: 1231421415; kawka';
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.summary).toContain('• 👤 Contact: [PERSON_1]');
+      expect(task.summary).toContain('• 📍 Location: [ADDRESS_1]');
+      expect(task.summary).toContain('• 📝 Notes: 1231421415; kawka');
+    });
   });
 });

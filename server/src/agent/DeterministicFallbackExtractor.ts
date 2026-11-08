@@ -195,16 +195,16 @@ export class DeterministicFallbackExtractor {
     const summaryLines: string[] = [coreObjective];
 
     if (contactPerson) {
-      summaryLines.push(`👤 Contact: ${contactPerson}`);
+      summaryLines.push(`• 👤 Contact: ${contactPerson}`);
     }
     if (location) {
-      summaryLines.push(`📍 Location: ${location}`);
+      summaryLines.push(`• 📍 Location: ${location}`);
     }
     if (amount) {
-      summaryLines.push(`💰 Amount: ${amount}`);
+      summaryLines.push(`• 💰 Amount: ${amount}`);
     }
     if (scheduledTime) {
-      summaryLines.push(`⏰ Time: ${scheduledTime}`);
+      summaryLines.push(`• ⏰ Time: ${scheduledTime}`);
     }
 
     // Notes / extra details (explicit notes, remaining PII tokens, and subsequent clauses)
@@ -244,7 +244,7 @@ export class DeterministicFallbackExtractor {
     }
 
     if (noteItems.length > 0) {
-      summaryLines.push(`📝 Notes: ${noteItems.join('; ')}`);
+      summaryLines.push(`• 📝 Notes: ${noteItems.join('; ')}`);
     }
 
     let summary = summaryLines.join('\n');

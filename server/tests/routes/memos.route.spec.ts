@@ -84,6 +84,79 @@ describe('Memos Route Integration', () => {
       expect(allTasks[0].amount).toBe(createdTask.amount);
     });
 
+    it('correctly normalizes nominative contact name, title-cases address, and formats summary with bullets for beatą kozidrak', async () => {
+      const res = await inProcessApp(app)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content: 'spotkanie z beatą kozidrak. hamburgerstr. 123',
+        });
+
+      expect(res.status).toBe(200);
+      const createdTask = res.body.task;
+      expect(createdTask.contactPerson).toBe('Beata Kozidrak');
+      expect(createdTask.location).toBe('Hamburgerstr. 123');
+
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        createdTask.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.title).toBe('Spotkanie z Beatą Kozidrak');
+      expect(decrypted.contactPerson).toBe('Beata Kozidrak');
+      expect(decrypted.location).toBe('Hamburgerstr. 123');
+      expect(decrypted.summary).toContain('👤 Contact: Beata Kozidrak');
+      expect(decrypted.summary).toContain('📍 Location: Hamburgerstr. 123');
+      expect(decrypted.summary).toContain('• 👤 Contact: Beata Kozidrak');
+      expect(decrypted.summary).toContain('• 📍 Location: Hamburgerstr. 123');
+    });
+
+    it('inserts contactPerson and location when not initially present in summary, and enforces summary bounds', async () => {
+      const mockCustomOrchestrator = {
+        extractTasks: () =>
+          Promise.resolve({
+            task: {
+              title: 'Brief Task',
+              summary: 'Plan',
+              category: 'WORK',
+              priority: 'HIGH',
+              scheduledDate: null,
+              tags: ['work'],
+              subtasks: [{ title: 'Subtask 1', completed: false }],
+              location: 'Berlin',
+              contactPerson: 'Alice',
+              amount: null,
+              scheduledTime: null,
+            },
+            provenance: 'GEMINI_FLASH',
+            modelVersion: 'gemini-2.5-flash',
+          }),
+        extractTask: () => Promise.reject(new Error('Not used')),
+      };
+
+      const customApp = createApp({
+        orchestrator: mockCustomOrchestrator as unknown as GeminiOrchestrator,
+        taskStore,
+      });
+
+      const res = await inProcessApp(customApp)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content: 'Plan memo with Alice in Berlin',
+        });
+
+      expect(res.status).toBe(200);
+      const createdTask = res.body.task;
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        createdTask.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.summary).toContain('• 👤 Contact: Alice');
+      expect(decrypted.summary).toContain('• 📍 Location: Berlin');
+    });
+
     it('rejects invalid memo input with empty content returning 400 Zod error response', async () => {
       const res = await inProcessApp(app).post('/api/memos').send({
         content: '',

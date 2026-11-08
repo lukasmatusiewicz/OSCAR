@@ -1,4 +1,8 @@
 import { PIITokenMap, PIIType, SanitizationResult, RiskLevel } from '../types/contracts.js';
+import {
+  normalizePersonToNominative,
+  normalizeAddressCasing,
+} from './LinguisticNormalizer.js';
 
 export interface RawMatch {
   type: PIIType;
@@ -269,6 +273,18 @@ export function isValidSsn(ssn: string): boolean {
   return true;
 }
 
+function titleCasePersonToken(value: string): string {
+  return value
+    .split(' ')
+    .map((word) =>
+      word
+        .split('-')
+        .map((part) => (part.length > 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+        .join('-'),
+    )
+    .join(' ');
+}
+
 /**
  * Recursively re-hydrates tokens in a parsed JSON structure using atomic single-pass regex replacement.
  * Accepts either an ephemeral Map<string, string> or an array of PIITokenMap records (e.g. from SanitizationResult.tokens).
@@ -285,7 +301,17 @@ export function rehydrate<T>(target: T, tokenMapOrTokens: Map<string, string> | 
   if (typeof target === 'string') {
     const pattern = new RegExp(TOKEN_PATTERN.source, TOKEN_PATTERN.flags);
     return target.replace(pattern, (match) => {
-      return tokenMap.get(match) ?? match;
+      const cleartext = tokenMap.get(match);
+      if (cleartext === undefined) {
+        return match;
+      }
+      if (match.startsWith('[PERSON_')) {
+        return titleCasePersonToken(cleartext);
+      }
+      if (match.startsWith('[ADDRESS_')) {
+        return normalizeAddressCasing(cleartext);
+      }
+      return cleartext;
     }) as unknown as T;
   }
 
@@ -301,7 +327,12 @@ export function rehydrate<T>(target: T, tokenMapOrTokens: Map<string, string> | 
     }
     const clone: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(target)) {
-      clone[key] = rehydrate(value, tokenMap);
+      const rehydratedValue = rehydrate(value, tokenMap);
+      if (key === 'contactPerson' && typeof rehydratedValue === 'string') {
+        clone[key] = normalizePersonToNominative(rehydratedValue);
+      } else {
+        clone[key] = rehydratedValue;
+      }
     }
     return clone as unknown as T;
   }

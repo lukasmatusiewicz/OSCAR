@@ -71,11 +71,40 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       const location = rawLocation ? normalizeAddressCasing(rawLocation) : null;
       const contactPerson = rawContactPerson ? normalizePersonToNominative(rawContactPerson) : null;
 
+      let summary = rehydratedTask.summary ?? '';
+      if (contactPerson) {
+        if (/(?:•\s*)?👤\s*Contact:[^\r\n]*/i.test(summary)) {
+          summary = summary.replace(/(?:•\s*)?👤\s*Contact:[^\r\n]*/gi, `• 👤 Contact: ${contactPerson}`);
+        } else {
+          const lines = summary.split('\n');
+          lines.splice(1, 0, `• 👤 Contact: ${contactPerson}`);
+          summary = lines.join('\n');
+        }
+      }
+
+      if (location) {
+        if (/(?:•\s*)?📍\s*Location:[^\r\n]*/i.test(summary)) {
+          summary = summary.replace(/(?:•\s*)?📍\s*Location:[^\r\n]*/gi, `• 📍 Location: ${location}`);
+        } else {
+          const lines = summary.split('\n');
+          const contactIdx = lines.findIndex((l) => l.includes('👤 Contact:'));
+          const insertIdx = contactIdx !== -1 ? contactIdx + 1 : Math.min(1, lines.length);
+          lines.splice(insertIdx, 0, `• 📍 Location: ${location}`);
+          summary = lines.join('\n');
+        }
+      }
+
+      if (summary.length < 5) {
+        summary = summary.padEnd(5, '.');
+      } else if (summary.length > 1000) {
+        summary = `${summary.substring(0, 997)}...`;
+      }
+
       // 6. Validate re-hydrated task against DecryptedTaskPayloadSchema (bounds expansion accommodation)
       const decryptedPayload: DecryptedTaskPayload = DecryptedTaskPayloadSchema.parse({
         title:
           input.title && input.title.trim().length > 0 ? input.title.trim() : rehydratedTask.title,
-        summary: rehydratedTask.summary,
+        summary,
         subtasks: rehydratedTask.subtasks,
         location,
         contactPerson,

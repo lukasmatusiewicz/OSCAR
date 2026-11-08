@@ -169,16 +169,16 @@ export function useMemos(options?: UseMemosOptions) {
           const summaryLines: string[] = [coreObjective];
 
           if (contactPerson) {
-            summaryLines.push(`👤 Contact: ${contactPerson}`);
+            summaryLines.push(`• 👤 Contact: ${contactPerson}`);
           }
           if (location) {
-            summaryLines.push(`📍 Location: ${location}`);
+            summaryLines.push(`• 📍 Location: ${location}`);
           }
           if (amount) {
-            summaryLines.push(`💰 Amount: ${amount}`);
+            summaryLines.push(`• 💰 Amount: ${amount}`);
           }
           if (scheduledTime) {
-            summaryLines.push(`⏰ Time: ${scheduledTime}`);
+            summaryLines.push(`• ⏰ Time: ${scheduledTime}`);
           }
 
           // Notes / extra details: tokens or explicit notes
@@ -205,7 +205,7 @@ export function useMemos(options?: UseMemosOptions) {
           }
 
           if (noteItems.length > 0) {
-            summaryLines.push(`📝 Notes: ${noteItems.join('; ')}`);
+            summaryLines.push(`• 📝 Notes: ${noteItems.join('; ')}`);
           }
 
           let summary = summaryLines.join('\n');
