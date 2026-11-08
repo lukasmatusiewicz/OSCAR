@@ -1,0 +1,67 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoEditor, detectClientTokens } from '../../../src/components/organisms/MemoEditor';
+
+describe('MemoEditor & detectClientTokens', () => {
+  it('detectClientTokens identifies multiple PII types and assigns correct risk levels', () => {
+    const text = 'Transfer $5,000 to user@company.com with key sk-abcdef12345678901234567890 for Dr. Smith';
+    const result = detectClientTokens(text);
+    expect(result.tokens.length).toBeGreaterThanOrEqual(4);
+    expect(result.riskLevel).toBe('HIGH'); // contains SECRET_KEY
+
+    const lowRiskText = 'Call +1 555-123-4567 later';
+    const lowResult = detectClientTokens(lowRiskText);
+    expect(lowResult.tokens.length).toBe(1);
+    expect(lowResult.riskLevel).toBe('LOW');
+
+    const zeroRiskText = 'Review quarterly release roadmap';
+    const zeroResult = detectClientTokens(zeroRiskText);
+    expect(zeroResult.tokens.length).toBe(0);
+    expect(zeroResult.riskLevel).toBe('NONE');
+  });
+
+  it('detectClientTokens assigns MEDIUM risk level for financial tokens or 2+ tokens', () => {
+    const medResult = detectClientTokens('Transfer $50 to colleague');
+    expect(medResult.tokens.length).toBe(1);
+    expect(medResult.riskLevel).toBe('MEDIUM');
+
+    const twoTokensResult = detectClientTokens('Email alex@example.com or sam@example.com');
+    expect(twoTokensResult.tokens.length).toBe(2);
+    expect(twoTokensResult.riskLevel).toBe('MEDIUM');
+  });
+
+  it('renders editor, detects tokens in real time, and triggers onSubmit', async () => {
+    const handleSubmit = vi.fn();
+    render(<MemoEditor onSubmit={handleSubmit} />);
+
+    const textarea = screen.getByLabelText(/confidential memo input/i);
+    fireEvent.change(textarea, { target: { value: 'Send funds to test@example.com' } });
+
+    // Token preview list should appear
+    expect(await screen.findByTestId('memo-token-preview-list')).toBeInTheDocument();
+    expect(screen.getByTestId('token-badge-EMAIL_1')).toBeInTheDocument();
+
+    const submitBtn = screen.getByRole('button', { name: /encrypt & process/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(handleSubmit).toHaveBeenCalledTimes(1);
+      expect(handleSubmit).toHaveBeenCalledWith(
+        'Send funds to test@example.com',
+        expect.arrayContaining([expect.objectContaining({ type: 'EMAIL' })])
+      );
+    });
+  });
+
+  it('displays error message when submitted with empty content', async () => {
+    const handleSubmit = vi.fn();
+    render(<MemoEditor onSubmit={handleSubmit} />);
+
+    const submitBtn = screen.getByRole('button', { name: /encrypt & process/i });
+    // Clear input and submit
+    fireEvent.click(submitBtn);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/please enter a memo/i);
+    expect(handleSubmit).not.toHaveBeenCalled();
+  });
+});
