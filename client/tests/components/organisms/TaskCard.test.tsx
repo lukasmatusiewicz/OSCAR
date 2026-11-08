@@ -361,5 +361,45 @@ describe('TaskCard', () => {
       expect(downloadSpy).toHaveBeenCalledWith(mockTask, mockDecrypted);
       downloadSpy.mockRestore();
     });
+
+    it('renders Fallback Engine provenance badge when provenance is unrecognized', () => {
+      const customTask: TaskEntity = {
+        ...mockTask,
+        provenance: 'CUSTOM_ENGINE' as any,
+      };
+
+      render(<TaskCard task={customTask} decryptedPayload={mockDecrypted} />);
+      expect(screen.getByText('🤖 Fallback Engine')).toBeInTheDocument();
+    });
+
+    it('invokes onPriorityChange callback when priority selector changes in non-draft card', () => {
+      const handlePriorityChange = vi.fn();
+      const pendingTask: TaskEntity = {
+        ...mockTask,
+        status: 'PENDING',
+      };
+
+      render(
+        <TaskCard
+          task={pendingTask}
+          decryptedPayload={mockDecrypted}
+          onPriorityChange={handlePriorityChange}
+        />
+      );
+
+      const urgentBtn = screen.getByRole('radio', { name: /urgent/i });
+      fireEvent.click(urgentBtn);
+      expect(handlePriorityChange).toHaveBeenCalledWith(mockTask.id, 'URGENT');
+    });
+
+    it('handles unknown status fallback style smoothly', () => {
+      const weirdTask: TaskEntity = {
+        ...mockTask,
+        status: 'ARCHIVED' as any,
+      };
+
+      render(<TaskCard task={weirdTask} decryptedPayload={mockDecrypted} />);
+      expect(screen.getByTestId(`task-status-badge-${weirdTask.id}`)).toBeInTheDocument();
+    });
   });
 });

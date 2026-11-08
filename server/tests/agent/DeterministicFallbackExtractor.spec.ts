@@ -261,5 +261,47 @@ describe('DeterministicFallbackExtractor', () => {
       expect(task.summary).not.toContain('• 📝 Notes: • 👤 Contact:');
       expect(task.subtasks.some((s) => s.title.includes('👤 Contact:'))).toBe(false);
     });
+
+    it('extracts amount and scheduledTime from card metadata markers when not in body', () => {
+      const memo =
+        'Quarterly business review\n• 💰 Amount: 45000 Equity Units\n• ⏰ Time: End of Day Q3 Sprint\n• 📝 Notes: Board members only';
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.amount).toBe('45000 Equity Units');
+      expect(task.scheduledTime).toBe('End of Day Q3 Sprint');
+      expect(task.summary).toContain('• 💰 Amount: 45000 Equity Units');
+      expect(task.summary).toContain('• ⏰ Time: End of Day Q3 Sprint');
+      expect(task.summary).toContain('• 📝 Notes: Board members only');
+    });
+
+    it('skips duplicate clauses that match location, amount, scheduledTime, or metadata markers in subsequent clauses', () => {
+      const memo =
+        'Plan workshop in Berlin. Berlin. 100 EUR. 14:00. • 📍 Location: Berlin. • ⏰ Time: 14:00. • 💰 Amount: 100 EUR. Notes: finalize slides.';
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.location).toBe('Berlin');
+      expect(task.amount).toBe('100 EUR');
+      expect(task.scheduledTime).toBe('14:00');
+      expect(task.summary).toContain('• 📍 Location: Berlin');
+      expect(task.summary).toContain('• 💰 Amount: 100 EUR');
+      expect(task.summary).toContain('• ⏰ Time: 14:00');
+      expect(task.summary).toContain('• 📝 Notes: finalize slides');
+    });
+
+    it('truncates summaries longer than 500 characters gracefully with ellipsis', () => {
+      const longNote = 'A very detailed exhaustive non-repeating description of architecture review ' + 'x'.repeat(550);
+      const memo = `Review system architecture. Notes: ${longNote}`;
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.summary.length).toBeLessThanOrEqual(500);
+      expect(task.summary.endsWith('...')).toBe(true);
+    });
+
+    it('handles multiple chained directive fillers and preambles', () => {
+      const memo = 'Hey Alice, dear Szanowny Panie, please remind me to don\'t forget to review the pull request';
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.title).toBe('Review the pull request');
+    });
   });
 });

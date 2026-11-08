@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { usePrivacyShield } from '../../src/hooks/usePrivacyShield';
 import { useTasks } from '../../src/hooks/useTasks';
 import { useMemos } from '../../src/hooks/useMemos';
@@ -436,6 +436,184 @@ describe('Reactive State Hooks', () => {
       expect(result.current.memos.length).toBe(1);
       expect(createdTask).not.toBeNull();
       expect(detectedTokensCount).toBe(0);
+    });
+
+    it('extracts metadata from card markers, streets, and tests bounds in offline fallback', async () => {
+      let createdDecrypted: DecryptedTaskPayload | null = null;
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { result } = renderHook(() =>
+        useMemos({
+          onTaskCreated: (_task, decrypted) => {
+            createdDecrypted = decrypted;
+          },
+        })
+      );
+
+      // Card markers for contact, location, amount, time, and street regex
+      const rawMemo =
+        'Quarterly Strategy Review in ul. Marszałkowska 10\n• 👤 Contact: Dr. Klaus Schmidt\n• 📍 Location: Kassel Office\n• 💰 Amount: 50,000 EUR\n• ⏰ Time: End of Day Q3 Sprint';
+
+      await act(async () => {
+        await result.current.submitMemo(rawMemo);
+      });
+
+      expect(createdDecrypted).not.toBeNull();
+      expect(createdDecrypted!.contactPerson).toBe('Dr. Klaus Schmidt');
+      expect(createdDecrypted!.amount).toBe('50,000 EUR');
+      expect(createdDecrypted!.scheduledTime).toBe('End of Day Q3 Sprint');
+      expect(createdDecrypted!.location).toBeDefined();
+    });
+
+    it('handles short titles, long titles, long summaries, and tokens without originalValue in offline fallback', async () => {
+      let createdDecrypted: DecryptedTaskPayload | null = null;
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { result } = renderHook(() =>
+        useMemos({
+          onTaskCreated: (_task, decrypted) => {
+            createdDecrypted = decrypted;
+          },
+        })
+      );
+
+      // 1. Short title fallback (< 3 chars)
+      await act(async () => {
+        await result.current.submitMemo('Do');
+      });
+      expect(createdDecrypted!.title).toBe('Voice Memo Action Items');
+
+      // 2. Long title truncation (> 80 chars) and long summary truncation (> 500 chars)
+      const longTitleMemo = 'A'.repeat(90) + '. ' + 'Detailed notes '.repeat(40);
+      await act(async () => {
+        await result.current.submitMemo(longTitleMemo);
+      });
+      expect(createdDecrypted!.title.length).toBeLessThanOrEqual(80);
+      expect(createdDecrypted!.title.endsWith('...')).toBe(true);
+      expect(createdDecrypted!.summary.length).toBeLessThanOrEqual(500);
+
+      // 3. Tokens with undefined originalValue
+      const tokenWithoutVal = [
+        {
+          token: '[ADDRESS_1]',
+          type: 'ADDRESS' as const,
+          originalValue: '',
+          startIndex: 0,
+          endIndex: 11,
+        },
+        {
+          token: '[AMOUNT_MONEY_1]',
+          type: 'AMOUNT_MONEY' as const,
+          originalValue: '',
+          startIndex: 12,
+          endIndex: 28,
+        },
+      ];
+      await act(async () => {
+        await result.current.submitMemo('[ADDRESS_1] [AMOUNT_MONEY_1]', tokenWithoutVal);
+      });
+      expect(createdDecrypted!.location).toBe('[ADDRESS_1]');
+      expect(createdDecrypted!.amount).toBe('[AMOUNT_MONEY_1]');
+    });
+
+    it('handles submission errors and sets error state in useMemos', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const encryptSpy = vi.spyOn(ClientCryptoService, 'encrypt').mockRejectedValueOnce(new Error('Fatal crypto failure'));
+
+      const { result } = renderHook(() => useMemos());
+
+      let submitError: unknown = null;
+      await act(async () => {
+        try {
+          await result.current.submitMemo('Trigger crypto failure');
+        } catch (err) {
+          submitError = err;
+        }
+      });
+
+      expect(submitError).toBeDefined();
+      expect((submitError as Error).message).toBe('Fatal crypto failure');
+      expect(result.current.error).toBe('Fatal crypto failure');
+      encryptSpy.mockRestore();
+    });
+  });
+
+  describe('useTasks extended branch coverage', () => {
+    it('decrypts task asynchronously when added without decrypted payload', async () => {
+      const { result } = renderHook(() => useTasks());
+
+      const encPayload = await ClientCryptoService.encrypt({
+        title: 'Auto Decrypted Task',
+        summary: 'Decrypted automatically on add',
+        subtasks: [{ title: 'Subtask auto', completed: false }],
+      });
+
+      const task: TaskEntity = {
+        id: 'task_auto_dec_123',
+        memoId: 'memo_auto_dec_123',
+        userId: 'usr_mock_session_active',
+        encryptedPayload: encPayload,
+        category: 'WORK',
+        priority: 'MEDIUM',
+        status: 'DRAFT',
+        scheduledDate: null,
+        tags: [],
+        provenance: 'GEMINI_FLASH',
+        modelVersion: 'gemini-2.5-flash-001',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await act(async () => {
+        result.current.addTask(task);
+      });
+
+      await waitFor(() => {
+        expect(result.current.decryptedPayloads['task_auto_dec_123']).toBeDefined();
+        expect(result.current.decryptedPayloads['task_auto_dec_123']?.title).toBe('Auto Decrypted Task');
+      });
+    });
+
+    it('deletes task from state and invokes gatewayClient.deleteTask', async () => {
+      const deleteSpy = vi.spyOn(gatewayClient, 'deleteTask').mockResolvedValueOnce({ success: true } as any);
+      const { result } = renderHook(() => useTasks());
+
+      const encPayload = await ClientCryptoService.encrypt({
+        title: 'Task To Delete',
+        summary: 'To be removed',
+        subtasks: [],
+      });
+
+      const task: TaskEntity = {
+        id: 'task_delete_target_123',
+        memoId: 'memo_del',
+        userId: 'usr_mock',
+        encryptedPayload: encPayload,
+        category: 'WORK',
+        priority: 'LOW',
+        status: 'PENDING',
+        scheduledDate: null,
+        tags: [],
+        provenance: 'DETERMINISTIC_FALLBACK',
+        modelVersion: 'rule-based-v1',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      act(() => {
+        result.current.addTask(task, { title: 'Task To Delete', summary: 'To be removed', subtasks: [] });
+      });
+
+      expect(result.current.tasks.some((t) => t.id === 'task_delete_target_123')).toBe(true);
+
+      act(() => {
+        result.current.deleteTask('task_delete_target_123');
+      });
+
+      expect(result.current.tasks.some((t) => t.id === 'task_delete_target_123')).toBe(false);
+      expect(result.current.decryptedPayloads['task_delete_target_123']).toBeUndefined();
+      expect(deleteSpy).toHaveBeenCalledWith('task_delete_target_123');
+      deleteSpy.mockRestore();
     });
   });
 });

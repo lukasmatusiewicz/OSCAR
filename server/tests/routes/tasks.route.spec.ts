@@ -93,6 +93,28 @@ describe('Tasks Route Integration', () => {
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Validation failed');
     });
+
+    it('applies default values for summary, category, priority, status, and tags when omitted', async () => {
+      const res = await inProcessApp(app)
+        .post('/api/tasks')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Minimal Task',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.category).toBe('OTHER');
+      expect(res.body.priority).toBe('MEDIUM');
+      expect(res.body.status).toBe('DRAFT');
+      expect(res.body.tags).toEqual([]);
+
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        res.body.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.summary.length).toBeGreaterThanOrEqual(5);
+      expect(decrypted.subtasks.length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('PATCH /api/tasks/:id', () => {

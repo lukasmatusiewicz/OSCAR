@@ -187,6 +187,209 @@ describe('Memos Route Integration', () => {
       expect(decrypted.summary).toContain('• 📍 Location: Berlin');
     });
 
+    it('inserts location when contact is absent (contactIdx === -1) and deduplicates multiple duplicate location lines', async () => {
+      const mockLocationOnlyOrchestrator = {
+        extractTasks: () =>
+          Promise.resolve({
+            task: {
+              title: 'Conference Room Booking',
+              summary: 'Book meeting room.\n• 📍 Location: Kassel Office\n• 📍 Location: Kassel Office',
+              category: 'WORK',
+              priority: 'MEDIUM',
+              scheduledDate: null,
+              tags: ['work'],
+              subtasks: [{ title: 'Check availability', completed: false }],
+              location: 'Kassel Office',
+              contactPerson: null,
+              amount: null,
+              scheduledTime: null,
+            },
+            provenance: 'GEMINI_FLASH',
+            modelVersion: 'gemini-2.5-flash',
+          }),
+        extractTask: () => Promise.reject(new Error('Not used')),
+      };
+
+      const locationApp = createApp({
+        orchestrator: mockLocationOnlyOrchestrator as unknown as GeminiOrchestrator,
+        taskStore,
+      });
+
+      const res = await inProcessApp(locationApp)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content: 'Book meeting room in Kassel Office',
+        });
+
+      expect(res.status).toBe(200);
+      const createdTask = res.body.task;
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        createdTask.encryptedPayload,
+        testKey,
+      );
+
+      const locMatches = decrypted.summary.match(/• 📍 Location:[^\r\n]*/g);
+      expect(locMatches).toHaveLength(1);
+      expect(decrypted.location).toBe('Kassel Office');
+      expect(decrypted.contactPerson).toBeNull();
+    });
+
+    it('inserts location at index 1 when contact is absent and no existing location lines', async () => {
+      const mockNoMarkersOrchestrator = {
+        extractTasks: () =>
+          Promise.resolve({
+            task: {
+              title: 'Location Without Markers',
+              summary: 'Core description of the event',
+              category: 'WORK',
+              priority: 'LOW',
+              scheduledDate: null,
+              tags: ['work'],
+              subtasks: [{ title: 'Check venue', completed: false }],
+              location: 'Hamburg Center',
+              contactPerson: null,
+              amount: null,
+              scheduledTime: null,
+            },
+            provenance: 'GEMINI_FLASH',
+            modelVersion: 'gemini-2.5-flash',
+          }),
+        extractTask: () => Promise.reject(new Error('Not used')),
+      };
+
+      const noMarkerApp = createApp({
+        orchestrator: mockNoMarkersOrchestrator as unknown as GeminiOrchestrator,
+        taskStore,
+      });
+
+      const res = await inProcessApp(noMarkerApp)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content: 'Visit Hamburg Center for site inspection',
+        });
+
+      expect(res.status).toBe(200);
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        res.body.task.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.summary).toContain('• 📍 Location: Hamburg Center');
+    });
+
+    it('enforces summary boundaries truncating > 1000 characters and padding < 5 characters', async () => {
+      const mockBoundaryOrchestrator = {
+        extractTasks: () =>
+          Promise.resolve({
+            task: {
+              title: 'Long Memo Summary',
+              summary: 'X'.repeat(1050),
+              category: 'WORK',
+              priority: 'HIGH',
+              scheduledDate: null,
+              tags: ['work'],
+              subtasks: [{ title: 'Process', completed: false }],
+              location: null,
+              contactPerson: null,
+              amount: null,
+              scheduledTime: null,
+            },
+            provenance: 'GEMINI_FLASH',
+            modelVersion: 'gemini-2.5-flash',
+          }),
+        extractTask: () => Promise.reject(new Error('Not used')),
+      };
+
+      const boundaryApp = createApp({
+        orchestrator: mockBoundaryOrchestrator as unknown as GeminiOrchestrator,
+        taskStore,
+      });
+
+      const res = await inProcessApp(boundaryApp)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content: 'Long memo requiring bounds checking',
+        });
+
+      expect(res.status).toBe(200);
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        res.body.task.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.summary.length).toBeLessThanOrEqual(1000);
+      expect(decrypted.summary.endsWith('...')).toBe(true);
+    });
+
+    it('falls back to rehydratedTask.title when request title is empty whitespace or omitted', async () => {
+      const res = await inProcessApp(app)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content: 'Schedule weekly planning meeting tomorrow',
+          title: '   ',
+        });
+
+      expect(res.status).toBe(200);
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        res.body.task.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.title.trim().length).toBeGreaterThan(0);
+    });
+
+    it('rehydrates scheduledTime and deduplicates multiple contact lines, padding short summaries', async () => {
+      const mockMultiContactOrchestrator = {
+        extractTasks: () =>
+          Promise.resolve({
+            task: {
+              title: 'Short Summary Task',
+              summary: '• 👤 Contact: Dr. Smith\n• 👤 Contact: Dr. Smith',
+              category: 'WORK',
+              priority: 'MEDIUM',
+              scheduledDate: null,
+              tags: ['work'],
+              subtasks: [{ title: 'Sync with Dr. Smith', completed: false }],
+              location: null,
+              contactPerson: 'Dr. Smith',
+              amount: null,
+              scheduledTime: 'tomorrow at [PERSON_1]',
+            },
+            provenance: 'GEMINI_FLASH',
+            modelVersion: 'gemini-2.5-flash',
+          }),
+        extractTask: () => Promise.reject(new Error('Not used')),
+      };
+
+      const multiContactApp = createApp({
+        orchestrator: mockMultiContactOrchestrator as unknown as GeminiOrchestrator,
+        taskStore,
+      });
+
+      const res = await inProcessApp(multiContactApp)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content: 'Short memo with Dr. Smith tomorrow at 10:00',
+        });
+
+      expect(res.status).toBe(200);
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        res.body.task.encryptedPayload,
+        testKey,
+      );
+
+      const contactMatches = decrypted.summary.match(/• 👤 Contact:[^\r\n]*/g);
+      expect(contactMatches).toHaveLength(1);
+      expect(decrypted.scheduledTime).toBeDefined();
+    });
+
     it('rejects invalid memo input with empty content returning 400 Zod error response', async () => {
       const res = await inProcessApp(app).post('/api/memos').send({
         content: '',
