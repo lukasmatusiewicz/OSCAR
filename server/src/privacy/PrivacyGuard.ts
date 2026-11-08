@@ -299,14 +299,27 @@ export function rehydrate<T>(target: T, tokenMapOrTokens: Map<string, string> | 
   return target;
 }
 
+export interface TransformersTokenEntity {
+  entity_group?: string;
+  entity?: string;
+  word?: string;
+  start?: number;
+  end?: number;
+  score?: number;
+}
+
+export type TransformersPipeline = (
+  text: string,
+) => Promise<unknown> | unknown;
+
 export class PrivacyGuard {
-  private static customPipeline: any = undefined;
-  private static cachedPipeline: any = null;
+  private static customPipeline: TransformersPipeline | null | undefined = undefined;
+  private static cachedPipeline: TransformersPipeline | null = null;
 
   /**
    * Sets or mocks the Tier 2 Transformers.js pipeline (primarily for testing and in-memory injection).
    */
-  public static setPipeline(pipelineInstance: any): void {
+  public static setPipeline(pipelineInstance: TransformersPipeline | null | undefined): void {
     this.customPipeline = pipelineInstance;
   }
 
@@ -314,7 +327,7 @@ export class PrivacyGuard {
    * Lazy-loads local in-memory Transformers.js pipeline.
    * Strictly enforces zero-network mandate (allowRemoteModels = false).
    */
-  public static async getPipeline(): Promise<any> {
+  public static async getPipeline(): Promise<TransformersPipeline | null> {
     if (this.customPipeline !== undefined) {
       return this.customPipeline;
     }
@@ -334,7 +347,10 @@ export class PrivacyGuard {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('NER model load timeout > 100ms')), 100),
         );
-        this.cachedPipeline = await Promise.race([initPromise, timeoutPromise]);
+        this.cachedPipeline = (await Promise.race([
+          initPromise,
+          timeoutPromise,
+        ])) as TransformersPipeline;
         return this.cachedPipeline;
       }
     } catch {
@@ -369,27 +385,30 @@ export class PrivacyGuard {
       const semanticMatches: RawMatch[] = [];
 
       if (Array.isArray(entityResults)) {
-        for (const item of entityResults) {
-          const label = String(item.entity_group || item.entity || '');
-          let matchType: PIIType | null = null;
-          if (label === 'PER' || label === 'PERSON' || label.endsWith('PER')) {
-            matchType = 'PERSON';
-          } else if (label === 'LOC' || label === 'LOCATION' || label.endsWith('LOC')) {
-            matchType = 'ADDRESS';
-          }
+        for (const rawItem of entityResults) {
+          if (typeof rawItem === 'object' && rawItem !== null) {
+            const item = rawItem as TransformersTokenEntity;
+            const label = String(item.entity_group || item.entity || '');
+            let matchType: PIIType | null = null;
+            if (label === 'PER' || label === 'PERSON' || label.endsWith('PER')) {
+              matchType = 'PERSON';
+            } else if (label === 'LOC' || label === 'LOCATION' || label.endsWith('LOC')) {
+              matchType = 'ADDRESS';
+            }
 
-          if (
-            matchType &&
-            item.word &&
-            typeof item.start === 'number' &&
-            typeof item.end === 'number'
-          ) {
-            semanticMatches.push({
-              type: matchType,
-              value: item.word,
-              startIndex: item.start,
-              endIndex: item.end,
-            });
+            if (
+              matchType &&
+              item.word &&
+              typeof item.start === 'number' &&
+              typeof item.end === 'number'
+            ) {
+              semanticMatches.push({
+                type: matchType,
+                value: item.word,
+                startIndex: item.start,
+                endIndex: item.end,
+              });
+            }
           }
         }
       }
@@ -625,7 +644,7 @@ export class PrivacyGuard {
 
     // 4b. Medical terms, diagnoses, and prescriptions in context across PL, DE, EN, FR
     const medicalRegex =
-      /\b(?:diagnoza|rozpoznanie|recepta|skierowanie|leki|Diagnose|Rezept|ordonnance|diagnosis|prescription)\b(?:\s*[:\-]\s*|\s+(?:na|dla|für|pour|for)\s+)[a-zA-Z0-9\p{L}\-\+]+(?:\s+[a-zA-Z0-9\p{L}\-\+]+){0,4}/giu;
+      /\b(?:diagnoza|rozpoznanie|recepta|skierowanie|leki|Diagnose|Rezept|ordonnance|diagnosis|prescription)\b(?:\s*[:-]\s*|\s+(?:na|dla|für|pour|for)\s+)[a-zA-Z0-9\p{L}\-+]+(?:\s+[a-zA-Z0-9\p{L}\-+]+){0,4}/giu;
     for (const m of text.matchAll(medicalRegex)) {
       if (m.index !== undefined) {
         matches.push({

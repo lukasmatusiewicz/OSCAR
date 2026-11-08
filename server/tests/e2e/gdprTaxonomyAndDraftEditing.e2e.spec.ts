@@ -166,7 +166,7 @@ describe('OSCAR E2E Suite: 9-Category GDPR Taxonomy, Smart Metadata & Interactiv
 
   beforeEach(() => {
     taskStore = new TaskStore();
-    orchestrator = new GeminiOrchestrator({ client: null }); // Fallback to DeterministicFallbackExtractor
+    orchestrator = new GeminiOrchestrator(); // Fallback to DeterministicFallbackExtractor
     testKey = EncryptionService.generateKey();
     testKeyBase64 = Buffer.from(testKey).toString('base64');
   });

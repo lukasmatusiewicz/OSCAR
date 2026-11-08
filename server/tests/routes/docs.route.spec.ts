@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import { resolveSpecPath } from '../../src/routes/docs.js';
+import { inProcessApp } from '../helpers/inProcessApp.js';
 
 describe('Documentation Route Integration (/api/docs)', () => {
   let app: ReturnType<typeof createApp>;
@@ -12,7 +12,7 @@ describe('Documentation Route Integration (/api/docs)', () => {
 
   describe('GET /api/docs/openapi.yaml', () => {
     it('returns 200, text/yaml content-type, and contains openapi: 3.1.0 specification header', async () => {
-      const res = await request(app).get('/api/docs/openapi.yaml');
+      const res = await inProcessApp(app).get('/api/docs/openapi.yaml');
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/^text\/yaml/);
@@ -25,7 +25,7 @@ describe('Documentation Route Integration (/api/docs)', () => {
 
     it('returns structured 500 JSON error when openapi specification path cannot be resolved', async () => {
       const isolatedApp = createApp({ specPath: '/invalid/nonexistent/openapi.yaml' });
-      const res = await request(isolatedApp).get('/api/docs/openapi.yaml');
+      const res = await inProcessApp(isolatedApp).get('/api/docs/openapi.yaml');
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('OpenAPI specification not found');
@@ -37,7 +37,7 @@ describe('Documentation Route Integration (/api/docs)', () => {
 
   describe('GET /api/docs', () => {
     it('returns 200, text/html content-type, and contains interactive documentation viewer container', async () => {
-      const res = await request(app).get('/api/docs');
+      const res = await inProcessApp(app).get('/api/docs');
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/^text\/html/);
@@ -47,7 +47,7 @@ describe('Documentation Route Integration (/api/docs)', () => {
     });
 
     it('serves interactive documentation viewer on root trailing slash as well', async () => {
-      const res = await request(app).get('/api/docs/');
+      const res = await inProcessApp(app).get('/api/docs/');
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/^text\/html/);

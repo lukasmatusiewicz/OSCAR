@@ -51,12 +51,29 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       // 5. Re-hydrate synthetic tokens in the extracted task structure
       const rehydratedTask = PrivacyGuard.rehydrate(orchestratorResult.task, sanitization.tokens);
 
+      const location = rehydratedTask.location
+        ? PrivacyGuard.rehydrate(rehydratedTask.location, sanitization.tokens)
+        : (rehydratedTask.location ?? null);
+      const contactPerson = rehydratedTask.contactPerson
+        ? PrivacyGuard.rehydrate(rehydratedTask.contactPerson, sanitization.tokens)
+        : (rehydratedTask.contactPerson ?? null);
+      const amount = rehydratedTask.amount
+        ? PrivacyGuard.rehydrate(rehydratedTask.amount, sanitization.tokens)
+        : (rehydratedTask.amount ?? null);
+      const scheduledTime = rehydratedTask.scheduledTime
+        ? PrivacyGuard.rehydrate(rehydratedTask.scheduledTime, sanitization.tokens)
+        : (rehydratedTask.scheduledTime ?? null);
+
       // 6. Validate re-hydrated task against DecryptedTaskPayloadSchema (bounds expansion accommodation)
       const decryptedPayload: DecryptedTaskPayload = DecryptedTaskPayloadSchema.parse({
         title:
           input.title && input.title.trim().length > 0 ? input.title.trim() : rehydratedTask.title,
         summary: rehydratedTask.summary,
         subtasks: rehydratedTask.subtasks,
+        location,
+        contactPerson,
+        amount,
+        scheduledTime,
       });
 
       // 7. Envelope encrypt sensitive task & memo payloads with AES-256-GCM
@@ -102,6 +119,10 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         modelVersion: orchestratorResult.modelVersion,
         createdAt: nowIso,
         updatedAt: nowIso,
+        location,
+        contactPerson,
+        amount,
+        scheduledTime,
       };
 
       // 9. Persist to store
