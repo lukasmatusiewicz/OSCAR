@@ -30,27 +30,41 @@ export const INTERNATIONAL_CITIES = [
   'Paris',
   'Warsaw',
   'Warszawa',
+  'Warszawie',
   'London',
+  'Londynie',
   'Zurich',
   'Zürich',
   'Tokyo',
+  'Tokio',
   'Vienna',
   'Wien',
+  'Wiedniu',
   'Rome',
   'Roma',
+  'Rzymie',
   'Madrid',
+  'Madrycie',
   'Krakow',
   'Kraków',
+  'Krakowie',
   'Wrocław',
+  'Wrocławiu',
   'Munich',
   'München',
+  'Monachium',
   'Hamburg',
   'Frankfurt',
   'Geneva',
+  'Genewa',
   'Brussels',
+  'Bruksela',
+  'Brukseli',
   'Amsterdam',
   'Poznań',
+  'Poznaniu',
   'Gdańsk',
+  'Gdańsku',
 ];
 
 export const EXCLUDED_NAME_WORDS = new Set([
@@ -61,27 +75,41 @@ export const EXCLUDED_NAME_WORDS = new Set([
   'paris',
   'warsaw',
   'warszawa',
+  'warszawie',
   'london',
+  'londynie',
   'zurich',
   'zürich',
   'tokyo',
+  'tokio',
   'vienna',
   'wien',
+  'wiedniu',
   'rome',
   'roma',
+  'rzymie',
   'madrid',
+  'madrycie',
   'krakow',
   'kraków',
+  'krakowie',
   'wrocław',
+  'wrocławiu',
   'munich',
   'münchen',
+  'monachium',
   'hamburg',
   'frankfurt',
   'geneva',
+  'genewa',
   'brussels',
+  'bruksela',
+  'brukseli',
   'amsterdam',
   'poznań',
+  'poznaniu',
   'gdańsk',
+  'gdańsku',
   'street',
   'st',
   'road',
@@ -102,6 +130,9 @@ export const EXCLUDED_NAME_WORDS = new Set([
   'weg',
   'platz',
   'gasse',
+  'herrn',
+  'herr',
+  'frau',
   'monday',
   'tuesday',
   'wednesday',
@@ -354,8 +385,29 @@ export class PrivacyGuard {
     }
 
     // 4. PHONE (Priority 4)
-    const phoneRegex =
-      /(?:(?:\+|00)\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}\b/gu;
+    // Delimited international, French paired, German, Polish 9-digit, and US formatted numbers
+    const phoneRegex = new RegExp(
+      '(?:' +
+        // 1. With international prefix (+ or 00)
+        '(?:\\+|00)\\d{1,3}[\\s.-]?(?:' +
+          '\\d[\\s.-]?(?:\\d{2}[\\s.-]?){3}\\d{2}' + // French +33 1 42 68 55 00
+          '|' +
+          '(?:\\(?\\d{1,4}\\)?[\\s.-]?)?\\d{3,4}[\\s.-]?\\d{3,4}' + // +49 170 1234567, +1-800-555-0199
+          '|' +
+          '\\d{1,4}[\\s.-]?\\d{5,8}' + // +49 30 123456
+        ')' +
+        '|' +
+        // 2. Parenthesized area code: (030) 9876-5432
+        '\\(\\d{2,4}\\)[\\s.-]?\\d{3,4}[\\s.-]?\\d{3,4}' +
+        '|' +
+        // 3. Delimited 10-digit US/CAN: 555-123-4567 or 555.123.4567
+        '\\b\\d{3}[.-]\\d{3}[.-]\\d{4}' +
+        '|' +
+        // 4. Delimited 9-digit PL/EU: 601 234 567 or 601-234-567
+        '\\b\\d{3}[\\s.-]\\d{3}[\\s.-]\\d{3}' +
+      ')\\b',
+      'gu',
+    );
     for (const m of text.matchAll(phoneRegex)) {
       if (m.index !== undefined) {
         matches.push({
@@ -430,6 +482,7 @@ export class PrivacyGuard {
       'mec\\.',
       'mec',
       'Herr',
+      'Herrn',
       'Frau',
       'M\\.',
       'Mme\\.',
@@ -489,9 +542,9 @@ export class PrivacyGuard {
       'gu',
     );
 
-    // Honorific followed by 1-3 capitalized name words
+    // Honorific(s) followed by 1-3 capitalized name words
     const personHonRegex = new RegExp(
-      `\\b(?:${honPattern})\\s+${nameWord}(?:\\s+${nameWord}){0,2}`,
+      `\\b(?:(?:${honPattern})\\s+)+${nameWord}(?:\\s+${nameWord}){0,2}`,
       'gu',
     );
 
@@ -565,7 +618,7 @@ export class PrivacyGuard {
       discoveredNames.add(pm.value);
       const bareName = pm.value
         .replace(
-          /^(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Pan|Pani|Pana|Panią|dr|dr\.|mec\.|mec|Herr|Frau|M\.|Mme\.|Mme)\s+/i,
+          /^(?:(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Pan|Pani|Pana|Panią|dr|dr\.|mec\.|mec|Herr|Herrn|Frau|M\.|Mme\.|Mme)\s+)+/i,
           '',
         )
         .trim();
@@ -627,8 +680,6 @@ export class PrivacyGuard {
       'rd\\.',
       'road',
       'blvd\\.',
-      'drive',
-      'dr\\.',
     ];
 
     const streetPrefixes = streetPrefixWords
@@ -655,7 +706,7 @@ export class PrivacyGuard {
     ];
     const streetPostfixes = streetPostfixWords.join('|');
 
-    const streetPattern1 = `\\b(?:${streetPrefixes})\\s+(?:(?:de|d'|von|van)\\s+)?[\\p{Lu}\\p{Ll}'-]+(?:\\s+[\\p{Lu}\\p{Ll}'-]+)*(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
+    const streetPattern1 = `\\b(?:\\d+[a-zA-Z]?[\\s,]+)?(?:${streetPrefixes})\\s+(?:(?:de|d'|du|des|von|van|der|am)\\s+)?\\p{Lu}[\\p{L}'-]+(?:\\s+(?:(?:de|d'|du|des|von|van|der|am)\\s+)?\\p{Lu}[\\p{L}'-]+){0,2}(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
     const streetPattern2 = `\\b\\p{Lu}[\\p{L}'-]*(?:straße|strasse)\\b(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
     const streetPattern3 = `\\b\\p{Lu}[\\p{L}'-]+(?:\\s+\\p{Lu}[\\p{L}'-]+)?\\s+(?:${streetPostfixes})(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?\\b`;
     const streetPattern4 = `\\b\\d+\\s+\\p{Lu}[\\p{L}'-]+\\s+(?:${streetPostfixes})\\b`;
