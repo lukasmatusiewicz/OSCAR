@@ -64,11 +64,57 @@ export const PIITypeSchema = z.enum([
   'EMAIL',
   'PHONE',
   'AMOUNT_MONEY',
-  'PERSON'
+  'PERSON',
+  'ADDRESS',
+  'HEALTH_DATA',
+  'NATIONAL_ID',
 ]);
 
 export type PIIType = z.infer<typeof PIITypeSchema>;
 ```
+
+#### Category Taxonomy & Sensitivity Matrix (9 GDPR Categories)
+
+| PII Category | Synthetic Token Format | Description & Sensitivity Classification | Overlap Weight |
+| :--- | :--- | :--- | :--- |
+| `SECRET_KEY` | `[SECRET_KEY_N]` | API credentials, private keys, bearer/PAT tokens. Highest criticality: immediate risk of unauthorized infrastructure access. | 60 |
+| `IBAN` | `[IBAN_N]` | International Bank Account Numbers. Critical financial identifier subject to international banking confidentiality regulations. | 50 |
+| `NATIONAL_ID` | `[NATIONAL_ID_N]` | National citizen identification numbers: Polish PESEL (11 digits with checksum algorithm), German Steuer-ID / IdNr (11 digits), and US SSN (`\d{3}-\d{2}-\d{4}`). Critical government-issued identifier subject to strict statutory privacy protections. | 45 |
+| `HEALTH_DATA` | `[HEALTH_DATA_N]` | Special category personal data under GDPR Art. 9: German health insurance numbers (KVNR `[A-Z]\d{9}`), medical diagnoses, physician/clinic references, treatment protocols, and context card identifiers. | 40 |
+| `EMAIL` | `[EMAIL_N]` | Personal and corporate email addresses. Direct personal identifier subject to GDPR Art. 4(1). | 35 |
+| `PHONE` | `[PHONE_N]` | International and national telephone numbers. Direct telecommunications contact identifier. | 30 |
+| `AMOUNT_MONEY` | `[AMOUNT_MONEY_N]` | Transaction values, salaries, budgets, colloquial numbers (`10k zł`, `1.5 mln EUR`). Sensitive financial intelligence. | 25 |
+| `PERSON` | `[PERSON_N]` | Multilingual natural person names (nominative and inflected/declined forms across EN, PL, DE, FR). Core personal identity marker. | 20 |
+| `ADDRESS` | `[ADDRESS_N]` | Physical geographic locations, street addresses, avenues, and international cities/urban centers. Location data under GDPR Art. 4(1) and Recital 26/30. | 15 |
+
+#### 3.1.1 3-Tier Hybrid Architecture Overview
+Privacy Guard executes a multi-layered detection strategy before any text leaves the local machine:
+- **Tier 1: High-Entropy Mathematical & Checksum Regexes:** Deterministic matching for structured tokens (`SECRET_KEY`, `IBAN` with mod-97 verification, `NATIONAL_ID` with PESEL checksum $\sum w_i d_i \pmod{10}$, German Steuer-ID, US SSN, `HEALTH_DATA` German KVNR `[A-Z]\d{9}`, `EMAIL` RFC 5322, `PHONE` E.164).
+- **Tier 2: Local In-Memory Semantic NER:** Transformers.js / ONNX runtime running quantized multilingual NER locally with zero network calls for grammatically complex names (`PERSON`), declined forms, and locations (`ADDRESS`). In the event of latency (>100ms) or initialization failure, the system falls back gracefully to Tier 1 regexes with zero data leakage.
+- **Tier 3: Context-Aware Generic Matcher:** Scans for 6–16 alphanumeric candidate characters in proximity ($\pm 30$ characters) to multilingual trigger words (*karta*, *numer*, *polisa*, *ubezpieczenie*, *versichert*, *card*, *policy*) to mask unformatted insurance and policy IDs under `HEALTH_DATA` or `NATIONAL_ID`.
+
+#### 3.1.2 NATIONAL_ID Category Specification
+- **Synthetic Token Identifier:** `[NATIONAL_ID_INDEX]` where `INDEX` is 1-based sequential integer.
+- **Scope & Validation:**
+  - Polish PESEL: 11-digit national identity number with strict checksum validation using weights $[1, 3, 7, 9, 1, 3, 7, 9, 1, 3]$.
+  - German Steuer-ID (IdNr): 11-digit tax identifier with structural digit distribution check.
+  - US Social Security Number (SSN): `\b\d{3}-\d{2}-\d{4}\b`.
+- **Confidentiality Classification:** Severe. Disclosure can lead to identity theft and regulatory sanctions.
+
+#### 3.1.3 HEALTH_DATA Category Specification
+- **Synthetic Token Identifier:** `[HEALTH_DATA_INDEX]` where `INDEX` is 1-based sequential integer.
+- **Scope & Compliance:**
+  - Governed under **GDPR Article 9 ("Processing of special categories of personal data")** which strictly prohibits unauthorized processing and third-party transmission.
+  - German Krankenversichertennummer (KVNR): Format `[A-Z]\d{9}` (1 uppercase letter followed by 9 digits with checksum validation).
+  - Medical diagnoses, treatments, therapy protocols, and clinician references identified via Tier 2 semantic NER or Tier 3 contextual trigger matching.
+
+#### 3.1.4 ADDRESS Category Specification & Synthetic Token Format
+- **Synthetic Token Identifier:** `[ADDRESS_INDEX]` where `INDEX` is a 1-based sequential integer (e.g., `[ADDRESS_1]`, `[ADDRESS_2]`), conforming strictly to the bracketed token regular expression `^\[[A-Z_]+_\d+\]$`.
+- **Sensitivity Characteristics:** Physical location identifiers pose severe privacy risks:
+  1. *Deanonymization Vector:* When combined with role or timing cues, residential or corporate physical addresses frequently facilitate re-identification of anonymous individuals.
+  2. *Geolocational Profiling:* Transmission of physical venues to third-party model inference engines risks inadvertent location harvesting and unauthorized behavioral telemetry.
+  3. *Physical Security:* Residential locations of remote employees, executives, or clients must never cross untrusted network boundaries.
+- **Multilingual Recognition Scope:** Covers both structured street addresses (using language prefixes such as `ul.`, `al.`, `pl.`, `rue`, `Avenue`, `St.`, `Straße`) and major international urban agglomerations (e.g., `New York`, `Kassel`, `Berlin`, `Paris`, `Warsaw`, `London`, `Zurich`).
 
 ### 3.2 Token Mapping Record (`PIITokenMapSchema`)
 Represents an individual token substitution stored in ephemeral request memory:
@@ -178,14 +224,34 @@ export const ExtractedTaskSchema = z.object({
     .array(SubtaskItemSchema)
     .min(1)
     .max(10)
-    .describe('Decomposed actionable checklist steps extracted from the memo')
+    .describe('Decomposed actionable checklist steps extracted from the memo'),
+  location: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Extracted physical location, meeting venue, or city'),
+  contactPerson: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Primary person of contact or counterparty'),
+  amount: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Associated financial budget or invoice amount'),
+  scheduledTime: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Colloquial or explicit time specification')
 });
 
 export type ExtractedTask = z.infer<typeof ExtractedTaskSchema>;
 ```
 
 #### Gemini API OpenAPI JSON Schema Representation:
-When passed to `@google/genai`, the Zod schema compiles to this exact OpenAPI 3.0-compliant subset. Every field including `"scheduledDate"` is listed in `"required"` (with `"nullable": true`), and boundary constraints (`minLength`, `maxLength`, `minItems`, `maxItems`) match `ExtractedTaskSchema` 1:1:
+When passed to `@google/genai`, the Zod schema compiles to this exact OpenAPI 3.0-compliant subset. Every core field is listed in `"required"`, and smart metadata fields are typed with `"nullable": true`:
 ```json
 {
   "type": "OBJECT",
@@ -218,11 +284,36 @@ When passed to `@google/genai`, the Zod schema compiles to this exact OpenAPI 3.
         },
         "required": ["title", "completed"]
       }
-    }
+    },
+    "location": { "type": "STRING", "nullable": true },
+    "contactPerson": { "type": "STRING", "nullable": true },
+    "amount": { "type": "STRING", "nullable": true },
+    "scheduledTime": { "type": "STRING", "nullable": true }
   },
   "required": ["title", "summary", "category", "priority", "scheduledDate", "tags", "subtasks"]
 }
 ```
+
+### 4.3 Smart Task Metadata & Synthesized Semantic Title Invariant
+
+To ensure consistent high quality and utility of extracted tasks, the inference pipeline enforces three fundamental invariants:
+
+1. **Synthesized Semantic Title Invariant:**
+   - The model must NEVER produce a title that is a raw, mechanical substring or naive truncation of the user memo (e.g., "Hi Lukas, please remind me to...").
+   - The title must ALWAYS be an active, synthesized, imperative semantic statement encapsulating the primary action and intent (e.g., "Schedule follow-up consultation with Dr. Weber", "Transfer retainer of 1,500 EUR to Acme Corp").
+   - Character length is strictly bounded between 3 and 120 characters in masked space, expanding up to 250 characters post re-hydration.
+
+2. **Smart Task Metadata Isolation Invariant:**
+   - Spatial, interpersonal, financial, and colloquial temporal attributes must be disentangled from the free-form `summary` and extracted into typed metadata fields:
+     * `location`: Physical meeting place, venue, street, or city (e.g. `Kassel`, `Room 4B`).
+     * `contactPerson`: Primary counterparty or attendee (e.g. `Anna Nowak`, `Dr. Schmidt`).
+     * `amount`: Explicit currency amount, budget ceiling, or fee (e.g. `500 EUR`, `10k zł`).
+     * `scheduledTime`: Colloquial or explicit time specification (e.g. `tomorrow at 15:00`, `next Tuesday morning`).
+   - If a metadata dimension is absent in the source memo, the field is set to `null`.
+
+3. **Privacy Masking & Re-hydration Invariance Across Metadata:**
+   - Any sensitive entities detected within smart metadata fields are masked using synthetic tokens identical to those in the body (e.g., `contactPerson: "[PERSON_1]"`, `location: "[ADDRESS_1]"`).
+   - Recursive re-hydration automatically traverses and restores cleartext across both core task properties and smart metadata fields before envelope encryption.
 
 ---
 
@@ -265,7 +356,11 @@ export type DecryptedSubtaskItem = z.infer<typeof DecryptedSubtaskItemSchema>;
 export const DecryptedTaskPayloadSchema = z.object({
   title: z.string().min(3).max(250).describe('Re-hydrated title accommodating token expansion beyond 120 chars'),
   summary: z.string().min(5).max(1000).describe('Re-hydrated summary accommodating token expansion beyond 500 chars'),
-  subtasks: z.array(DecryptedSubtaskItemSchema).min(1).max(10).describe('Checklist with re-hydrated cleartext items')
+  subtasks: z.array(DecryptedSubtaskItemSchema).min(1).max(10).describe('Checklist with re-hydrated cleartext items'),
+  location: z.string().nullable().optional().describe('Extracted physical location, meeting venue, or city'),
+  contactPerson: z.string().nullable().optional().describe('Primary person of contact or counterparty'),
+  amount: z.string().nullable().optional().describe('Associated financial budget or invoice amount'),
+  scheduledTime: z.string().nullable().optional().describe('Colloquial or explicit time specification')
 });
 
 export type DecryptedTaskPayload = z.infer<typeof DecryptedTaskPayloadSchema>;
@@ -287,7 +382,11 @@ export const TaskEntitySchema = z.object({
   provenance: AIProvenanceSchema.describe('Inference engine provenance (GEMINI_FLASH or DETERMINISTIC_FALLBACK)'),
   modelVersion: z.string().min(1).describe('Model or rule version identifier (e.g. "gemini-2.5-flash-001" or "fallback-v1")'),
   createdAt: FirestoreTimestampSchema.describe('Creation timestamp'),
-  updatedAt: FirestoreTimestampSchema.describe('Last update timestamp')
+  updatedAt: FirestoreTimestampSchema.describe('Last update timestamp'),
+  location: z.string().nullable().optional().describe('Extracted physical location, meeting venue, or city'),
+  contactPerson: z.string().nullable().optional().describe('Primary person of contact or counterparty'),
+  amount: z.string().nullable().optional().describe('Associated financial budget or invoice amount'),
+  scheduledTime: z.string().nullable().optional().describe('Colloquial or explicit time specification')
 });
 
 export type TaskEntity = z.infer<typeof TaskEntitySchema>;

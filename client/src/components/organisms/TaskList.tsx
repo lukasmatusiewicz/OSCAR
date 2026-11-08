@@ -17,6 +17,7 @@ export interface TaskListProps {
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
+  onTaskUpdate?: (taskId: string, updatedPayload: DecryptedTaskPayload) => void;
   className?: string;
 }
 
@@ -27,6 +28,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   onStatusChange,
   onPriorityChange,
   onSubtaskToggle,
+  onTaskUpdate,
   className = '',
 }) => {
   const [search, setSearch] = useState('');
@@ -247,6 +249,7 @@ export const TaskList: React.FC<TaskListProps> = ({
               onStatusChange={onStatusChange}
               onPriorityChange={onPriorityChange}
               onSubtaskToggle={onSubtaskToggle}
+              onTaskUpdate={onTaskUpdate}
             />
           ))}
         </div>

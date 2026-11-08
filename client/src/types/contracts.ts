@@ -48,6 +48,9 @@ export const PIITypeSchema = z.enum([
   'PHONE',
   'AMOUNT_MONEY',
   'PERSON',
+  'ADDRESS',
+  'HEALTH_DATA',
+  'NATIONAL_ID',
 ]);
 
 export type PIIType = z.infer<typeof PIITypeSchema>;
@@ -150,6 +153,26 @@ export const ExtractedTaskSchema = z.object({
     .min(1)
     .max(10)
     .describe('Decomposed actionable checklist steps extracted from the memo'),
+  location: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Extracted physical location, meeting venue, or city'),
+  contactPerson: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Primary person of contact or counterparty'),
+  amount: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Associated financial budget or invoice amount'),
+  scheduledTime: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Colloquial or explicit time specification'),
 });
 
 export type ExtractedTask = z.infer<typeof ExtractedTaskSchema>;
@@ -185,6 +208,26 @@ export const DecryptedTaskPayloadSchema = z.object({
     .min(1)
     .max(10)
     .describe('Checklist with re-hydrated cleartext items'),
+  location: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Extracted physical location, meeting venue, or city'),
+  contactPerson: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Primary person of contact or counterparty'),
+  amount: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Associated financial budget or invoice amount'),
+  scheduledTime: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Colloquial or explicit time specification'),
 });
 
 export type DecryptedTaskPayload = z.infer<typeof DecryptedTaskPayloadSchema>;
@@ -210,6 +253,26 @@ export const TaskEntitySchema = z.object({
     .describe('Model or rule version identifier (e.g. "gemini-2.5-flash-001" or "fallback-v1")'),
   createdAt: FirestoreTimestampSchema.describe('Creation timestamp'),
   updatedAt: FirestoreTimestampSchema.describe('Last update timestamp'),
+  location: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Extracted physical location, meeting venue, or city'),
+  contactPerson: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Primary person of contact or counterparty'),
+  amount: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Associated financial budget or invoice amount'),
+  scheduledTime: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Colloquial or explicit time specification'),
 });
 
 export type TaskEntity = z.infer<typeof TaskEntitySchema>;
@@ -328,6 +391,26 @@ export const CreateTaskInputSchema = z.object({
     )
     .max(10)
     .optional(),
+  location: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Extracted physical location, meeting venue, or city'),
+  contactPerson: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Primary person of contact or counterparty'),
+  amount: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Associated financial budget or invoice amount'),
+  scheduledTime: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Colloquial or explicit time specification'),
 });
 
 export type CreateTaskInput = z.input<typeof CreateTaskInputSchema>;
@@ -349,6 +432,26 @@ export const UpdateTaskInputSchema = z.object({
     )
     .max(10)
     .optional(),
+  location: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Extracted physical location, meeting venue, or city'),
+  contactPerson: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Primary person of contact or counterparty'),
+  amount: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Associated financial budget or invoice amount'),
+  scheduledTime: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Colloquial or explicit time specification'),
 });
 
 export type UpdateTaskInput = z.input<typeof UpdateTaskInputSchema>;

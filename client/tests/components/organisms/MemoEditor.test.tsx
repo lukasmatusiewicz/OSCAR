@@ -84,6 +84,81 @@ describe('MemoEditor & detectClientTokens', () => {
     expect(moneyTokens.length).toBeGreaterThanOrEqual(7);
   });
 
+  it('detectClientTokens accurately detects street addresses and international cities', () => {
+    const addressText = 'Visit our office at ul. Marszałkowska 10 or Friedrichstraße 42 or Baker Street 221B in Berlin and Paris.';
+    const result = detectClientTokens(addressText);
+    const addressTokens = result.tokens.filter((t) => t.type === 'ADDRESS');
+    expect(addressTokens.length).toBeGreaterThanOrEqual(5);
+    expect(result.riskLevel).toBe('HIGH');
+  });
+
+  it('detectClientTokens accurately detects NATIONAL_ID (PESEL, German Steuer-ID, SSN)', () => {
+    // Polish PESEL with valid checksum
+    const peselText = 'PESEL pacjenta: 44051401359 do dokumentacji';
+    const peselResult = detectClientTokens(peselText);
+    const peselTokens = peselResult.tokens.filter((t) => t.type === 'NATIONAL_ID');
+    expect(peselTokens.length).toBe(1);
+    expect(peselTokens[0].originalValue).toBe('44051401359');
+    expect(peselResult.riskLevel).toBe('HIGH');
+
+    // German Steuer-ID formatted & SSN
+    const govIdText = 'German Steuer-ID 03 245 678 912 and US SSN 123-45-6789';
+    const govResult = detectClientTokens(govIdText);
+    const govTokens = govResult.tokens.filter((t) => t.type === 'NATIONAL_ID');
+    expect(govTokens.length).toBe(2);
+    expect(govTokens.some((t) => t.originalValue === '03 245 678 912')).toBe(true);
+    expect(govTokens.some((t) => t.originalValue === '123-45-6789')).toBe(true);
+    expect(govResult.riskLevel).toBe('HIGH');
+  });
+
+  it('detectClientTokens accurately detects HEALTH_DATA (KVNR, diagnoses, Tier 3 context matcher)', () => {
+    // German KVNR and diagnoses
+    const healthText = 'Patient KVNR A123456789, diagnoza: cukrzyca, oraz Diagnose: Hypertonie';
+    const healthResult = detectClientTokens(healthText);
+    const healthTokens = healthResult.tokens.filter((t) => t.type === 'HEALTH_DATA');
+    expect(healthTokens.length).toBeGreaterThanOrEqual(3);
+    expect(healthTokens.some((t) => t.originalValue === 'A123456789')).toBe(true);
+    expect(healthResult.riskLevel).toBe('HIGH');
+
+    // Tier 3 context matcher with insurance keywords
+    const policyText = 'Numer polisy ubezpieczenia POL-987654321 dla pacjenta';
+    const policyResult = detectClientTokens(policyText);
+    const policyTokens = policyResult.tokens.filter((t) => t.type === 'HEALTH_DATA');
+    expect(policyTokens.length).toBe(1);
+    expect(policyTokens[0].originalValue).toBe('POL-987654321');
+  });
+
+  it('detectClientTokens accurately detects Tier 3 context matcher for NATIONAL_ID and validates ID functions', () => {
+    // Tier 3 national ID context keywords
+    const idText = 'Numer dokumentu tożsamości dowód ID-987654321 dla urzędu';
+    const idResult = detectClientTokens(idText);
+    const idTokens = idResult.tokens.filter((t) => t.type === 'NATIONAL_ID');
+    expect(idTokens.length).toBe(1);
+    expect(idTokens[0].originalValue).toBe('ID-987654321');
+
+    // Edge cases for validation functions
+    const invalidPeselResult = detectClientTokens('Błędny PESEL: 12345678901 oraz 123');
+    expect(invalidPeselResult.tokens.filter((t) => t.type === 'NATIONAL_ID').length).toBe(0);
+
+    const invalidSsnResult = detectClientTokens('Invalid SSNs: 000-12-3456, 666-12-3456, 950-12-3456, 123-00-1234, 123-45-0000');
+    expect(invalidSsnResult.tokens.filter((t) => t.type === 'NATIONAL_ID').length).toBe(0);
+  });
+
+  it('displays error message when onSubmit throws an error', async () => {
+    const handleSubmit = vi.fn().mockRejectedValue(new Error('Network encryption failed'));
+    render(<MemoEditor onSubmit={handleSubmit} />);
+
+    const textarea = screen.getByLabelText(/confidential memo input/i);
+    fireEvent.change(textarea, { target: { value: 'Valid memo content to submit' } });
+
+    const submitBtn = screen.getByRole('button', { name: /encrypt & process/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Network encryption failed');
+    });
+  });
+
   it('displays error message when submitted with empty content', async () => {
     const handleSubmit = vi.fn();
     render(<MemoEditor onSubmit={handleSubmit} />);

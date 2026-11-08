@@ -22,6 +22,9 @@ describe('TokenPreviewBadge', () => {
       'PHONE',
       'AMOUNT_MONEY',
       'PERSON',
+      'ADDRESS',
+      'HEALTH_DATA',
+      'NATIONAL_ID',
     ];
 
     types.forEach((t, i) => {
@@ -30,6 +33,21 @@ describe('TokenPreviewBadge', () => {
       expect(screen.getByRole('note')).toHaveAttribute('aria-label', expect.stringContaining(token));
       unmount();
     });
+
+    // Explicitly assert HEALTH_DATA and NATIONAL_ID icons and labels
+    const { unmount: unmountHealth } = render(
+      <TokenPreviewBadge token="[HEALTH_DATA_1]" type="HEALTH_DATA" />,
+    );
+    expect(screen.getByText('🩺')).toBeInTheDocument();
+    expect(screen.getByTestId('token-badge-HEALTH_DATA_1')).toHaveTextContent('[Health Data]');
+    unmountHealth();
+
+    const { unmount: unmountNatId } = render(
+      <TokenPreviewBadge token="[NATIONAL_ID_1]" type="NATIONAL_ID" />,
+    );
+    expect(screen.getByText('🪪')).toBeInTheDocument();
+    expect(screen.getByTestId('token-badge-NATIONAL_ID_1')).toHaveTextContent('[National ID]');
+    unmountNatId();
 
     // Fallback token type
     render(<TokenPreviewBadge token="[CUSTOM_1]" type={'CUSTOM' as unknown as PIIType} />);

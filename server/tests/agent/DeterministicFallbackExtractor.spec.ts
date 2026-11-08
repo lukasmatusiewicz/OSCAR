@@ -156,4 +156,58 @@ describe('DeterministicFallbackExtractor', () => {
     expect(metadata.task.category).toBe('FINANCE'); // budget
     expect(ExtractedTaskSchema.safeParse(metadata.task).success).toBe(true);
   });
+
+  describe('Synthesized Semantic Title Invariant & Smart Metadata Extraction', () => {
+    it('synthesizes clean semantic titles from conversational memos without copying raw salutations verbatim', () => {
+      const conversationalMemos = [
+        {
+          memo: 'Hey Lukas, please remind me to schedule a meeting with [PERSON_1] tomorrow at 14:00 in [ADDRESS_1]',
+          forbiddenSubstrings: ['Hey Lukas', 'please remind me to']
+        },
+        {
+          memo: 'Cześć, pamiętaj żeby zaplanować spotkanie z dr Anną Nowak jutro o 15:00',
+          forbiddenSubstrings: ['Cześć', 'pamiętaj żeby zaplanować']
+        },
+        {
+          memo: 'Hallo, erinnere mich an das Treffen mit Herrn Schmidt in Berlin',
+          forbiddenSubstrings: ['Hallo', 'erinnere mich an das']
+        }
+      ];
+
+      for (const { memo, forbiddenSubstrings } of conversationalMemos) {
+        const task = DeterministicFallbackExtractor.extract(memo);
+        expect(task.title.length).toBeGreaterThanOrEqual(3);
+        expect(task.title.length).toBeLessThanOrEqual(120);
+
+        for (const forbidden of forbiddenSubstrings) {
+          expect(task.title.toLowerCase()).not.toContain(forbidden.toLowerCase());
+        }
+      }
+    });
+
+    it('extracts and populates smart metadata fields: location, contactPerson, amount, scheduledTime', () => {
+      const memo =
+        'Hey Lukas, remind me to meet with [PERSON_1] at [ADDRESS_1] regarding budget [AMOUNT_MONEY_1] tomorrow at 14:30.\n' +
+        '- Prepare slide deck\n' +
+        '- Confirm attendee list';
+
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.contactPerson).toBe('[PERSON_1]');
+      expect(task.location).toBe('[ADDRESS_1]');
+      expect(task.amount).toBe('[AMOUNT_MONEY_1]');
+      expect(task.scheduledTime).toContain('14:30');
+      expect(ExtractedTaskSchema.safeParse(task).success).toBe(true);
+    });
+
+    it('sets smart metadata fields to null when not detected in memo', () => {
+      const memo = 'Review code pull request and verify unit tests';
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.location).toBeNull();
+      expect(task.contactPerson).toBeNull();
+      expect(task.amount).toBeNull();
+      expect(task.scheduledTime).toBeNull();
+    });
+  });
 });

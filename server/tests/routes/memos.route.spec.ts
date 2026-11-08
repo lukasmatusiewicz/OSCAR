@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import request from 'supertest';
 import { Request, Response, NextFunction } from 'express';
 import { createApp, DEFAULT_CORS_ORIGIN } from '../../src/app.js';
 import { TaskStore } from '../../src/store/TaskStore.js';
@@ -7,6 +6,7 @@ import { EncryptionService } from '../../src/security/EncryptionService.js';
 import { DecryptedTaskPayload } from '../../src/types/contracts.js';
 import { errorHandler } from '../../src/middleware/errorHandler.js';
 import { GeminiOrchestrator } from '../../src/agent/GeminiOrchestrator.js';
+import { inProcessApp } from '../helpers/inProcessApp.js';
 
 describe('Memos Route Integration', () => {
   let taskStore: TaskStore;
@@ -26,7 +26,7 @@ describe('Memos Route Integration', () => {
       const memoContent =
         'Schedule strategy review with Alice Newman (alice@example.com, +49 170 1234567) to approve 15000 EUR project budget tomorrow.';
 
-      const res = await request(app)
+      const res = await inProcessApp(app)
         .post('/api/memos')
         .set('Origin', DEFAULT_CORS_ORIGIN)
         .set('x-oscar-encryption-key', testKeyBase64)
@@ -50,6 +50,12 @@ describe('Memos Route Integration', () => {
       expect(createdTask.encryptedPayload.iv).toBeDefined();
       expect(createdTask.encryptedPayload.authTag).toBeDefined();
 
+      // Verify smart metadata threading
+      expect(createdTask).toHaveProperty('location');
+      expect(createdTask).toHaveProperty('contactPerson');
+      expect(createdTask).toHaveProperty('amount');
+      expect(createdTask).toHaveProperty('scheduledTime');
+
       // Verify PII telemetry
       const piiStats = res.body.piiStats;
       expect(piiStats.detectedEntityCount).toBeGreaterThanOrEqual(2);
@@ -65,14 +71,21 @@ describe('Memos Route Integration', () => {
       expect(decrypted.summary.length).toBeGreaterThanOrEqual(5);
       expect(decrypted.subtasks.length).toBeGreaterThanOrEqual(1);
 
+      // Verify smart metadata in decrypted payload
+      expect(decrypted).toHaveProperty('location');
+      expect(decrypted).toHaveProperty('contactPerson');
+      expect(decrypted).toHaveProperty('amount');
+      expect(decrypted).toHaveProperty('scheduledTime');
+
       // Verify task was saved in the store
       const allTasks = taskStore.getTasks();
       expect(allTasks.length).toBe(1);
       expect(allTasks[0].id).toBe(createdTask.id);
+      expect(allTasks[0].amount).toBe(createdTask.amount);
     });
 
     it('rejects invalid memo input with empty content returning 400 Zod error response', async () => {
-      const res = await request(app).post('/api/memos').send({
+      const res = await inProcessApp(app).post('/api/memos').send({
         content: '',
       });
 
@@ -84,7 +97,7 @@ describe('Memos Route Integration', () => {
     });
 
     it('rejects request with missing content property returning 400 Zod error response', async () => {
-      const res = await request(app).post('/api/memos').send({});
+      const res = await inProcessApp(app).post('/api/memos').send({});
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Validation failed');
@@ -94,7 +107,7 @@ describe('Memos Route Integration', () => {
 
   describe('Memo Error Handling and Middleware', () => {
     it('handles malformed JSON body payloads returning 400 Bad Request', async () => {
-      const res = await request(app)
+      const res = await inProcessApp(app)
         .post('/api/memos')
         .set('Content-Type', 'application/json')
         .send('{ invalid json payload');
@@ -116,7 +129,7 @@ describe('Memos Route Integration', () => {
         taskStore,
       });
 
-      const res = await request(brokenApp)
+      const res = await inProcessApp(brokenApp)
         .post('/api/memos')
         .send({ content: 'Valid memo content here' });
 

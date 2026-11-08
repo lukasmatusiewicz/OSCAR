@@ -15,7 +15,7 @@ export interface DeterministicExtractionResult {
 /**
  * DeterministicFallbackExtractor provides rule-based structured extraction
  * for user memos when upstream AI providers fail, timeout, or hit rate limits.
- * Implements architecture.md Section 5.2.
+ * Implements architecture.md Section 5.2 and contracts.md Section 4.3.
  */
 export class DeterministicFallbackExtractor {
   public static readonly PROVENANCE = 'DETERMINISTIC_FALLBACK' as const;
@@ -33,12 +33,41 @@ export class DeterministicFallbackExtractor {
 
     const firstLine = lines[0] ?? 'New Memo Action Item';
 
-    // Title: First line truncated between 3 and 120 chars
+    // Title: Synthesized semantic title invariant conforming to contracts.md Section 4.3
+    let cleaned = firstLine;
+
+    // Strip conversational preambles and directive fillers
+    const preambleRegex =
+      /^(?:hey|hi|hello|cześć|hej|hallo|bonjour|dear|szanowny|szanowna|panie|pani)(?:\s+[\p{L}]+)*[,\s:]+/iu;
+    const directiveFillers =
+      /^(?:please\s+remind\s+me\s+to|remind\s+me\s+to|don't\s+forget\s+to|remember\s+to|i\s+need\s+to|we\s+need\s+to|i\s+must|we\s+must|pamiętaj\s+żeby\s+zaplanować|pamiętaj\s+żeby|przypomnij\s+mi\s+o|muszę|musimy|zaplanuj|erinnere\s+mich\s+an\s+das|erinnere\s+mich\s+an|vergiss\s+nicht\s+zu|n'oublie\s+pas\s+de|pense\s+à|memo\s*:?|notes?\s*:?)\s+/iu;
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      if (preambleRegex.test(cleaned)) {
+        const stripped = cleaned.replace(preambleRegex, '').trim();
+        if (stripped.length > 0) {
+          cleaned = stripped;
+          changed = true;
+        }
+      }
+      if (directiveFillers.test(cleaned)) {
+        const stripped = cleaned.replace(directiveFillers, '').trim();
+        if (stripped.length > 0) {
+          cleaned = stripped;
+          changed = true;
+        }
+      }
+    }
+
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+
     let title: string;
-    if (firstLine.length > 120) {
-      title = `${firstLine.substring(0, 117)}...`;
+    if (cleaned.length > 120) {
+      title = `${cleaned.substring(0, 117)}...`;
     } else {
-      title = firstLine.padEnd(3, '.');
+      title = cleaned.padEnd(3, '.');
     }
 
     // Priority Inference via Keyword Lexicon
@@ -91,6 +120,54 @@ export class DeterministicFallbackExtractor {
     const summaryCandidate = rawTrimmed.length > 0 ? rawTrimmed.substring(0, 500) : title;
     const summary = summaryCandidate.padEnd(5, '.');
 
+    // Smart Metadata Extraction (location, contactPerson, amount, scheduledTime)
+    let location: string | null = null;
+    const addressTokenMatch = memoText.match(/\[ADDRESS_\d+\]/);
+    if (addressTokenMatch) {
+      location = addressTokenMatch[0];
+    } else {
+      const cityMatch = memoText.match(
+        /\b(?:New York|Kassel|Berlin|Paris|Warsaw|Warszawa|London|Zurich|Zürich|Tokyo|Vienna|Wien|Rome|Roma|Madrid|Krakow|Kraków|Wrocław|Munich|München|Hamburg|Frankfurt)\b/i,
+      );
+      if (cityMatch) {
+        location = cityMatch[0];
+      }
+    }
+
+    let contactPerson: string | null = null;
+    const personTokenMatch = memoText.match(/\[PERSON_\d+\]/);
+    if (personTokenMatch) {
+      contactPerson = personTokenMatch[0];
+    } else {
+      const personMatch = memoText.match(
+        /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|dr|mec\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:with|z|ze|mit|avec)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)/u,
+      );
+      if (personMatch) {
+        contactPerson = personMatch[0];
+      }
+    }
+
+    let amount: string | null = null;
+    const amountTokenMatch = memoText.match(/\[AMOUNT_MONEY_\d+\]/);
+    if (amountTokenMatch) {
+      amount = amountTokenMatch[0];
+    } else {
+      const amountMatch = memoText.match(
+        /(?:\$|€|£|\b(?:PLN|EUR|USD|CHF|zł))\s?\d+(?:[.,\s]\d+)*(?:\s?(?:k|tys\.?|mln|milionów|mld))?|\b\d+(?:[.,\s]\d+)*(?:\s?(?:k|tys\.?|mln|milionów|mld))?\s?(?:€|\$|£|\b(?:PLN|EUR|USD|CHF|zł)\b)/i,
+      );
+      if (amountMatch) {
+        amount = amountMatch[0];
+      }
+    }
+
+    let scheduledTime: string | null = null;
+    const timeMatch = memoText.match(
+      /(?:(?:tomorrow|jutro|morgen|today|dzisiaj|heute)\s+(?:at|o|um)\s+\d{1,2}(?::\d{2})?|\b\d{1,2}:\d{2}\b)/i,
+    );
+    if (timeMatch) {
+      scheduledTime = timeMatch[0];
+    }
+
     const result: ExtractedTask = {
       title,
       summary,
@@ -99,6 +176,10 @@ export class DeterministicFallbackExtractor {
       scheduledDate,
       tags: ['fallback', category.toLowerCase()],
       subtasks,
+      location,
+      contactPerson,
+      amount,
+      scheduledTime,
     };
 
     // Validate against contract to guarantee 100% schema compliance

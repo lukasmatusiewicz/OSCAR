@@ -49,6 +49,10 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
           input.subtasks && input.subtasks.length > 0
             ? input.subtasks
             : [{ title: `Review: ${input.title}`.substring(0, 200), completed: false }],
+        location: input.location ?? null,
+        contactPerson: input.contactPerson ?? null,
+        amount: input.amount ?? null,
+        scheduledTime: input.scheduledTime ?? null,
       });
 
       const encryptedPayload = await EncryptionService.encrypt(decryptedPayload, keyBuffer);
@@ -71,6 +75,10 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
         modelVersion: 'manual-entry-v1',
         createdAt: nowIso,
         updatedAt: nowIso,
+        location: input.location ?? null,
+        contactPerson: input.contactPerson ?? null,
+        amount: input.amount ?? null,
+        scheduledTime: input.scheduledTime ?? null,
       };
 
       deps.taskStore.addTask(taskEntity);
@@ -105,12 +113,20 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
       if (input.category !== undefined) updates.category = input.category;
       if (input.scheduledDate !== undefined) updates.scheduledDate = input.scheduledDate;
       if (input.tags !== undefined) updates.tags = input.tags;
+      if (input.location !== undefined) updates.location = input.location;
+      if (input.contactPerson !== undefined) updates.contactPerson = input.contactPerson;
+      if (input.amount !== undefined) updates.amount = input.amount;
+      if (input.scheduledTime !== undefined) updates.scheduledTime = input.scheduledTime;
 
-      // If sensitive fields (title, summary, subtasks) are modified, decrypt existing, merge, and re-encrypt
+      // If sensitive fields or smart metadata are modified, decrypt existing, merge, and re-encrypt
       if (
         input.title !== undefined ||
         input.summary !== undefined ||
-        input.subtasks !== undefined
+        input.subtasks !== undefined ||
+        input.location !== undefined ||
+        input.contactPerson !== undefined ||
+        input.amount !== undefined ||
+        input.scheduledTime !== undefined
       ) {
         const keyBuffer = getEncryptionKeyFromRequest(req);
         const existingDecrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
@@ -122,6 +138,17 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
           title: input.title ?? existingDecrypted.title,
           summary: input.summary ?? existingDecrypted.summary,
           subtasks: input.subtasks ?? existingDecrypted.subtasks,
+          location:
+            input.location !== undefined ? input.location : (existingDecrypted.location ?? null),
+          contactPerson:
+            input.contactPerson !== undefined
+              ? input.contactPerson
+              : (existingDecrypted.contactPerson ?? null),
+          amount: input.amount !== undefined ? input.amount : (existingDecrypted.amount ?? null),
+          scheduledTime:
+            input.scheduledTime !== undefined
+              ? input.scheduledTime
+              : (existingDecrypted.scheduledTime ?? null),
         });
 
         const newEncryptedPayload = await EncryptionService.encrypt(mergedDecrypted, keyBuffer);

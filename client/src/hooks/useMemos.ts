@@ -22,6 +22,8 @@ export interface UseMemosOptions {
 export function useMemos(options?: UseMemosOptions) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [isOfflineFallback, setIsOfflineFallback] = useState(false);
   const [memos, setMemos] = useState<MemoEntity[]>([]);
 
   const submitMemo = useCallback(
@@ -43,13 +45,20 @@ export function useMemos(options?: UseMemosOptions) {
             gatewayResponse.task.encryptedPayload,
           );
 
+          setIsOfflineFallback(false);
+          setWarning(null);
           setMemos((prev) => [gatewayResponse.memo, ...prev]);
           options?.onTokensDetected?.(gatewayResponse.piiStats.maskedTokens);
           options?.onTaskCreated?.(gatewayResponse.task, decryptedTask);
 
           return gatewayResponse.memo;
         } catch {
-          // Graceful fallback to offline mock mode when gateway is unavailable
+          // Graceful fallback to offline deterministic mode when gateway is unavailable (EU AI Act Article 13)
+          setIsOfflineFallback(true);
+          setWarning(
+            'Backend gateway unreachable. Deterministic rule-based fallback was used to generate this task (EU AI Act Article 13 transparency).',
+          );
+
           let sanitizedPreview = rawContent;
           const sortedTokens = [...tokens].sort((a, b) => b.startIndex - a.startIndex);
           for (const tok of sortedTokens) {
@@ -110,9 +119,9 @@ export function useMemos(options?: UseMemosOptions) {
             priority: tokens.some((t) => t.type === 'SECRET_KEY') ? 'URGENT' : 'MEDIUM',
             status: 'DRAFT', // EU AI Act human review initial state
             scheduledDate: null,
-            tags: ['voice-memo', 'shielded'],
-            provenance: 'GEMINI_FLASH',
-            modelVersion: 'gemini-2.5-flash-001',
+            tags: ['voice-memo', 'shielded', 'offline-fallback'],
+            provenance: 'DETERMINISTIC_FALLBACK',
+            modelVersion: 'rule-based-v1',
             createdAt: nowIso,
             updatedAt: nowIso,
           };
@@ -136,6 +145,8 @@ export function useMemos(options?: UseMemosOptions) {
     memos,
     isSubmitting,
     error,
+    warning,
+    isOfflineFallback,
     submitMemo,
   };
 }
