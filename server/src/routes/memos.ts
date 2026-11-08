@@ -8,6 +8,10 @@ import {
   DecryptedTaskPayloadSchema,
 } from '../types/contracts.js';
 import { PrivacyGuard } from '../privacy/PrivacyGuard.js';
+import {
+  normalizePersonToNominative,
+  normalizeAddressCasing,
+} from '../privacy/LinguisticNormalizer.js';
 import { GeminiOrchestrator } from '../agent/GeminiOrchestrator.js';
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
@@ -51,10 +55,10 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       // 5. Re-hydrate synthetic tokens in the extracted task structure
       const rehydratedTask = PrivacyGuard.rehydrate(orchestratorResult.task, sanitization.tokens);
 
-      const location = rehydratedTask.location
+      const rawLocation = rehydratedTask.location
         ? PrivacyGuard.rehydrate(rehydratedTask.location, sanitization.tokens)
         : (rehydratedTask.location ?? null);
-      const contactPerson = rehydratedTask.contactPerson
+      const rawContactPerson = rehydratedTask.contactPerson
         ? PrivacyGuard.rehydrate(rehydratedTask.contactPerson, sanitization.tokens)
         : (rehydratedTask.contactPerson ?? null);
       const amount = rehydratedTask.amount
@@ -63,6 +67,9 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       const scheduledTime = rehydratedTask.scheduledTime
         ? PrivacyGuard.rehydrate(rehydratedTask.scheduledTime, sanitization.tokens)
         : (rehydratedTask.scheduledTime ?? null);
+
+      const location = rawLocation ? normalizeAddressCasing(rawLocation) : null;
+      const contactPerson = rawContactPerson ? normalizePersonToNominative(rawContactPerson) : null;
 
       // 6. Validate re-hydrated task against DecryptedTaskPayloadSchema (bounds expansion accommodation)
       const decryptedPayload: DecryptedTaskPayload = DecryptedTaskPayloadSchema.parse({
@@ -96,7 +103,7 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
 
       const memoEntity: MemoEntity = {
         id: memoId,
-        userId: 'usr_session_default',
+        userId: 'usr_session_default_01',
         encryptedPayload: encryptedMemoPayload,
         sanitizedContentPreview: sanitization.sanitizedText.substring(0, 150),
         hasPII: sanitization.tokenCount > 0,
@@ -108,7 +115,7 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       const taskEntity: TaskEntity = {
         id: taskId,
         memoId,
-        userId: 'usr_session_default',
+        userId: 'usr_session_default_01',
         encryptedPayload: encryptedTaskPayload,
         category: rehydratedTask.category,
         priority: rehydratedTask.priority,

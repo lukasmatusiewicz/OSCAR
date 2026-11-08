@@ -304,6 +304,24 @@ describe('calendarExport utility suite', () => {
       vi.restoreAllMocks();
     });
 
+    it('normalizes inflected contact person and address casing in exported iCalendar', () => {
+      const task: TaskEntity = {
+        ...baseTask,
+        contactPerson: 'z Anną Nowak',
+        location: 'ul. marszałkowska 10',
+      };
+      const payload: DecryptedTaskPayload = {
+        ...basePayload,
+        contactPerson: 'z Anną Nowak',
+        location: 'ul. marszałkowska 10',
+        summary: 'Spotkanie organizacyjne',
+      };
+
+      const ics = generateICalendar(task, payload);
+      expect(ics).toContain('LOCATION:ul. Marszałkowska 10');
+      expect(ics).toContain('👤 Contact: Anna Nowak');
+    });
+
     it('creates a download link, triggers click, and revokes object URL without throwing', () => {
       const appendChildSpy = vi.spyOn(document.body, 'appendChild');
       const removeChildSpy = vi.spyOn(document.body, 'removeChild');

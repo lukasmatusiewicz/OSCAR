@@ -5,6 +5,10 @@ import {
   SubtaskItem,
   ExtractedTaskSchema,
 } from '../types/contracts.js';
+import {
+  normalizePersonToNominative,
+  normalizeAddressCasing,
+} from '../privacy/LinguisticNormalizer.js';
 
 export interface DeterministicExtractionResult {
   task: ExtractedTask;
@@ -45,24 +49,18 @@ export class DeterministicFallbackExtractor {
     const preambleRegex =
       /^(?:hey|hi|hello|cześć|hej|hallo|bonjour|dear|szanowny|szanowna|panie|pani)(?:\s+[\p{L}]+)*[,\s:]+/iu;
     const directiveFillers =
-      /^(?:please\s+remind\s+me\s+to|remind\s+me\s+to|don't\s+forget\s+to|remember\s+to|i\s+need\s+to|we\s+need\s+to|i\s+must|we\s+must|pamiętaj\s+żeby\s+zaplanować|pamiętaj\s+żeby|przypomnij\s+mi\s+o|muszę|musimy|zaplanuj|erinnere\s+mich\s+an\s+das|erinnere\s+mich\s+an|vergiss\s+nicht\s+zu|n'oublie\s+pas\s+de|pense\s+à|memo\s*:?|notes?\s*:?)\s+/iu;
+      /^(?:please\s+remind\s+me\s+to|remind\s+me\s+to|don't\s+forget\s+to|remember\s+to|i\s+need\s+to|we\s+need\s+to|i\s+must|we\s+must|pamiętaj\s+żeby\s+zaplanować|pamiętaj\s+żeby|przypomnij\s+mi\s+o|muszę|musimy|zaplanuj|erinnere\s+mich\s+an\s+das|erinnere\s+mich\s+an|vergiss\s+nicht\s+zu|n'oublie\s+pas\s+de|pense\s+à|memo\s*:?|notes?\s*:?)(?:\s+|$)/iu;
 
     let changed = true;
     while (changed) {
       changed = false;
       if (preambleRegex.test(cleaned)) {
-        const stripped = cleaned.replace(preambleRegex, '').trim();
-        if (stripped.length > 0) {
-          cleaned = stripped;
-          changed = true;
-        }
+        cleaned = cleaned.replace(preambleRegex, '').trim();
+        changed = true;
       }
       if (directiveFillers.test(cleaned)) {
-        const stripped = cleaned.replace(directiveFillers, '').trim();
-        if (stripped.length > 0) {
-          cleaned = stripped;
-          changed = true;
-        }
+        cleaned = cleaned.replace(directiveFillers, '').trim();
+        changed = true;
       }
     }
 
@@ -138,7 +136,14 @@ export class DeterministicFallbackExtractor {
         /\b(?:New York|Kassel|Berlin|Paris|Warsaw|Warszawa|London|Zurich|Zürich|Tokyo|Vienna|Wien|Rome|Roma|Madrid|Krakow|Kraków|Wrocław|Munich|München|Hamburg|Frankfurt)\b/i,
       );
       if (cityMatch) {
-        location = cityMatch[0];
+        location = normalizeAddressCasing(cityMatch[0]);
+      } else {
+        const streetMatch = memoText.match(
+          /\b(?:(?:ul\.|al\.|pl\.|os\.|plac|rue|boulevard|bd\.?)\s+[\p{L}\d\s-]+?\d+[a-z]?|[\p{L}\d-]+(?:straße|strasse|str\.)\s*\d+[a-z]?|\d+\s+[\p{L}\s]+(?:street|st|avenue|ave|boulevard|blvd|road|rd)\b|[\p{L}\s]+(?:street|st|avenue|ave|boulevard|blvd|road|rd)\s+\d+[a-z]?)/iu,
+        );
+        if (streetMatch) {
+          location = normalizeAddressCasing(streetMatch[0]);
+        }
       }
     }
 
@@ -151,7 +156,7 @@ export class DeterministicFallbackExtractor {
         /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|dr|mec\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:with|z|ze|mit|avec)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)/u,
       );
       if (personMatch) {
-        contactPerson = personMatch[0];
+        contactPerson = normalizePersonToNominative(personMatch[0]);
       }
     }
 
@@ -185,9 +190,6 @@ export class DeterministicFallbackExtractor {
       cleaned.toLowerCase() === firstClauseCleaned.toLowerCase()
     ) {
       coreObjective = firstClauseCleaned;
-    }
-    if (coreObjective.length === 0) {
-      coreObjective = 'Action item';
     }
 
     const summaryLines: string[] = [coreObjective];

@@ -8,6 +8,10 @@ import {
 } from '../types/contracts';
 import { ClientCryptoService } from '../services/ClientCryptoService';
 import { gatewayClient } from '../services/GatewayClient';
+import {
+  normalizePersonToNominative,
+  normalizeAddressCasing,
+} from '../utils/linguisticNormalizer';
 
 export interface UseMemosOptions {
   onTaskCreated?: (task: TaskEntity, decrypted: DecryptedTaskPayload) => void;
@@ -118,6 +122,9 @@ export function useMemos(options?: UseMemosOptions) {
             );
             if (m) contactPerson = m[0];
           }
+          if (contactPerson) {
+            contactPerson = normalizePersonToNominative(contactPerson);
+          }
 
           let location: string | null = null;
           const addressTok = tokens.find((t) => t.type === 'ADDRESS');
@@ -127,7 +134,17 @@ export function useMemos(options?: UseMemosOptions) {
             const m = rawContent.match(
               /\b(?:New York|Kassel|Berlin|Paris|Warsaw|Warszawa|London|Zurich|Zürich|Tokyo|Vienna|Wien|Rome|Roma|Madrid|Krakow|Kraków|Wrocław|Munich|München|Hamburg|Frankfurt)\b/i,
             );
-            if (m) location = m[0];
+            if (m) {
+              location = m[0];
+            } else {
+              const streetMatch = rawContent.match(
+                /\b(?:(?:ul\.|al\.|pl\.|os\.|plac|rue|boulevard|bd\.?)\s+[\p{L}\d\s-]+?\d+[a-z]?|[\p{L}\d-]+(?:straße|strasse|str\.)\s*\d+[a-z]?|\d+\s+[\p{L}\s]+(?:street|st|avenue|ave|boulevard|blvd|road|rd)\b|[\p{L}\s]+(?:street|st|avenue|ave|boulevard|blvd|road|rd)\s+\d+[a-z]?)/iu,
+              );
+              if (streetMatch) location = streetMatch[0];
+            }
+          }
+          if (location) {
+            location = normalizeAddressCasing(location);
           }
 
           let amount: string | null = null;

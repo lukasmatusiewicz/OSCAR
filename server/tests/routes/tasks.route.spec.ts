@@ -182,6 +182,42 @@ describe('Tasks Route Integration', () => {
       expect(decrypted.scheduledTime).toBe('11:00');
     });
 
+    it('updates title only preserving existing decrypted payload fields', async () => {
+      const createRes = await inProcessApp(app)
+        .post('/api/tasks')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Initial Title',
+          summary: 'Initial Summary',
+          subtasks: [{ title: 'Subtask A', completed: false }],
+          location: 'Initial Venue',
+          contactPerson: 'Initial Contact',
+          amount: '100 EUR',
+          scheduledTime: '10:00',
+        });
+
+      const taskId = createRes.body.id;
+
+      const patchRes = await inProcessApp(app)
+        .patch(`/api/tasks/${taskId}`)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Updated Title Only',
+        });
+
+      expect(patchRes.status).toBe(200);
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        patchRes.body.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.title).toBe('Updated Title Only');
+      expect(decrypted.summary).toBe('Initial Summary');
+      expect(decrypted.location).toBe('Initial Venue');
+      expect(decrypted.contactPerson).toBe('Initial Contact');
+      expect(decrypted.amount).toBe('100 EUR');
+      expect(decrypted.scheduledTime).toBe('10:00');
+    });
+
     it('returns 404 when attempting to update non-existent task', async () => {
       const res = await inProcessApp(app)
         .patch('/api/tasks/task_non_existent_12345')

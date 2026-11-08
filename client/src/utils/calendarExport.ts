@@ -1,4 +1,8 @@
 import { TaskEntity, DecryptedTaskPayload } from '../types/contracts';
+import {
+  normalizePersonToNominative,
+  normalizeAddressCasing,
+} from './linguisticNormalizer';
 
 /**
  * Escapes characters for RFC 5545 iCalendar TEXT properties.
@@ -119,7 +123,8 @@ export function generateICalendar(task: TaskEntity, payload?: DecryptedTaskPaylo
     payload?.title || (task as unknown as { title?: string }).title || 'OSCAR Action Item';
   const escapedTitle = escapeIcsText(titleVal);
 
-  const locationVal = payload?.location || task.location || '';
+  const rawLocation = payload?.location || task.location || '';
+  const locationVal = rawLocation ? normalizeAddressCasing(rawLocation) : '';
   const escapedLocation = escapeIcsText(locationVal);
 
   const status = task.status === 'COMPLETED' ? 'COMPLETED' : 'CONFIRMED';
@@ -130,8 +135,9 @@ export function generateICalendar(task: TaskEntity, payload?: DecryptedTaskPaylo
     descParts.push(payload.summary);
   }
 
-  const contact = payload?.contactPerson || task.contactPerson;
-  const loc = payload?.location || task.location;
+  const rawContact = payload?.contactPerson || task.contactPerson;
+  const contact = rawContact ? normalizePersonToNominative(rawContact) : null;
+  const loc = locationVal || null;
   const amt = payload?.amount || task.amount;
   const schedTime = payload?.scheduledTime || task.scheduledTime;
 

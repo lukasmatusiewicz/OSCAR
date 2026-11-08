@@ -210,6 +210,25 @@ describe('DeterministicFallbackExtractor', () => {
       expect(ExtractedTaskSchema.safeParse(task).success).toBe(true);
     });
 
+    it('extracts natural language contactPerson and location and applies LinguisticNormalizer', () => {
+      const memo = 'Spotkanie z dr Janem Kowalskim na ul. marszałkowska 10 jutro o 11:00';
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.contactPerson).toBe('dr Jan Kowalski');
+      expect(task.location).toBe('ul. Marszałkowska 10');
+      expect(task.scheduledTime).toContain('11:00');
+    });
+
+    it('handles preamble-only memos and pads short summaries safely', () => {
+      const task = DeterministicFallbackExtractor.extract('Please remind me to');
+      expect(task.title).toBe('New Memo Action Item');
+      expect(task.summary).toBe('New Memo Action Item');
+
+      const taskShort = DeterministicFallbackExtractor.extract('Do');
+      expect(taskShort.title).toBe('Do.');
+      expect(taskShort.summary.length).toBeGreaterThanOrEqual(5);
+    });
+
     it('sets smart metadata fields to null when not detected in memo', () => {
       const memo = 'Review code pull request and verify unit tests';
       const task = DeterministicFallbackExtractor.extract(memo);
