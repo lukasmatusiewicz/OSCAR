@@ -39,7 +39,12 @@ describe('TaskCard', () => {
     render(<TaskCard task={mockTask} decryptedPayload={mockDecrypted} isDecrypted={true} />);
 
     expect(screen.getByText('Prepare Audit Report')).toBeInTheDocument();
-    expect(screen.getByText('Reconcile compliance records and secure logs')).toBeInTheDocument();
+    const summaryEl = screen.getByText('Reconcile compliance records and secure logs');
+    expect(summaryEl).toBeInTheDocument();
+    expect(summaryEl).toHaveStyle({
+      whiteSpace: 'pre-line',
+      wordBreak: 'break-word',
+    });
     expect(screen.getByText('Check access tokens')).toBeInTheDocument();
     expect(screen.getByText('#audit')).toBeInTheDocument();
     expect(screen.getByText(/gemini 2.5/i)).toBeInTheDocument();

@@ -24,6 +24,8 @@ export interface DeterministicExtractionResult {
 export class DeterministicFallbackExtractor {
   public static readonly PROVENANCE = 'DETERMINISTIC_FALLBACK' as const;
   public static readonly MODEL_VERSION = 'rule-based-v1' as const;
+  public static readonly CARD_METADATA_MARKER_REGEX =
+    /(?:•\s*)?(?:👤\s*Contact:|📍\s*Location:|💰\s*Amount:|⏰\s*Time:|📝\s*Notes:)[^\r\n]*/gi;
 
   /**
    * Deterministically parses a sanitized or raw memo into ExtractedTask without AI inference.
@@ -40,10 +42,24 @@ export class DeterministicFallbackExtractor {
       .map((c) => c.trim())
       .filter((c) => c.length > 0);
 
-    const firstClause = rawClauses[0] ?? (lines[0] ?? 'New Memo Action Item');
+    const nonMetadataClause = rawClauses.find(
+      (c) =>
+        c
+          .replace(
+            /(?:•\s*)?(?:👤\s*Contact:|📍\s*Location:|💰\s*Amount:|⏰\s*Time:|📝\s*Notes:)[^\r\n]*/gi,
+            '',
+          )
+          .trim().length > 0,
+    );
+    const firstClause = nonMetadataClause ?? rawClauses[0] ?? (lines[0] ?? 'New Memo Action Item');
 
     // Title: Synthesized semantic title invariant conforming to contracts.md Section 4.3
-    let cleaned = firstClause;
+    let cleaned = firstClause
+      .replace(
+        /(?:•\s*)?(?:👤\s*Contact:|📍\s*Location:|💰\s*Amount:|⏰\s*Time:|📝\s*Notes:)[^\r\n]*/gi,
+        '',
+      )
+      .trim();
 
     // Strip conversational preambles and directive fillers
     const preambleRegex =
@@ -63,6 +79,14 @@ export class DeterministicFallbackExtractor {
         changed = true;
       }
     }
+
+    // Strip card metadata markers again if exposed after preamble/filler removal
+    cleaned = cleaned
+      .replace(
+        /(?:•\s*)?(?:👤\s*Contact:|📍\s*Location:|💰\s*Amount:|⏰\s*Time:|📝\s*Notes:)[^\r\n]*/gi,
+        '',
+      )
+      .trim();
 
     // Trim trailing punctuation ([.?!,:;])
     cleaned = cleaned.replace(/[.?!,:;\s]+$/, '').trim();
@@ -112,6 +136,16 @@ export class DeterministicFallbackExtractor {
     // Subtasks: Bullet items or line items, guaranteeing min(1) subtask
     const subtaskCandidates: SubtaskItem[] = lines
       .filter((l) => /^[-*•\d.]+\s+/.test(l))
+      .filter(
+        (l) =>
+          l
+            .replace(/^[-*•\d.]+\s+/, '')
+            .replace(
+              /(?:•\s*)?(?:👤\s*Contact:|📍\s*Location:|💰\s*Amount:|⏰\s*Time:|📝\s*Notes:)[^\r\n]*/gi,
+              '',
+            )
+            .trim().length > 0,
+      )
       .map((l) => ({
         title: l
           .replace(/^[-*•\d.]+\s+/, '')
@@ -146,6 +180,12 @@ export class DeterministicFallbackExtractor {
         }
       }
     }
+    if (!location) {
+      const cardLocationMatch = memoText.match(/(?:•\s*)?📍\s*Location:\s*([^\r\n]+)/i);
+      if (cardLocationMatch && cardLocationMatch[1]) {
+        location = normalizeAddressCasing(cardLocationMatch[1].trim());
+      }
+    }
 
     let contactPerson: string | null = null;
     const personTokenMatch = memoText.match(/\[PERSON_\d+\]/);
@@ -157,6 +197,12 @@ export class DeterministicFallbackExtractor {
       );
       if (personMatch) {
         contactPerson = normalizePersonToNominative(personMatch[0]);
+      }
+    }
+    if (!contactPerson) {
+      const cardContactMatch = memoText.match(/(?:•\s*)?👤\s*Contact:\s*([^\r\n]+)/i);
+      if (cardContactMatch && cardContactMatch[1]) {
+        contactPerson = normalizePersonToNominative(cardContactMatch[1].trim());
       }
     }
 
@@ -172,6 +218,12 @@ export class DeterministicFallbackExtractor {
         amount = amountMatch[0];
       }
     }
+    if (!amount) {
+      const cardAmountMatch = memoText.match(/(?:•\s*)?💰\s*Amount:\s*([^\r\n]+)/i);
+      if (cardAmountMatch && cardAmountMatch[1]) {
+        amount = cardAmountMatch[1].trim();
+      }
+    }
 
     let scheduledTime: string | null = null;
     const timeMatch = memoText.match(
@@ -180,11 +232,23 @@ export class DeterministicFallbackExtractor {
     if (timeMatch) {
       scheduledTime = timeMatch[0];
     }
+    if (!scheduledTime) {
+      const cardTimeMatch = memoText.match(/(?:•\s*)?⏰\s*Time:\s*([^\r\n]+)/i);
+      if (cardTimeMatch && cardTimeMatch[1]) {
+        scheduledTime = cardTimeMatch[1].trim();
+      }
+    }
 
     // Google Calendar-Style Structured Summary (RFC 5545 alignment)
     // 1. Core objective / description
     let coreObjective = cleaned;
-    const firstClauseCleaned = firstClause.replace(/[.?!,:;\s]+$/, '').trim();
+    const firstClauseCleaned = firstClause
+      .replace(
+        /(?:•\s*)?(?:👤\s*Contact:|📍\s*Location:|💰\s*Amount:|⏰\s*Time:|📝\s*Notes:)[^\r\n]*/gi,
+        '',
+      )
+      .replace(/[.?!,:;\s]+$/, '')
+      .trim();
     if (
       firstClauseCleaned.length > 0 &&
       cleaned.toLowerCase() === firstClauseCleaned.toLowerCase()
@@ -233,6 +297,17 @@ export class DeterministicFallbackExtractor {
     for (const clause of rawClauses.slice(1)) {
       const trimmedClause = clause.replace(/[.?!,:;\s]+$/, '').trim();
       if (!trimmedClause) continue;
+      // Skip clauses that are card metadata markers
+      if (
+        trimmedClause
+          .replace(
+            /(?:•\s*)?(?:👤\s*Contact:|📍\s*Location:|💰\s*Amount:|⏰\s*Time:|📝\s*Notes:)[^\r\n]*/gi,
+            '',
+          )
+          .trim().length === 0
+      ) {
+        continue;
+      }
       if (noteMatch && trimmedClause.toLowerCase().includes(noteMatch[1].trim().toLowerCase()))
         continue;
       if (location && trimmedClause.toLowerCase() === location.toLowerCase()) continue;

@@ -111,6 +111,36 @@ describe('Memos Route Integration', () => {
       expect(decrypted.summary).toContain('• 📍 Location: Hamburgerstr. 123');
     });
 
+    it('deduplicates contactPerson and location when input memo already contains card markers or rehydration occurs', async () => {
+      const res = await inProcessApp(app)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content:
+            'Spotkanie z Beatą Kozidrak\n• 👤 Contact: Beata Kozidrak\n• 👤 Contact: Beata Kozidrak\n• 📍 Location: Hamburgerstr. 123',
+        });
+
+      expect(res.status).toBe(200);
+      const createdTask = res.body.task;
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        createdTask.encryptedPayload,
+        testKey,
+      );
+
+      // Verify exactly one occurrence of • 👤 Contact: and • 📍 Location:
+      const contactMatches = decrypted.summary.match(/• 👤 Contact:[^\r\n]*/g);
+      expect(contactMatches).toHaveLength(1);
+      expect(contactMatches?.[0]).toBe('• 👤 Contact: Beata Kozidrak');
+
+      const locationMatches = decrypted.summary.match(/• 📍 Location:[^\r\n]*/g);
+      expect(locationMatches).toHaveLength(1);
+      expect(locationMatches?.[0]).toBe('• 📍 Location: Hamburgerstr. 123');
+
+      // Verify title is cleanly extracted without metadata prefixes
+      expect(decrypted.title).toBe('Spotkanie z Beatą Kozidrak');
+    });
+
     it('inserts contactPerson and location when not initially present in summary, and enforces summary bounds', async () => {
       const mockCustomOrchestrator = {
         extractTasks: () =>

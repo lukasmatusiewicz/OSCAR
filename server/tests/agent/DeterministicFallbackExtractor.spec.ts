@@ -247,5 +247,19 @@ describe('DeterministicFallbackExtractor', () => {
       expect(task.summary).toContain('• 📍 Location: [ADDRESS_1]');
       expect(task.summary).toContain('• 📝 Notes: 1231421415; kawka');
     });
+
+    it('extracts clean title without metadata prefixes when memo contains pasted card metadata markers', () => {
+      const memo =
+        'Spotkanie z Beatą Kozidrak\n• 👤 Contact: Beata Kozidrak\n• 📍 Location: Hamburgerstr. 123';
+      const task = DeterministicFallbackExtractor.extract(memo);
+
+      expect(task.title).toBe('Spotkanie z Beatą Kozidrak');
+      expect(task.contactPerson).toBe('Beata Kozidrak');
+      expect(task.location).toBe('Hamburgerstr. 123');
+      expect(task.summary).toContain('• 👤 Contact: Beata Kozidrak');
+      expect(task.summary).toContain('• 📍 Location: Hamburgerstr. 123');
+      expect(task.summary).not.toContain('• 📝 Notes: • 👤 Contact:');
+      expect(task.subtasks.some((s) => s.title.includes('👤 Contact:'))).toBe(false);
+    });
   });
 });

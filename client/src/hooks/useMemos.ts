@@ -97,12 +97,20 @@ export function useMemos(options?: UseMemosOptions) {
           options?.onTokensDetected?.(tokens);
 
           const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-          const firstClauseMatch =
-            rawContent
-              .split(/(?:(?<!\d)[.?!](?:\s+|$)|(?<!\d)[.?!]$|\r?\n)+/)
-              .map((c) => c.trim())
-              .filter((c) => c.length > 0)[0] || '';
-          let cleanedTitle = firstClauseMatch.replace(/[.?!,:;\s]+$/, '').trim();
+          const rawClauses = rawContent
+            .split(/(?:(?<!\d)[.?!](?:\s+|$)|(?<!\d)[.?!]$|\r?\n)+/)
+            .map((c) => c.trim())
+            .filter((c) => c.length > 0);
+          const metadataMarkerRegex =
+            /(?:•\s*)?(?:👤\s*Contact:|📍\s*Location:|💰\s*Amount:|⏰\s*Time:|📝\s*Notes:)[^\r\n]*/gi;
+          const nonMetadataClause = rawClauses.find(
+            (c) => c.replace(metadataMarkerRegex, '').trim().length > 0,
+          );
+          const firstClauseMatch = nonMetadataClause || rawClauses[0] || '';
+          let cleanedTitle = firstClauseMatch
+            .replace(metadataMarkerRegex, '')
+            .replace(/[.?!,:;\s]+$/, '')
+            .trim();
           if (cleanedTitle.length > 0) {
             cleanedTitle = cleanedTitle.charAt(0).toUpperCase() + cleanedTitle.slice(1);
           }
@@ -121,6 +129,12 @@ export function useMemos(options?: UseMemosOptions) {
               /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|dr|mec\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:with|z|ze|mit|avec)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)/u,
             );
             if (m) contactPerson = m[0];
+          }
+          if (!contactPerson) {
+            const cardContactMatch = rawContent.match(/(?:•\s*)?👤\s*Contact:\s*([^\r\n]+)/i);
+            if (cardContactMatch && cardContactMatch[1]) {
+              contactPerson = cardContactMatch[1].trim();
+            }
           }
           if (contactPerson) {
             contactPerson = normalizePersonToNominative(contactPerson);
@@ -143,6 +157,12 @@ export function useMemos(options?: UseMemosOptions) {
               if (streetMatch) location = streetMatch[0];
             }
           }
+          if (!location) {
+            const cardLocationMatch = rawContent.match(/(?:•\s*)?📍\s*Location:\s*([^\r\n]+)/i);
+            if (cardLocationMatch && cardLocationMatch[1]) {
+              location = cardLocationMatch[1].trim();
+            }
+          }
           if (location) {
             location = normalizeAddressCasing(location);
           }
@@ -157,12 +177,24 @@ export function useMemos(options?: UseMemosOptions) {
             );
             if (m) amount = m[0];
           }
+          if (!amount) {
+            const cardAmountMatch = rawContent.match(/(?:•\s*)?💰\s*Amount:\s*([^\r\n]+)/i);
+            if (cardAmountMatch && cardAmountMatch[1]) {
+              amount = cardAmountMatch[1].trim();
+            }
+          }
 
           let scheduledTime: string | null = null;
           const timeMatch = rawContent.match(
             /(?:(?:tomorrow|jutro|morgen|today|dzisiaj|heute)\s+(?:at|o|um)\s+\d{1,2}(?::\d{2})?|\b\d{1,2}:\d{2}\b)/i,
           );
           if (timeMatch) scheduledTime = timeMatch[0];
+          if (!scheduledTime) {
+            const cardTimeMatch = rawContent.match(/(?:•\s*)?⏰\s*Time:\s*([^\r\n]+)/i);
+            if (cardTimeMatch && cardTimeMatch[1]) {
+              scheduledTime = cardTimeMatch[1].trim();
+            }
+          }
 
           // Google Calendar-Style Structured Summary (RFC 5545 format)
           const coreObjective = title;

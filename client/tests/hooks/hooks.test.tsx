@@ -248,6 +248,33 @@ describe('Reactive State Hooks', () => {
       consoleErrorSpy.mockRestore();
     });
 
+    it('strips card metadata markers from title during offline fallback extraction', async () => {
+      let createdDecryptedPayload: DecryptedTaskPayload | null = null;
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { result } = renderHook(() =>
+        useMemos({
+          onTaskCreated: (_task, decrypted) => {
+            createdDecryptedPayload = decrypted;
+          },
+        })
+      );
+
+      const rawMemo =
+        'Spotkanie z Beatą Kozidrak\n• 👤 Contact: Beata Kozidrak\n• 📍 Location: Hamburgerstr. 123';
+
+      await act(async () => {
+        await result.current.submitMemo(rawMemo);
+      });
+
+      expect(createdDecryptedPayload).not.toBeNull();
+      expect(createdDecryptedPayload!.title).toBe('Spotkanie z Beatą Kozidrak');
+      expect(createdDecryptedPayload!.contactPerson).toBe('Beata Kozidrak');
+      expect(createdDecryptedPayload!.location).toBe('Hamburgerstr. 123');
+
+      consoleErrorSpy.mockRestore();
+    });
+
     it('synthesizes Google Calendar-style structured summary with tokens in offline fallback', async () => {
       let createdDecrypted: DecryptedTaskPayload | null = null;
       let createdTask: TaskEntity | null = null;

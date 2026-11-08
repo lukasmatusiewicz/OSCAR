@@ -513,6 +513,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 fontSize: '0.875rem',
                 color: '#475569',
                 lineHeight: 1.5,
+                whiteSpace: 'pre-line',
+                wordBreak: 'break-word',
               }}
             >
               {isDecrypted && decryptedPayload

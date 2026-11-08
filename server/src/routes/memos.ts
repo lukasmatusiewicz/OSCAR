@@ -73,23 +73,49 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
 
       let summary = rehydratedTask.summary ?? '';
       if (contactPerson) {
-        if (/(?:•\s*)?👤\s*Contact:[^\r\n]*/i.test(summary)) {
-          summary = summary.replace(/(?:•\s*)?👤\s*Contact:[^\r\n]*/gi, `• 👤 Contact: ${contactPerson}`);
+        const contactLine = `• 👤 Contact: ${contactPerson}`;
+        const contactPattern = /(?:•\s*)?👤\s*Contact:[^\r\n]*/i;
+        const lines = summary.split('\n');
+        const contactIndices: number[] = [];
+        lines.forEach((l, idx) => {
+          if (contactPattern.test(l)) {
+            contactIndices.push(idx);
+          }
+        });
+
+        if (contactIndices.length > 0) {
+          lines[contactIndices[0]] = contactLine;
+          for (let i = contactIndices.length - 1; i >= 1; i--) {
+            lines.splice(contactIndices[i], 1);
+          }
+          summary = lines.join('\n');
         } else {
-          const lines = summary.split('\n');
-          lines.splice(1, 0, `• 👤 Contact: ${contactPerson}`);
+          lines.splice(1, 0, contactLine);
           summary = lines.join('\n');
         }
       }
 
       if (location) {
-        if (/(?:•\s*)?📍\s*Location:[^\r\n]*/i.test(summary)) {
-          summary = summary.replace(/(?:•\s*)?📍\s*Location:[^\r\n]*/gi, `• 📍 Location: ${location}`);
+        const locationLine = `• 📍 Location: ${location}`;
+        const locationPattern = /(?:•\s*)?📍\s*Location:[^\r\n]*/i;
+        const lines = summary.split('\n');
+        const locationIndices: number[] = [];
+        lines.forEach((l, idx) => {
+          if (locationPattern.test(l)) {
+            locationIndices.push(idx);
+          }
+        });
+
+        if (locationIndices.length > 0) {
+          lines[locationIndices[0]] = locationLine;
+          for (let i = locationIndices.length - 1; i >= 1; i--) {
+            lines.splice(locationIndices[i], 1);
+          }
+          summary = lines.join('\n');
         } else {
-          const lines = summary.split('\n');
           const contactIdx = lines.findIndex((l) => l.includes('👤 Contact:'));
           const insertIdx = contactIdx !== -1 ? contactIdx + 1 : Math.min(1, lines.length);
-          lines.splice(insertIdx, 0, `• 📍 Location: ${location}`);
+          lines.splice(insertIdx, 0, locationLine);
           summary = lines.join('\n');
         }
       }
