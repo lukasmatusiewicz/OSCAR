@@ -213,6 +213,11 @@ To eliminate cognitive drift, context saturation, and non-deterministic hallucin
    - All state transitions between phases must be codified on disk in version-controlled repositories or passed explicitly in structured messages adhering to the Inter-Agent Communication Protocol (Section 8).
    - If an ephemeral subagent encounters unrecoverable roadblocks, permission boundary violations, or schema discrepancies, it must immediately trigger the Incident Escalation & Circuit Breaker (Section 7.4) rather than attempting heuristic workarounds or continuing with an degraded context.
 
+### 7.6 Fail-Safe Halt & Anti-Workaround Invariant (HITL Safety Gate)
+1. **Mandatory Safe-State Halting:** Whenever an agent requires Supervisor authorization, hits a permission/sandbox boundary, or encounters missing external credentials, it MUST halt execution cleanly in a safe idle state and wait indefinitely for human directive.
+2. **Strict Prohibition of Speculative Workarounds:** Agents are strictly forbidden from inventing speculative architectural workarounds, bypassing sandbox boundaries, altering security contracts, or mutating out-of-scope files when awaiting authorization.
+3. **Permitted Minor Autonomy (The Triviality Exception):** An agent may autonomously resolve ONLY trivial, non-architectural, deterministic issues (e.g. formatting a file with Prettier, fixing an obvious syntax typo, or retrying a transient command) provided it does not alter data contracts, security posture, or external network access.
+
 ---
 
 ## 8. Inter-Agent Communication Protocol
