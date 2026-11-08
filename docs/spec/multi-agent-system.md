@@ -171,13 +171,22 @@ Execution begins only after the Supervisor responds with explicit confirmation (
 * **Zero Autonomous Merges:** No agent has permissions to execute `git merge main`, `git checkout main`, or push to `main`.
 * **Human Handover:** When a feature branch passes all Auditor and Critic checks, the Master Orchestrator pushes the branch and presents a structured Pull Request summary to the Supervisor. The Supervisor alone reviews, approves, and merges the PR on GitHub.
 
-### 7.3 Engineering Craftsmanship & Code Hygiene Gate
-Before issuing a formal verification sign-off for any phase or feature delivery, the `QA & Security Auditor Agent` MUST strictly audit and enforce the following five craftsmanship criteria:
-1. **Atomic Conventional Commits Invariant:** Deliveries must be structured into logical, granular, bisectable commits following Conventional Commits format (`feat(...)`, `test(...)`, `docs(...)`, `refactor(...)`). Monolithic single-commit deliveries are strictly rejected.
-2. **Zero Dead Code & Hygiene:** Zero commented-out code, zero unused imports/variables, zero debugging console logs, and 100% clean static analysis (`tsc --noEmit`).
-3. **Public API Documentation:** Every exported function, interface, type, and React component must have structured JSDoc comments explaining architectural intent and parameter/return contracts.
-4. **Atomic Design Architectural Purity:** In the frontend, `atoms/` and `molecules/` must remain pure presentational components without embedded side-effects, fetch calls, or business logic; state and network handling must be isolated strictly within custom hooks (`hooks/`).
-5. **No Magic Constants:** All timeouts, rate limits, buffer lengths, and configuration values must be declared as explicit, named constants (e.g., `SLA_TIMEOUT_MS = 8000`).
+### 7.3 Engineering Craftsmanship & Code Hygiene Gate (Mandatory QA Sign-Off Matrix)
+
+1. **Git & History Hygiene (Atomic Commits):**
+   - Strictly granular, bisectable commits following Conventional Commits (`feat(...)`, `test(...)`, `refactor(...)`). Monolithic single-commit phase squashes are strictly rejected.
+2. **Modularity & Single Responsibility (Architectural Purity):**
+   - Strict Atomic Design in frontend: `atoms/` and `molecules/` must remain pure presentational components without embedded side-effects or network calls. Business and state logic must reside strictly in custom hooks (`hooks/`).
+3. **Type Strictness & Hygiene (Zero Dead Code):**
+   - Zero commented-out code, zero unused imports/variables, strict `tsc --noEmit` exit code 0, and absolute zero tolerance for `any` or `@ts-ignore`.
+4. **Resource Lifecycle & Memory Discipline (Effect Cleanup):**
+   - Every reactive effect (`useEffect`), stream, listener (e.g. Firestore `onSnapshot`), or timer MUST return an explicit cleanup function to eliminate memory leaks and dangling background processes on unmount.
+5. **Defensive Error Handling:**
+   - Zero swallowed exceptions (`catch (e) {}` is prohibited). Every error must be either gracefully handled, surfaced through typed error states, or caught by a dedicated Error Boundary.
+6. **Configuration & Literal Integrity (Zero Magic Literals):**
+   - No hardcoded numbers or strings. All timeouts, thresholds, rate limits, and cryptographic identifiers must be defined as exported named constants.
+7. **Semantic HTML & Accessibility (WCAG 2.1 AA):**
+   - Strictly semantic elements (interactive controls must be native `<button>`, forms require `<label>` / `aria-label`). Zero non-semantic clickable divs.
 
 ### 7.4 Incident Escalation & Circuit Breaker
 If an agent encounters any of the following conditions, it must halt execution immediately and escalate to the Master Orchestrator and the Supervisor:
@@ -186,11 +195,6 @@ If an agent encounters any of the following conditions, it must halt execution i
 * Unit test coverage dropping below 95% on core privacy modules.
 * Critique loop limit (2 iterations) exceeded without convergence.
 * External API failure or unrecoverable rate limiting.
-
-### 7.5 Atomic Conventional Commits Invariant
-- **Granular Atomic Commits:** All future Maker subagents and orchestrator workflows MUST structure deliverables into granular, logical, atomic Conventional Commits (`feat(...)`, `test(...)`, `docs(...)`, etc.) rather than squashing entire development phases into monolithic commits.
-- **Independent Compilation Integrity:** Every single commit must compile cleanly without errors (`tsc --noEmit`), ensuring git bisectability, auditability, and traceability.
-- **Structured Rollout Plan:** Before committing a feature phase, the delivery must be partitioned into designated staged sets (e.g., environment scaffolding, security/crypto services, components hierarchy, state hooks & views, test suite).
 
 ---
 
