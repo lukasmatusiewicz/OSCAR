@@ -37,11 +37,22 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: '1rem',
+        minWidth: 0,
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '1.25rem' }}>🛡️</span>
           <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
             Privacy Shield & Audit
@@ -67,7 +78,15 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
           gap: '0.25rem',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.25rem',
+          }}
+        >
           <span
             style={{
               fontSize: '0.8125rem',
@@ -159,6 +178,8 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.25rem',
           }}
         >
           <span>

@@ -1168,9 +1168,21 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
         flexDirection: 'column',
         gap: '0.875rem',
         transition: 'all 0.2s ease',
+        minWidth: 0,
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+        }}
+      >
         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#0f172a' }}>
           📝 New Confidential Voice/Text Memo
         </h3>
@@ -1179,7 +1191,14 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
 
       <form
         onSubmit={handleSubmit}
-        style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
+        }}
       >
         <Input
           isTextArea
@@ -1193,6 +1212,7 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
           disabled={isLoading}
           error={error || undefined}
           aria-label="Confidential Memo Input"
+          style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
         />
 
         {tokens.length > 0 && (
@@ -1206,6 +1226,9 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
               backgroundColor: '#f8fafc',
               borderRadius: '6px',
               border: '1px solid #e2e8f0',
+              minWidth: 0,
+              width: '100%',
+              boxSizing: 'border-box',
             }}
           >
             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>
@@ -1224,7 +1247,10 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
             marginTop: '0.25rem',
+            width: '100%',
           }}
         >
           <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>

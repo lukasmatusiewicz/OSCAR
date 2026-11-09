@@ -483,5 +483,41 @@ describe('TaskCard', () => {
       const editBtn = screen.getByRole('button', { name: /edit task/i });
       expect(editBtn).toBeInTheDocument();
     });
+
+    it('applies responsive layout hardening styles and responsive edit grid', () => {
+      render(
+        <TaskCard
+          task={mockTask}
+          decryptedPayload={mockDecrypted}
+        />
+      );
+
+      const card = screen.getByTestId(`task-card-${mockTask.id}`);
+      expect(card).toHaveClass('oscar-task-card');
+      expect(card).toHaveStyle({
+        width: '100%',
+        maxWidth: '100%',
+      });
+      expect(card.getAttribute('style')).toContain('min-width: 0');
+      expect(card.getAttribute('style')).toContain('word-break: break-word');
+      expect(card.getAttribute('style')).toContain('overflow-wrap: anywhere');
+
+      // Enter edit mode
+      const editBtn = screen.getByRole('button', { name: /edit draft/i });
+      fireEvent.click(editBtn);
+
+      const editMode = screen.getByTestId('draft-edit-mode');
+      expect(editMode).toHaveStyle({
+        width: '100%',
+      });
+      expect(editMode.getAttribute('style')).toContain('min-width: 0');
+
+      // Find the metadata grid
+      const gridContainer = screen.getByTestId('edit-mode-metadata-grid');
+      expect(gridContainer).toHaveStyle({
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+      });
+    });
   });
 });

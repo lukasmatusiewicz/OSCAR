@@ -81,7 +81,15 @@ export const TaskList: React.FC<TaskListProps> = ({
   return (
     <section
       className={`oscar-task-list ${className}`.trim()}
-      style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1rem',
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+        boxSizing: 'border-box',
+      }}
     >
       {/* Search & Filter Header */}
       <div
@@ -94,6 +102,10 @@ export const TaskList: React.FC<TaskListProps> = ({
           padding: '1rem',
           border: '1px solid #e2e8f0',
           boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
         }}
       >
         <SearchBox

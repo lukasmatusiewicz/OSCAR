@@ -138,6 +138,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         gap: '0.875rem',
         transition: 'all 0.2s ease',
         opacity: isCompleted ? 0.75 : 1,
+        minWidth: 0,
+        wordBreak: 'break-word',
+        overflowWrap: 'anywhere',
+        boxSizing: 'border-box',
+        width: '100%',
+        maxWidth: '100%',
       }}
     >
       {/* Header bar: Category, Priority, Status, Provenance */}
@@ -150,7 +156,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           gap: '0.5rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <CategoryBadge category={task.category} />
           <PrioritySelector
             value={task.priority}
@@ -159,7 +165,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
           <span
             data-testid={`task-status-badge-${task.id}`}
             style={{
@@ -218,7 +224,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             ⚖️ <strong>Human Oversight Required:</strong> Review AI-extracted task before
             confirming.
           </span>
-          <div style={{ display: 'flex', gap: '0.35rem' }}>
+          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
             <Button
               size="sm"
               variant="secondary"
@@ -259,9 +265,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             display: 'flex',
             flexDirection: 'column',
             gap: '0.75rem',
+            minWidth: 0,
+            width: '100%',
+            boxSizing: 'border-box',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '0.5rem',
+            }}
+          >
             <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>
               {isDraft
                 ? '✏️ Interactive Draft Editor (Human Oversight)'
@@ -289,10 +306,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           />
 
           <div
+            data-testid="edit-mode-metadata-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
               gap: '0.5rem',
+              minWidth: 0,
+              width: '100%',
             }}
           >
             <Input
@@ -328,13 +348,22 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
 
           {/* Subtasks checklist editor */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 0 }}>
             <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>
               Subtasks Checklist Editor:
             </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 0 }}>
               {editSubtasks.map((st, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    minWidth: 0,
+                    width: '100%',
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={st.completed}
@@ -344,7 +373,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                       setEditSubtasks(updated);
                     }}
                     aria-label={`Subtask ${idx + 1} completed`}
-                    style={{ cursor: 'pointer', width: '1rem', height: '1rem' }}
+                    style={{ cursor: 'pointer', width: '1rem', height: '1rem', flexShrink: 0 }}
                   />
                   <input
                     type="text"
@@ -358,10 +387,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     aria-label={`Subtask ${idx + 1} title`}
                     style={{
                       flex: 1,
+                      minWidth: 0,
                       padding: '0.35rem 0.5rem',
                       borderRadius: '4px',
                       border: '1px solid #cbd5e1',
                       fontSize: '0.8125rem',
+                      boxSizing: 'border-box',
+                      wordBreak: 'break-word',
                     }}
                   />
                   <Button
@@ -372,6 +404,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                       setEditSubtasks(editSubtasks.filter((_, i) => i !== idx));
                     }}
                     aria-label={`Remove subtask ${idx + 1}`}
+                    style={{ flexShrink: 0 }}
                   >
                     ✕
                   </Button>
@@ -397,9 +430,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               display: 'flex',
               gap: '0.5rem',
               justifyContent: 'flex-end',
+              flexWrap: 'wrap',
               marginTop: '0.5rem',
               borderTop: '1px solid #e2e8f0',
               paddingTop: '0.75rem',
+              width: '100%',
             }}
           >
             <Button size="sm" variant="ghost" onClick={handleCancelEdit} aria-label="Cancel">
@@ -443,6 +478,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     color: '#1d4ed8',
                     border: '1px solid #bfdbfe',
                     fontWeight: 500,
+                    maxWidth: '100%',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   📅 Date: {scheduledDate}
@@ -462,6 +500,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     color: '#1d4ed8',
                     border: '1px solid #bfdbfe',
                     fontWeight: 500,
+                    maxWidth: '100%',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   ⏰ Time: {scheduledTime}
@@ -481,6 +522,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     color: '#0e7490',
                     border: '1px solid #a5f3fc',
                     fontWeight: 500,
+                    maxWidth: '100%',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   📍 Location: {location}
@@ -500,6 +544,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     color: '#92400e',
                     border: '1px solid #fde68a',
                     fontWeight: 500,
+                    maxWidth: '100%',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   👤 Contact: {contactPerson}
@@ -519,6 +566,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     color: '#6d28d9',
                     border: '1px solid #ddd6fe',
                     fontWeight: 500,
+                    maxWidth: '100%',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   💰 Amount: {amount}
@@ -528,7 +578,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           {/* Content Area: Title & Summary */}
-          <div>
+          <div style={{ minWidth: 0, width: '100%' }}>
             <h4
               style={{
                 margin: '0 0 0.35rem 0',
@@ -536,6 +586,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 fontWeight: 700,
                 color: '#0f172a',
                 textDecoration: isCompleted ? 'line-through' : 'none',
+                wordBreak: 'break-word',
+                overflowWrap: 'anywhere',
               }}
             >
               {isDecrypted && decryptedPayload
@@ -550,6 +602,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 lineHeight: 1.5,
                 whiteSpace: 'pre-line',
                 wordBreak: 'break-word',
+                overflowWrap: 'anywhere',
               }}
             >
               {isDecrypted && decryptedPayload
@@ -569,6 +622,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   flexDirection: 'column',
                   gap: '0.35rem',
                   marginTop: '0.25rem',
+                  minWidth: 0,
+                  width: '100%',
                 }}
               >
                 <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>
@@ -583,6 +638,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '0.25rem',
+                    minWidth: 0,
+                    width: '100%',
                   }}
                 >
                   {decryptedPayload.subtasks.map((subtask, index) => (
@@ -595,6 +652,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         fontSize: '0.8125rem',
                         color: subtask.completed ? '#94a3b8' : '#1e293b',
                         textDecoration: subtask.completed ? 'line-through' : 'none',
+                        minWidth: 0,
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
                       }}
                     >
                       <input
@@ -609,9 +669,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                           height: '1rem',
                           borderRadius: '4px',
                           transition: 'all 0.15s ease',
+                          flexShrink: 0,
                         }}
                       />
-                      <span>{subtask.title}</span>
+                      <span style={{ minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                        {subtask.title}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -654,7 +717,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <Button
             size="sm"
             variant="secondary"

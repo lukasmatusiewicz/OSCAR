@@ -120,17 +120,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div
       className={`oscar-dashboard-view ${className}`.trim()}
       style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 340px',
-        gap: '1.5rem',
         maxWidth: '1280px',
         margin: '0 auto',
-        padding: '1rem',
         boxSizing: 'border-box',
+        width: '100%',
       }}
     >
       {/* Main Content Area: MemoEditor + TaskList */}
-      <main style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 0 }}>
+      <main
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1.5rem',
+          minWidth: 0,
+          width: '100%',
+        }}
+      >
         {/* Key Activation Alert if logged out */}
         {!hasActiveKey && (
           <div
@@ -212,7 +217,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </main>
 
       {/* Sidebar: Privacy Audit Panel */}
-      <aside style={{ minWidth: '300px' }}>
+      <aside className="oscar-dashboard-aside" style={{ minWidth: 0, width: '100%' }}>
         <div style={{ position: 'sticky', top: '1rem' }}>
           <PrivacyAuditPanel
             metrics={{
