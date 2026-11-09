@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { App } from '../src/App';
 import { ClientCryptoService } from '../src/services/ClientCryptoService';
 
@@ -84,5 +84,29 @@ describe('App Root Component', () => {
     expect(ClientCryptoService.hasSessionKey()).toBe(false);
     expect(screen.queryAllByText('Launch project kickoff meeting with team').length).toBe(0);
     expect(screen.getByText('🔒 Encrypted Task Content')).toBeInTheDocument();
+  });
+
+  it('renders install app button in header when beforeinstallprompt event is dispatched', () => {
+    render(<App />);
+
+    expect(screen.queryByRole('button', { name: /install oscar app/i })).not.toBeInTheDocument();
+
+    const promptMock = vi.fn().mockResolvedValue(undefined);
+    const event = new Event('beforeinstallprompt', {
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.assign(event, {
+      platforms: ['web'],
+      prompt: promptMock,
+      userChoice: Promise.resolve({ outcome: 'accepted', platform: 'web' }),
+    });
+
+    act(() => {
+      window.dispatchEvent(event);
+    });
+
+    const installBtn = screen.getByRole('button', { name: /install oscar app/i });
+    expect(installBtn).toBeInTheDocument();
   });
 });
