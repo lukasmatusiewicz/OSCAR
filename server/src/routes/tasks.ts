@@ -8,7 +8,7 @@ import {
 } from '../types/contracts.js';
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
-import { ITaskRepository } from '../store/ITaskRepository.js';
+import type { ITaskRepository } from '../store/ITaskRepository.js';
 
 export interface TaskRouterDependencies {
   taskStore: ITaskRepository;

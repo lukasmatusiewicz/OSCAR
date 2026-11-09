@@ -16,7 +16,7 @@ import {
 import { GeminiOrchestrator } from '../agent/GeminiOrchestrator.js';
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
-import { ITaskRepository } from '../store/ITaskRepository.js';
+import type { ITaskRepository } from '../store/ITaskRepository.js';
 
 export interface MemoRouterDependencies {
   orchestrator: GeminiOrchestrator;

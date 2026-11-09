@@ -7,7 +7,7 @@ import { createDocsRouter } from './routes/docs.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { GeminiOrchestrator } from './agent/GeminiOrchestrator.js';
 import { taskStore as defaultTaskStore } from './store/TaskStore.js';
-import { ITaskRepository } from './store/ITaskRepository.js';
+import type { ITaskRepository } from './store/ITaskRepository.js';
 import { FirestoreTaskStore } from './store/FirestoreTaskStore.js';
 
 export const DEFAULT_CORS_ORIGIN = 'http://localhost:5173';
