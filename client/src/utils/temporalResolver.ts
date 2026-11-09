@@ -1,4 +1,5 @@
 import { logger } from './logger';
+export { TEMPORAL_STOP_WORDS } from '../components/organisms/MemoEditor';
 
 const DAYS_IN_WEEK = 7;
 
@@ -22,16 +23,22 @@ const WEEKDAY_MAP: Record<string, number> = {
   donnerstag: 4,
   freitag: 5,
   samstag: 6,
+  sonnabend: 6,
   // Polish
+  niedziela: 0,
   niedzielę: 0,
   niedziele: 0,
   poniedziałek: 1,
+  poniedzialek: 1,
   wtorek: 2,
+  środa: 3,
+  sroda: 3,
   środę: 3,
   srode: 3,
   czwartek: 4,
   piątek: 5,
   piatek: 5,
+  sobota: 6,
   sobotę: 6,
   sobote: 6,
 };
@@ -171,9 +178,9 @@ export function resolveRelativeDate(
   }
 
   // 6. Weekdays: Upcoming weekday (1 to 7 days ahead)
-  // Polish: w(?:e)?\s+(poniedziałek|wtorek|środę|srode|czwartek|piątek|piatek|sobotę|sobote|niedzielę|niedziele)
+  // Polish: (?:w(?:e)?\s+)?(poniedziałek|...)
   const plWeekdayMatch = text.match(
-    /(?<!\p{L})w(?:e)?\s+(poniedziałek|wtorek|środę|srode|czwartek|piątek|piatek|sobotę|sobote|niedzielę|niedziele)(?!\p{L})/iu,
+    /(?<!\p{L})(?:w(?:e)?\s+)?(poniedziałek|poniedzialek|wtorek|środa|sroda|środę|srode|czwartek|piątek|piatek|sobota|sobotę|sobote|niedziela|niedzielę|niedziele)(?!\p{L})/iu,
   );
   if (plWeekdayMatch && plWeekdayMatch[1]) {
     const dayName = plWeekdayMatch[1].toLowerCase();
@@ -187,9 +194,9 @@ export function resolveRelativeDate(
     }
   }
 
-  // German: am\s+(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)
+  // German: (?:am\s+)?(Montag|...)
   const deWeekdayMatch = text.match(
-    /(?<!\p{L})am\s+(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)(?!\p{L})/iu,
+    /(?<!\p{L})(?:am\s+)?(montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonnabend|sonntag)(?!\p{L})/iu,
   );
   if (deWeekdayMatch && deWeekdayMatch[1]) {
     const dayName = deWeekdayMatch[1].toLowerCase();
@@ -216,6 +223,63 @@ export function resolveRelativeDate(
         date: resolved,
       });
       return resolved;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extracts and normalizes scheduled time from memo text to HH:mm format.
+ * Recognizes:
+ * - Standard time: HH:mm or HH:mm:ss (e.g. 12:00, 15:30)
+ * - Single-hour with prefix: o 12, o 15, o 9, um 14, um 9, at 15, at 3pm, at 3 pm, at 9am, at 9 am
+ * - Prefix with minutes: o 12:30, um 14:00, at 15:30, godz. 12, godz 14:00
+ * Normalizes single-hour notations to strict HH:mm format and ensures valid hour bounds (0 <= hour <= 23).
+ */
+export function extractScheduledTime(text: string): string | null {
+  if (!text || typeof text !== 'string') return null;
+
+  // 1. Prefixed time pattern (o, um, at, godz., godz, godzina, godzinie, o godz.)
+  const prefixedRegex =
+    /(?:\b(?:tomorrow|jutro|morgen|today|dzisiaj|heute)\s+)?\b(?:(?:o\s+)?godz(?:ina|inie|\.)?|o|um|at)\s+(\d{1,2})(?::(\d{2})(?::\d{2})?)?(?:\s*(am|pm))?(?!\s*(?:[€$£¥]|zł|złotych|pln|eur|euro|usd|chf|gbp|%|proc|dni|dnia|godzin|minut|sekund|lat|kg|km\b|m\b))/iu;
+
+  const prefixMatch = text.match(prefixedRegex);
+  if (prefixMatch) {
+    let hour = parseInt(prefixMatch[1], 10);
+    const minute = prefixMatch[2] ? parseInt(prefixMatch[2], 10) : 0;
+    const meridiem = prefixMatch[3] ? prefixMatch[3].toLowerCase() : null;
+
+    if (minute >= 0 && minute <= 59) {
+      if (meridiem) {
+        if (hour >= 1 && hour <= 12) {
+          if (meridiem === 'pm' && hour < 12) hour += 12;
+          if (meridiem === 'am' && hour === 12) hour = 0;
+          return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        }
+      } else if (hour >= 0 && hour <= 23) {
+        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  // 2. Standard explicit time pattern: HH:mm or HH:mm:ss
+  const standardTimeRegex =
+    /\b([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?(?:\s*(am|pm))?\b(?!\s*(?:[€$£¥]|zł|złotych|pln|eur|euro|usd|chf|gbp|%))/iu;
+  const standardMatch = text.match(standardTimeRegex);
+  if (standardMatch) {
+    let hour = parseInt(standardMatch[1], 10);
+    const minute = parseInt(standardMatch[2], 10);
+    const meridiem = standardMatch[3] ? standardMatch[3].toLowerCase() : null;
+
+    if (meridiem) {
+      if (hour >= 1 && hour <= 12) {
+        if (meridiem === 'pm' && hour < 12) hour += 12;
+        if (meridiem === 'am' && hour === 12) hour = 0;
+        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      }
+    } else if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
     }
   }
 

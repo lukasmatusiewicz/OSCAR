@@ -9,12 +9,70 @@ import {
   normalizePersonToNominative,
   normalizeAddressCasing,
 } from '../privacy/LinguisticNormalizer.js';
+import { TEMPORAL_STOP_WORDS } from '../privacy/PrivacyGuard.js';
 import { resolveRelativeDate } from './TemporalResolver.js';
 
 export interface DeterministicExtractionResult {
   task: ExtractedTask;
   provenance: 'DETERMINISTIC_FALLBACK';
   modelVersion: 'rule-based-v1';
+}
+
+/**
+ * Extracts and normalizes scheduled time from memo text to HH:mm format.
+ * Recognizes:
+ * - Standard time: HH:mm or HH:mm:ss (e.g. 12:00, 15:30)
+ * - Single-hour with prefix: o 12, o 15, o 9, um 14, um 9, at 15, at 3pm, at 3 pm, at 9am, at 9 am
+ * - Prefix with minutes: o 12:30, um 14:00, at 15:30, godz. 12, godz 14:00
+ * Normalizes single-hour notations to strict HH:mm format and ensures valid hour bounds (0 <= hour <= 23).
+ */
+export function extractScheduledTime(text: string): string | null {
+  if (!text || typeof text !== 'string') return null;
+
+  // 1. Prefixed time pattern (o, um, at, godz., godz, godzina, godzinie, o godz.)
+  const prefixedRegex =
+    /(?:\b(?:tomorrow|jutro|morgen|today|dzisiaj|heute)\s+)?\b(?:(?:o\s+)?godz(?:ina|inie|\.)?|o|um|at)\s+(\d{1,2})(?::(\d{2})(?::\d{2})?)?(?:\s*(am|pm))?(?!\s*(?:[€$£¥]|zł|złotych|pln|eur|euro|usd|chf|gbp|%|proc|dni|dnia|godzin|minut|sekund|lat|kg|km\b|m\b))/iu;
+
+  const prefixMatch = text.match(prefixedRegex);
+  if (prefixMatch) {
+    let hour = parseInt(prefixMatch[1], 10);
+    const minute = prefixMatch[2] ? parseInt(prefixMatch[2], 10) : 0;
+    const meridiem = prefixMatch[3] ? prefixMatch[3].toLowerCase() : null;
+
+    if (minute >= 0 && minute <= 59) {
+      if (meridiem) {
+        if (hour >= 1 && hour <= 12) {
+          if (meridiem === 'pm' && hour < 12) hour += 12;
+          if (meridiem === 'am' && hour === 12) hour = 0;
+          return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        }
+      } else if (hour >= 0 && hour <= 23) {
+        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  // 2. Standard explicit time pattern: HH:mm or HH:mm:ss
+  const standardTimeRegex =
+    /\b([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?(?:\s*(am|pm))?\b(?!\s*(?:[€$£¥]|zł|złotych|pln|eur|euro|usd|chf|gbp|%))/iu;
+  const standardMatch = text.match(standardTimeRegex);
+  if (standardMatch) {
+    let hour = parseInt(standardMatch[1], 10);
+    const minute = parseInt(standardMatch[2], 10);
+    const meridiem = standardMatch[3] ? standardMatch[3].toLowerCase() : null;
+
+    if (meridiem) {
+      if (hour >= 1 && hour <= 12) {
+        if (meridiem === 'pm' && hour < 12) hour += 12;
+        if (meridiem === 'am' && hour === 12) hour = 0;
+        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      }
+    } else if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -27,6 +85,10 @@ export class DeterministicFallbackExtractor {
   public static readonly MODEL_VERSION = 'rule-based-v1' as const;
   public static readonly CARD_METADATA_MARKER_REGEX =
     /(?:•\s*)?(?:👤\s*Contact:|📍\s*Location:|💰\s*Amount:|⏰\s*Time:|📝\s*Notes:)[^\r\n]*/gi;
+
+  public static extractScheduledTime(text: string): string | null {
+    return extractScheduledTime(text);
+  }
 
   /**
    * Deterministically parses a sanitized or raw memo into ExtractedTask without AI inference.
@@ -200,7 +262,18 @@ export class DeterministicFallbackExtractor {
         /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|dr|mec\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:with|z|ze|mit|avec)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)*)/u,
       );
       if (personMatch) {
-        contactPerson = normalizePersonToNominative(personMatch[0]);
+        const words = personMatch[0].split(/\s+/);
+        while (words.length > 1) {
+          const lastWord = words[words.length - 1].toLowerCase().replace(/[.,]/g, '');
+          if (TEMPORAL_STOP_WORDS.has(lastWord)) {
+            words.pop();
+          } else {
+            break;
+          }
+        }
+        if (words.length > 0 && !TEMPORAL_STOP_WORDS.has(words[0].toLowerCase().replace(/[.,]/g, ''))) {
+          contactPerson = normalizePersonToNominative(words.join(' '));
+        }
       }
     }
     if (!contactPerson) {
@@ -229,13 +302,7 @@ export class DeterministicFallbackExtractor {
       }
     }
 
-    let scheduledTime: string | null = null;
-    const timeMatch = memoText.match(
-      /(?:(?:tomorrow|jutro|morgen|today|dzisiaj|heute)\s+(?:at|o|um)\s+\d{1,2}(?::\d{2})?|\b\d{1,2}:\d{2}\b)/i,
-    );
-    if (timeMatch) {
-      scheduledTime = timeMatch[0];
-    }
+    let scheduledTime: string | null = extractScheduledTime(memoText);
     if (!scheduledTime) {
       const cardTimeMatch = memoText.match(/(?:•\s*)?⏰\s*Time:\s*([^\r\n]+)/i);
       if (cardTimeMatch && cardTimeMatch[1]) {

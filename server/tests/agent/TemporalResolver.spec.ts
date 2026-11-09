@@ -46,8 +46,14 @@ describe('TemporalResolver Agent Unit Suite', () => {
       expect(resolveRelativeDate('Wyjazd w sobote', refDate)).toBe('2026-11-14');
       expect(resolveRelativeDate('Odpoczynek w niedzielę', refDate)).toBe('2026-11-15');
       expect(resolveRelativeDate('Odpoczynek w niedziele', refDate)).toBe('2026-11-15');
+      // Nominative and bare weekdays without preposition (e.g. "Środa o 15")
+      expect(resolveRelativeDate('Środa o 15', refDate)).toBe('2026-11-11');
+      expect(resolveRelativeDate('Sroda o 15', refDate)).toBe('2026-11-11');
+      expect(resolveRelativeDate('Sobota wyjazd', refDate)).toBe('2026-11-14');
+      expect(resolveRelativeDate('Niedziela odpoczynek', refDate)).toBe('2026-11-15');
       // Upcoming Monday (7 days ahead)
       expect(resolveRelativeDate('Spotkanie w poniedziałek', refDate)).toBe('2026-11-16');
+      expect(resolveRelativeDate('Spotkanie w poniedzialek', refDate)).toBe('2026-11-16');
     });
   });
 

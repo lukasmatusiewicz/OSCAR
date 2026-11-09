@@ -40,20 +40,21 @@ export class FirestoreTaskStore implements ITaskRepository {
       return;
     }
 
+    const clientEmail = options?.clientEmail ?? process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = options?.privateKey ?? process.env.FIREBASE_PRIVATE_KEY;
+    const projectId = options?.projectId ?? process.env.FIREBASE_PROJECT_ID ?? 'oscar-local';
+
     const apps = getApps();
-    if (apps.length > 0 && !options?.clientEmail && !options?.privateKey && !options?.projectId) {
+    if (apps.length > 0 && !clientEmail && !privateKey && !options?.projectId) {
       this.db = getFirestore(apps[0] as App);
       logger.info('Firestore', 'FirestoreTaskStore initialized with existing Firebase App');
       return;
     }
 
-    const projectId = options?.projectId ?? process.env.FIREBASE_PROJECT_ID ?? 'oscar-local';
     let app: App;
 
-    if (options?.clientEmail && options?.privateKey) {
-      const formattedKey = options.privateKey.includes('\\n')
-        ? options.privateKey.replace(/\\n/g, '\n')
-        : options.privateKey;
+    if (clientEmail && privateKey) {
+      const formattedKey = privateKey.replace(/\\n/g, '\n');
       const appName =
         apps.length > 0
           ? `oscar-cert-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
@@ -62,7 +63,7 @@ export class FirestoreTaskStore implements ITaskRepository {
         {
           credential: cert({
             projectId,
-            clientEmail: options.clientEmail,
+            clientEmail,
             privateKey: formattedKey,
           }),
           projectId,

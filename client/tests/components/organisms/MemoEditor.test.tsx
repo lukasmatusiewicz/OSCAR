@@ -350,4 +350,32 @@ describe('MemoEditor & detectClientTokens', () => {
     const mlekoRes = detectClientTokens('kawa z mlekiem');
     expect(mlekoRes.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
   });
+
+  it('prevents greedy preposition capture of temporal words and preserves temporal cue in masked text', () => {
+    // 1. Polish: "Spotkanie z Marcinem Jutro o 12" -> masks only "Marcinem", leaves "Jutro"
+    const plRes = detectClientTokens('Spotkanie z Marcinem Jutro o 12');
+    const plPerson = plRes.tokens.filter((t) => t.type === 'PERSON');
+    expect(plPerson).toHaveLength(1);
+    expect(plPerson[0].originalValue).toBe('Marcinem');
+    expect(plRes.sanitizedText).toBe('Spotkanie z [PERSON_1] Jutro o 12');
+
+    // 2. German: "Treffen mit Markus morgen um 14" -> masks only "Markus", leaves "morgen"
+    const deRes = detectClientTokens('Treffen mit Markus morgen um 14');
+    const dePerson = deRes.tokens.filter((t) => t.type === 'PERSON');
+    expect(dePerson).toHaveLength(1);
+    expect(dePerson[0].originalValue).toBe('Markus');
+    expect(deRes.sanitizedText).toBe('Treffen mit [PERSON_1] morgen um 14');
+
+    // 3. English: "Call with Sarah tomorrow at 3pm" -> masks only "Sarah", leaves "tomorrow"
+    const enRes = detectClientTokens('Call with Sarah tomorrow at 3pm');
+    const enPerson = enRes.tokens.filter((t) => t.type === 'PERSON');
+    expect(enPerson).toHaveLength(1);
+    expect(enPerson[0].originalValue).toBe('Sarah');
+    expect(enRes.sanitizedText).toBe('Call with [PERSON_1] tomorrow at 3pm');
+
+    // 4. Standalone temporal cues must never be masked as PERSON
+    expect(detectClientTokens('Spotkanie jutro o 12').tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+    expect(detectClientTokens('Treffen morgen um 14').tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+    expect(detectClientTokens('Call tomorrow at 3pm').tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+  });
 });

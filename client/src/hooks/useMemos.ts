@@ -13,7 +13,8 @@ import {
   normalizePersonToNominative,
   normalizeAddressCasing,
 } from '../utils/linguisticNormalizer';
-import { resolveRelativeDate } from '../utils/temporalResolver';
+import { resolveRelativeDate, extractScheduledTime } from '../utils/temporalResolver';
+import { TEMPORAL_STOP_WORDS } from '../components/organisms/MemoEditor';
 
 export interface UseMemosOptions {
   onTaskCreated?: (task: TaskEntity, decrypted: DecryptedTaskPayload) => void;
@@ -131,7 +132,20 @@ export function useMemos(options?: UseMemosOptions) {
             const m = rawContent.match(
               /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|dr|mec\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:with|z|ze|mit|avec)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)*)/u,
             );
-            if (m) contactPerson = m[0];
+            if (m) {
+              const words = m[0].split(/\s+/);
+              while (words.length > 1) {
+                const lastWord = words[words.length - 1].toLowerCase().replace(/[.,]/g, '');
+                if (TEMPORAL_STOP_WORDS.has(lastWord)) {
+                  words.pop();
+                } else {
+                  break;
+                }
+              }
+              if (words.length > 0 && !TEMPORAL_STOP_WORDS.has(words[0].toLowerCase().replace(/[.,]/g, ''))) {
+                contactPerson = words.join(' ');
+              }
+            }
           }
           if (!contactPerson) {
             const cardContactMatch = rawContent.match(/(?:•\s*)?👤\s*Contact:\s*([^\r\n]+)/i);
@@ -187,11 +201,7 @@ export function useMemos(options?: UseMemosOptions) {
             }
           }
 
-          let scheduledTime: string | null = null;
-          const timeMatch = rawContent.match(
-            /(?:(?:tomorrow|jutro|morgen|today|dzisiaj|heute)\s+(?:at|o|um)\s+\d{1,2}(?::\d{2})?|\b\d{1,2}:\d{2}\b)/i,
-          );
-          if (timeMatch) scheduledTime = timeMatch[0];
+          let scheduledTime: string | null = extractScheduledTime(rawContent);
           if (!scheduledTime) {
             const cardTimeMatch = rawContent.match(/(?:•\s*)?⏰\s*Time:\s*([^\r\n]+)/i);
             if (cardTimeMatch && cardTimeMatch[1]) {

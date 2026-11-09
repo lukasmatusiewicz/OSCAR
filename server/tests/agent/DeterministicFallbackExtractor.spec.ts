@@ -303,5 +303,76 @@ describe('DeterministicFallbackExtractor', () => {
 
       expect(task.title).toBe('Review the pull request');
     });
+
+    describe('Preposition Temporal Boundary & Enhanced Time Extraction Suite', () => {
+      const formatIso = (d: Date) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const getTomorrow = () => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return formatIso(d);
+      };
+
+      const getUpcomingWednesday = () => {
+        const d = new Date();
+        const currentDay = d.getDay();
+        let diff = (3 - currentDay + 7) % 7;
+        if (diff === 0) diff = 7;
+        d.setDate(d.getDate() + diff);
+        return formatIso(d);
+      };
+
+      it('correctly extracts contactPerson, scheduledDate, and scheduledTime for "Spotkanie z Marcinem Jutro o 12"', () => {
+        const task = DeterministicFallbackExtractor.extract('Spotkanie z Marcinem Jutro o 12');
+        expect(task.contactPerson).toBe('Marcin');
+        expect(task.scheduledDate).toBe(getTomorrow());
+        expect(task.scheduledTime).toBe('12:00');
+      });
+
+      it('correctly extracts scheduledDate and scheduledTime for "Środa o 15"', () => {
+        const task = DeterministicFallbackExtractor.extract('Środa o 15');
+        expect(task.scheduledDate).toBe(getUpcomingWednesday());
+        expect(task.scheduledTime).toBe('15:00');
+      });
+
+      it('correctly extracts German "Treffen mit Markus morgen um 14"', () => {
+        const task = DeterministicFallbackExtractor.extract('Treffen mit Markus morgen um 14');
+        expect(task.contactPerson).toBe('Markus');
+        expect(task.scheduledDate).toBe(getTomorrow());
+        expect(task.scheduledTime).toBe('14:00');
+      });
+
+      it('correctly extracts English "Call with Sarah tomorrow at 3pm"', () => {
+        const task = DeterministicFallbackExtractor.extract('Call with Sarah tomorrow at 3pm');
+        expect(task.contactPerson).toBe('Sarah');
+        expect(task.scheduledDate).toBe(getTomorrow());
+        expect(task.scheduledTime).toBe('15:00');
+      });
+
+      it('normalizes single-hour and prefixed times correctly across variants', () => {
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Spotkanie o 12')).toBe('12:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Spotkanie o 15')).toBe('15:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Kawa o 9 rano')).toBe('09:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Treffen um 14')).toBe('14:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Meeting um 9')).toBe('09:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Call at 15')).toBe('15:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Sync at 3pm')).toBe('15:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Sync at 3 pm')).toBe('15:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Breakfast at 9am')).toBe('09:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Breakfast at 9 am')).toBe('09:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Lunch o 12:30')).toBe('12:30');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Workshop um 14:00')).toBe('14:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Review at 15:30')).toBe('15:30');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Wizyta godz. 12')).toBe('12:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Wizyta godz 14:00')).toBe('14:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Standard 12:00')).toBe('12:00');
+        expect(DeterministicFallbackExtractor.extractScheduledTime('Invalid o 25')).toBeNull();
+      });
+    });
   });
 });

@@ -52,7 +52,7 @@ const NATIONAL_ID_PL = 'ABA123456';
 const SMART_LOCATION = 'Friedrichstraße 12';
 const SMART_CONTACT_PERSON = 'Dr. Jürgen Müller';
 const SMART_AMOUNT = '15 000 EUR';
-const SMART_SCHEDULED_TIME = 'tomorrow at 14:00';
+const SMART_SCHEDULED_TIME = '14:00';
 
 interface InProcessResponse<T = unknown> {
   status: number;
@@ -288,7 +288,7 @@ describe('OSCAR E2E Suite: 9-Category GDPR Taxonomy, Smart Metadata & Interactiv
     it('extracts smart metadata fields cleanly and survives encryption/decryption roundtrip', async () => {
       const memo =
         `Coordinate meeting with ${SMART_CONTACT_PERSON} at ${SMART_LOCATION} ` +
-        `to allocate budget of ${SMART_AMOUNT} ${SMART_SCHEDULED_TIME}.`;
+        `to allocate budget of ${SMART_AMOUNT} at ${SMART_SCHEDULED_TIME}.`;
 
       // 1. Sanitize memo
       const sanitization = PrivacyGuard.mask(memo);
