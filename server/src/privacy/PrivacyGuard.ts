@@ -6,6 +6,7 @@ import {
   MASCULINE_GENITIVE_FIRST_NAMES,
   FEMININE_GENITIVE_FIRST_NAMES,
 } from './LinguisticNormalizer.js';
+import { logger } from '../utils/logger.js';
 
 export interface RawMatch {
   type: PIIType;
@@ -834,6 +835,7 @@ export class PrivacyGuard {
    * Gracefully falls back to synchronous mask() on failure, timeout (>100ms), or offline environments.
    */
   public static async maskAsync(text: string): Promise<SanitizationResult> {
+    const startTime = Date.now();
     text = text.normalize('NFC');
     try {
       const pipe =
@@ -885,7 +887,14 @@ export class PrivacyGuard {
       const ruleMatches = this.collectAllMatches(text);
       const allMatches = [...ruleMatches, ...semanticMatches];
 
-      return this.processMatches(text, allMatches);
+      const result = this.processMatches(text, allMatches);
+      const latencyMs = Date.now() - startTime;
+      logger.debug('PrivacyGuard', `Semantic mask completed with ${result.tokenCount} token(s) in ${latencyMs}ms`, {
+        latencyMs,
+        detectedTypes: Array.from(new Set(result.tokens.map((t) => t.type))),
+        riskLevel: result.riskLevel,
+      });
+      return result;
     } catch {
       return this.mask(text);
     }
@@ -896,9 +905,17 @@ export class PrivacyGuard {
    * Guarantees 100% in-memory isolation (<50ms latency, zero network calls).
    */
   public static mask(text: string): SanitizationResult {
+    const startTime = Date.now();
     text = text.normalize('NFC');
     const rawMatches: RawMatch[] = this.collectAllMatches(text);
-    return this.processMatches(text, rawMatches);
+    const result = this.processMatches(text, rawMatches);
+    const latencyMs = Date.now() - startTime;
+    logger.debug('PrivacyGuard', `Masked ${result.tokenCount} token(s) in ${latencyMs}ms`, {
+      latencyMs,
+      detectedTypes: Array.from(new Set(result.tokens.map((t) => t.type))),
+      riskLevel: result.riskLevel,
+    });
+    return result;
   }
 
   /**

@@ -1,4 +1,5 @@
 import { EncryptedPayload, EncryptedPayloadSchema } from '../types/contracts';
+import { logger } from '../utils/logger';
 
 export class InvalidKeyError extends Error {
   constructor(message = 'Invalid AES-256 key: key must be exactly 32 bytes (256 bits)') {
@@ -85,7 +86,9 @@ export class ClientCryptoService {
     if (!cryptoObj) {
       throw new Error('WebCrypto API is not supported in this runtime environment');
     }
-    return cryptoObj.getRandomValues(new Uint8Array(this.KEY_LENGTH_BYTES));
+    const key = cryptoObj.getRandomValues(new Uint8Array(this.KEY_LENGTH_BYTES));
+    logger.debug('ClientCrypto', 'Generated fresh 256-bit WebCrypto AES-GCM session key');
+    return key;
   }
 
   /**
@@ -212,6 +215,7 @@ export class ClientCryptoService {
     key?: Uint8Array | string,
     keyId = 'v1',
   ): Promise<EncryptedPayload> {
+    const startTime = Date.now();
     const rawKey = key ? this.normalizeKey(key) : this.KEY_STORE;
     if (!rawKey) {
       throw new NoActiveKeyError();
@@ -251,7 +255,10 @@ export class ClientCryptoService {
       keyId,
     };
 
-    return EncryptedPayloadSchema.parse(payload);
+    const validatedPayload = EncryptedPayloadSchema.parse(payload);
+    const durationMs = Date.now() - startTime;
+    logger.debug('ClientCrypto', `Encrypted payload in ${durationMs}ms`, { durationMs, keyId });
+    return validatedPayload;
   }
 
   /**
@@ -262,6 +269,7 @@ export class ClientCryptoService {
     payload: EncryptedPayload,
     key?: Uint8Array | string,
   ): Promise<T> {
+    const startTime = Date.now();
     const validated = EncryptedPayloadSchema.parse(payload);
     const rawKey = key ? this.normalizeKey(key) : this.KEY_STORE;
     if (!rawKey) {
@@ -303,7 +311,13 @@ export class ClientCryptoService {
       );
 
       const jsonString = new TextDecoder().decode(decryptedBuffer);
-      return JSON.parse(jsonString) as T;
+      const parsed = JSON.parse(jsonString) as T;
+      const durationMs = Date.now() - startTime;
+      logger.debug('ClientCrypto', `Decrypted payload in ${durationMs}ms`, {
+        durationMs,
+        keyId: validated.keyId,
+      });
+      return parsed;
     } catch (err: unknown) {
       throw new DecryptionError(
         err instanceof Error ? err.message : 'Decryption authentication tag verification failed',

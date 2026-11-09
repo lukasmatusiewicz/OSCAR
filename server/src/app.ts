@@ -9,6 +9,7 @@ import { GeminiOrchestrator } from './agent/GeminiOrchestrator.js';
 import { taskStore as defaultTaskStore } from './store/TaskStore.js';
 import type { ITaskRepository } from './store/ITaskRepository.js';
 import { FirestoreTaskStore } from './store/FirestoreTaskStore.js';
+import { logger } from './utils/logger.js';
 
 export const DEFAULT_CORS_ORIGIN = 'http://localhost:5173';
 export const DEFAULT_PORT = 3000;
@@ -48,9 +49,7 @@ export function createApp(options: AppOptions = {}): Express {
     const start = Date.now();
     res.on('finish', () => {
       const duration = Date.now() - start;
-      process.stdout.write(
-        `[${new Date().toISOString()}] ${req.method} ${req.path} -> ${res.statusCode} (${duration}ms)\n`,
-      );
+      logger.info('HTTP', `${req.method} ${req.path} -> ${res.statusCode} (${duration}ms)`);
     });
     next();
   });

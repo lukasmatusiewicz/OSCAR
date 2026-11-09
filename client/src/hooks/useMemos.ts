@@ -8,6 +8,7 @@ import {
 } from '../types/contracts';
 import { ClientCryptoService } from '../services/ClientCryptoService';
 import { gatewayClient } from '../services/GatewayClient';
+import { logger } from '../utils/logger';
 import {
   normalizePersonToNominative,
   normalizeAddressCasing,
@@ -34,6 +35,7 @@ export function useMemos(options?: UseMemosOptions) {
     async (rawContent: string, tokens: PIITokenMap[] = []): Promise<MemoEntity> => {
       setIsSubmitting(true);
       setError(null);
+      logger.info('useMemos', `Submitting memo: length=${rawContent.length}, tokensCount=${tokens.length}`);
 
       try {
         if (!ClientCryptoService.hasSessionKey()) {
@@ -54,11 +56,11 @@ export function useMemos(options?: UseMemosOptions) {
           setMemos((prev) => [gatewayResponse.memo, ...prev]);
           options?.onTokensDetected?.(gatewayResponse.piiStats.maskedTokens);
           options?.onTaskCreated?.(gatewayResponse.task, decryptedTask);
+          logger.info('useMemos', `Memo submitted successfully via gateway (task ID: ${gatewayResponse.task.id})`);
 
           return gatewayResponse.memo;
         } catch (err: unknown) {
-          // eslint-disable-next-line no-console
-          console.error('[useMemos] Gateway submission error:', err);
+          logger.error('useMemos', 'Gateway submission error:', err);
           // Graceful fallback to offline deterministic mode when gateway is unavailable (EU AI Act Article 13)
           setIsOfflineFallback(true);
           setWarning(
@@ -283,6 +285,7 @@ export function useMemos(options?: UseMemosOptions) {
           };
 
           options?.onTaskCreated?.(taskEntity, decryptedTaskPayload);
+          logger.info('useMemos', `Offline fallback state active: generated local task (task ID: ${taskId})`);
 
           return memoEntity;
         }
