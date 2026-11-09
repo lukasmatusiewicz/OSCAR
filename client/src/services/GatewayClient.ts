@@ -277,6 +277,18 @@ export class GatewayClient {
   }
 
   /**
+   * Updates task status, priority, or non-sensitive properties on the gateway.
+   * Alias for updateTask adhering to HTTP PATCH semantics.
+   *
+   * @param id Unique task identifier.
+   * @param updates Partial properties to apply.
+   * @returns Updated TaskEntity.
+   */
+  public async patchTask(id: string, updates: UpdateTaskInput): Promise<TaskEntity> {
+    return this.updateTask(id, updates);
+  }
+
+  /**
    * Deletes a task by its unique identifier on the gateway.
    *
    * @param id Unique task identifier.

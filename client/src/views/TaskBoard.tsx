@@ -9,6 +9,8 @@ export interface TaskBoardProps {
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
+  onTaskUpdate?: (taskId: string, updatedPayload: DecryptedTaskPayload) => void;
+  onDelete?: (taskId: string) => void;
   className?: string;
 }
 
@@ -19,6 +21,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   onStatusChange,
   onPriorityChange,
   onSubtaskToggle,
+  onTaskUpdate,
+  onDelete,
   className = '',
 }) => {
   const columns: { status: TaskStatus; title: string; color: string; badgeBg: string }[] = [
@@ -108,6 +112,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                     onStatusChange={onStatusChange}
                     onPriorityChange={onPriorityChange}
                     onSubtaskToggle={onSubtaskToggle}
+                    onTaskUpdate={onTaskUpdate}
+                    onDelete={onDelete}
                   />
                 ))
               )}

@@ -25,6 +25,7 @@ export interface DashboardProps {
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
   onTaskUpdate?: (taskId: string, updatedPayload: DecryptedTaskPayload) => void;
+  onDelete?: (taskId: string) => void;
   hasActiveKey?: boolean;
   totalTokensMasked?: number;
   tokensByType?: Partial<Record<PIIType, number>>;
@@ -46,6 +47,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onPriorityChange,
   onSubtaskToggle,
   onTaskUpdate,
+  onDelete,
   hasActiveKey: propHasActiveKey,
   totalTokensMasked: propTotalTokensMasked,
   tokensByType: propTokensByType,
@@ -70,6 +72,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const handlePriorityChange = onPriorityChange || fallbackTasks.updateTaskPriority;
   const handleSubtaskToggle = onSubtaskToggle || fallbackTasks.toggleSubtask;
   const handleTaskUpdate = onTaskUpdate || fallbackTasks.updateTaskPayload;
+  const handleDelete = onDelete || fallbackTasks.deleteTask;
   const draftsCount =
     propDraftsCount !== undefined ? propDraftsCount : fallbackTasks.draftsCount;
 
@@ -204,6 +207,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           onPriorityChange={handlePriorityChange}
           onSubtaskToggle={handleSubtaskToggle}
           onTaskUpdate={handleTaskUpdate}
+          onDelete={handleDelete}
         />
       </main>
 

@@ -4,6 +4,7 @@ import { TaskStore } from '../../src/store/TaskStore.js';
 import { EncryptionService } from '../../src/security/EncryptionService.js';
 import { DecryptedTaskPayload } from '../../src/types/contracts.js';
 import { inProcessApp } from '../helpers/inProcessApp.js';
+import { logger } from '../../src/utils/logger.js';
 
 describe('Tasks Route Integration', () => {
   let taskStore: TaskStore;
@@ -283,7 +284,8 @@ describe('Tasks Route Integration', () => {
   });
 
   describe('DELETE /api/tasks/:id', () => {
-    it('deletes an existing task and returns 200 with confirmation', async () => {
+    it('deletes an existing task and returns 200 with confirmation and structured logging', async () => {
+      const loggerSpy = vi.spyOn(logger, 'info');
       const createRes = await inProcessApp(app).post('/api/tasks').send({
         title: 'Temporary Task to Delete',
         summary: 'This task will be removed shortly',
@@ -297,8 +299,11 @@ describe('Tasks Route Integration', () => {
       expect(deleteRes.body.success).toBe(true);
       expect(deleteRes.body.id).toBe(taskId);
 
+      expect(loggerSpy).toHaveBeenCalledWith('Tasks', `Deleted task ${taskId}`, { id: taskId });
+
       // Verify removal from store
       expect(taskStore.getTaskById(taskId)).toBeUndefined();
+      loggerSpy.mockRestore();
     });
 
     it('returns 404 when attempting to delete non-existent task', async () => {

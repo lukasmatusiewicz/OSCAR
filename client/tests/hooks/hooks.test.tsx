@@ -168,6 +168,16 @@ describe('Reactive State Hooks', () => {
       expect(updatedTask1?.location).toBe('Office 301');
       expect(updatedTask1?.contactPerson).toBe('Jane Doe');
 
+      // Test deleteTask
+      const deleteSpy = vi.spyOn(gatewayClient, 'deleteTask').mockResolvedValue(true);
+      act(() => {
+        result.current.deleteTask('task_001_mock_id_1234567');
+      });
+      expect(result.current.tasks.some((t) => t.id === 'task_001_mock_id_1234567')).toBe(false);
+      expect(result.current.decryptedPayloads['task_001_mock_id_1234567']).toBeUndefined();
+      expect(deleteSpy).toHaveBeenCalledWith('task_001_mock_id_1234567');
+      deleteSpy.mockRestore();
+
       act(() => {
         result.current.clearDecryptedPayloads();
       });
@@ -331,6 +341,7 @@ describe('Reactive State Hooks', () => {
 
       expect(createdTask).not.toBeNull();
       expect(createdTask!.priority).toBe('URGENT'); // SECRET_KEY token triggers URGENT
+      expect(createdTask!.scheduledDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(createdDecrypted).not.toBeNull();
       expect(createdDecrypted!.contactPerson).toBe('Dr. Alice');
       expect(createdDecrypted!.location).toBe('Berlin Office');

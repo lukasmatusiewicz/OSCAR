@@ -13,6 +13,7 @@ import {
   normalizePersonToNominative,
   normalizeAddressCasing,
 } from '../utils/linguisticNormalizer';
+import { resolveRelativeDate } from '../utils/temporalResolver';
 
 export interface UseMemosOptions {
   onTaskCreated?: (task: TaskEntity, decrypted: DecryptedTaskPayload) => void;
@@ -249,6 +250,8 @@ export function useMemos(options?: UseMemosOptions) {
             summary = summary.padEnd(5, '.');
           }
 
+          const scheduledDate = resolveRelativeDate(rawContent);
+
           const decryptedTaskPayload: DecryptedTaskPayload = {
             title,
             summary,
@@ -260,6 +263,7 @@ export function useMemos(options?: UseMemosOptions) {
             contactPerson,
             amount,
             scheduledTime,
+            scheduledDate: scheduledDate ?? null,
           };
 
           const encryptedTaskPayload = await ClientCryptoService.encrypt(decryptedTaskPayload);
@@ -272,7 +276,7 @@ export function useMemos(options?: UseMemosOptions) {
             category: 'WORK',
             priority: tokens.some((t) => t.type === 'SECRET_KEY') ? 'URGENT' : 'MEDIUM',
             status: 'DRAFT', // EU AI Act human review initial state
-            scheduledDate: null,
+            scheduledDate: scheduledDate ?? null,
             tags: ['voice-memo', 'shielded', 'offline-fallback'],
             provenance: 'DETERMINISTIC_FALLBACK',
             modelVersion: 'rule-based-v1',

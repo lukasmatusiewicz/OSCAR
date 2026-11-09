@@ -16,6 +16,8 @@ export const App: React.FC = () => {
     addTask,
     updateTaskStatus,
     updateTaskPriority,
+    updateTaskPayload,
+    deleteTask,
     toggleSubtask,
     clearDecryptedPayloads,
     draftsCount,
@@ -190,6 +192,8 @@ export const App: React.FC = () => {
             onStatusChange={updateTaskStatus}
             onPriorityChange={updateTaskPriority}
             onSubtaskToggle={toggleSubtask}
+            onTaskUpdate={updateTaskPayload}
+            onDelete={deleteTask}
             hasActiveKey={hasActiveKey}
             totalTokensMasked={totalTokensMasked}
             tokensByType={tokensByType}
@@ -207,6 +211,8 @@ export const App: React.FC = () => {
             onStatusChange={updateTaskStatus}
             onPriorityChange={updateTaskPriority}
             onSubtaskToggle={toggleSubtask}
+            onTaskUpdate={updateTaskPayload}
+            onDelete={deleteTask}
           />
         )}
       </div>

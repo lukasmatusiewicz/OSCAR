@@ -9,6 +9,7 @@ import {
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
 import type { ITaskRepository } from '../store/ITaskRepository.js';
+import { logger } from '../utils/logger.js';
 
 export interface TaskRouterDependencies {
   taskStore: ITaskRepository;
@@ -181,6 +182,8 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
           message: `Task with id '${taskId}' was not found`,
         });
       }
+
+      logger.info('Tasks', `Deleted task ${taskId}`, { id: taskId });
 
       res.status(200).json({
         success: true,

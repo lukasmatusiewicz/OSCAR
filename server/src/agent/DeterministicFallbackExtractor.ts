@@ -9,6 +9,7 @@ import {
   normalizePersonToNominative,
   normalizeAddressCasing,
 } from '../privacy/LinguisticNormalizer.js';
+import { resolveRelativeDate } from './TemporalResolver.js';
 
 export interface DeterministicExtractionResult {
   task: ExtractedTask;
@@ -131,7 +132,10 @@ export class DeterministicFallbackExtractor {
 
     // Scheduled Date extraction (ISO or common date patterns)
     const dateMatch = memoText.match(/\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)?\b/);
-    const scheduledDate = dateMatch ? dateMatch[0] : null;
+    let scheduledDate = dateMatch ? dateMatch[0] : null;
+    if (!scheduledDate) {
+      scheduledDate = resolveRelativeDate(memoText);
+    }
 
     // Subtasks: Bullet items or line items, guaranteeing min(1) subtask
     const subtaskCandidates: SubtaskItem[] = lines

@@ -15,6 +15,7 @@ export interface TaskCardProps {
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
   onTaskUpdate?: (taskId: string, updatedPayload: DecryptedTaskPayload) => void;
+  onDelete?: (taskId: string) => void;
   className?: string;
 }
 
@@ -26,12 +27,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onPriorityChange,
   onSubtaskToggle,
   onTaskUpdate,
+  onDelete,
   className = '',
 }) => {
   const isDraft = task.status === 'DRAFT';
   const isCompleted = task.status === 'COMPLETED';
 
-  // Draft Interactive Edit Mode state
+  // Interactive Edit Mode state
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(decryptedPayload?.title || '');
   const [editSummary, setEditSummary] = useState(decryptedPayload?.summary || '');
@@ -43,7 +45,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   );
   const [editAmount, setEditAmount] = useState(decryptedPayload?.amount || task.amount || '');
   const [editScheduledTime, setEditScheduledTime] = useState(
-    decryptedPayload?.scheduledTime || task.scheduledTime || task.scheduledDate || '',
+    decryptedPayload?.scheduledTime || task.scheduledTime || '',
+  );
+  const [editScheduledDate, setEditScheduledDate] = useState(
+    decryptedPayload?.scheduledDate || task.scheduledDate || '',
   );
   const [editSubtasks, setEditSubtasks] = useState<{ title: string; completed: boolean }[]>(
     decryptedPayload?.subtasks ? [...decryptedPayload.subtasks] : [],
@@ -56,9 +61,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     setEditLocation(decryptedPayload?.location || task.location || '');
     setEditContactPerson(decryptedPayload?.contactPerson || task.contactPerson || '');
     setEditAmount(decryptedPayload?.amount || task.amount || '');
-    setEditScheduledTime(
-      decryptedPayload?.scheduledTime || task.scheduledTime || task.scheduledDate || '',
-    );
+    setEditScheduledTime(decryptedPayload?.scheduledTime || task.scheduledTime || '');
+    setEditScheduledDate(decryptedPayload?.scheduledDate || task.scheduledDate || '');
     setEditSubtasks(decryptedPayload?.subtasks ? [...decryptedPayload.subtasks] : []);
   }, [decryptedPayload, task]);
 
@@ -76,10 +80,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       contactPerson: editContactPerson.trim() || null,
       amount: editAmount.trim() || null,
       scheduledTime: editScheduledTime.trim() || null,
+      scheduledDate: editScheduledDate.trim() || null,
     };
 
     onTaskUpdate?.(task.id, updatedPayload);
-    onStatusChange?.(task.id, 'PENDING');
+    if (isDraft) {
+      onStatusChange?.(task.id, 'PENDING');
+    }
     setIsEditing(false);
   };
 
@@ -89,19 +96,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     setEditLocation(decryptedPayload?.location || task.location || '');
     setEditContactPerson(decryptedPayload?.contactPerson || task.contactPerson || '');
     setEditAmount(decryptedPayload?.amount || task.amount || '');
-    setEditScheduledTime(
-      decryptedPayload?.scheduledTime || task.scheduledTime || task.scheduledDate || '',
-    );
+    setEditScheduledTime(decryptedPayload?.scheduledTime || task.scheduledTime || '');
+    setEditScheduledDate(decryptedPayload?.scheduledDate || task.scheduledDate || '');
     setEditSubtasks(decryptedPayload?.subtasks ? [...decryptedPayload.subtasks] : []);
     setIsEditing(false);
   };
 
-  const scheduled =
-    task.scheduledDate || decryptedPayload?.scheduledTime || task.scheduledTime;
+  const scheduledDate = task.scheduledDate || decryptedPayload?.scheduledDate;
+  const scheduledTime = decryptedPayload?.scheduledTime || task.scheduledTime;
   const location = decryptedPayload?.location || task.location;
   const contactPerson = decryptedPayload?.contactPerson || task.contactPerson;
   const amount = decryptedPayload?.amount || task.amount;
-  const hasMetadata = Boolean(scheduled || location || contactPerson || amount);
+  const hasMetadata = Boolean(
+    scheduledDate || scheduledTime || location || contactPerson || amount,
+  );
 
   const statusColors: Record<TaskStatus, { bg: string; text: string; border: string }> = {
     DRAFT: { bg: '#fef3c7', text: '#b45309', border: '#fde68a' },
@@ -239,8 +247,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       )}
 
-      {/* Interactive Draft Edit Mode (EU AI Act Art. 14) */}
-      {isDraft && isEditing ? (
+      {/* Interactive Edit Mode (EU AI Act Art. 14) */}
+      {isEditing ? (
         <div
           data-testid="draft-edit-mode"
           style={{
@@ -255,7 +263,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>
-              ✏️ Interactive Draft Editor (Human Oversight)
+              {isDraft
+                ? '✏️ Interactive Draft Editor (Human Oversight)'
+                : '✏️ Edit Task'}
             </strong>
             <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
               Refine metadata and checklist items before confirming
@@ -307,7 +317,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               label="Scheduled Time"
               value={editScheduledTime}
               onChange={(e) => setEditScheduledTime(e.target.value)}
-              placeholder="e.g. 2026-11-15T10:00:00Z"
+              placeholder="e.g. 14:00"
+            />
+            <Input
+              label="Scheduled Date"
+              value={editScheduledDate}
+              onChange={(e) => setEditScheduledDate(e.target.value)}
+              placeholder="e.g. 2026-11-20"
             />
           </div>
 
@@ -413,7 +429,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 padding: '0.15rem 0',
               }}
             >
-              {scheduled && (
+              {scheduledDate && (
                 <span
                   data-testid="metadata-chip-scheduled"
                   style={{
@@ -429,7 +445,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     fontWeight: 500,
                   }}
                 >
-                  📅 Scheduled: {scheduled}
+                  📅 Date: {scheduledDate}
+                </span>
+              )}
+              {scheduledTime && (
+                <span
+                  data-testid="metadata-chip-time"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    fontSize: '0.75rem',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '9999px',
+                    backgroundColor: '#eff6ff',
+                    color: '#1d4ed8',
+                    border: '1px solid #bfdbfe',
+                    fontWeight: 500,
+                  }}
+                >
+                  ⏰ Time: {scheduledTime}
                 </span>
               )}
               {location && (
@@ -636,6 +671,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
           {!isDraft && (
             <>
+              {(task.status === 'PENDING' || task.status === 'IN_PROGRESS') && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setIsEditing(true)}
+                  aria-label="Edit Task"
+                  style={{
+                    transition: 'all 0.2s ease',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  ✏️ Edit
+                </Button>
+              )}
               {task.status !== 'COMPLETED' ? (
                 <Button
                   size="sm"
@@ -665,6 +715,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               )}
             </>
           )}
+
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={() => onDelete?.(task.id)}
+            aria-label="Delete Task"
+            style={{
+              transition: 'all 0.2s ease',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+            }}
+          >
+            🗑️ Delete
+          </Button>
         </div>
       </div>
     </article>
