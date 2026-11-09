@@ -126,7 +126,7 @@ export function useMemos(options?: UseMemosOptions) {
             contactPerson = personTok.originalValue || personTok.token;
           } else {
             const m = rawContent.match(
-              /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|dr|mec\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:with|z|ze|mit|avec)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)/u,
+              /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|dr|mec\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:with|z|ze|mit|avec)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)*)/u,
             );
             if (m) contactPerson = m[0];
           }

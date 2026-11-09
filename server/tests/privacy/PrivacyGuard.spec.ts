@@ -7,6 +7,7 @@ import {
   isGermanSteuerId,
   isValidSsn,
 } from '../../src/privacy/PrivacyGuard.js';
+import { normalizePersonToNominative } from '../../src/privacy/LinguisticNormalizer.js';
 import {
   SanitizationResultSchema,
   PIITokenMap,
@@ -1457,6 +1458,65 @@ describe('PrivacyGuard Engine Suite', () => {
 
       // Restore pipeline undefined
       PrivacyGuard.setPipeline(undefined);
+    });
+  });
+
+  // =========================================================================
+  // 13. Single-Word Names after Prepositions with Dictionary & Stop-Word Guards
+  // =========================================================================
+  describe('Single-Word Names after Prepositions with Dictionary & Stop-Word Guards', () => {
+    it('masks single Polish inflected names after prepositions and rehydrates to nominative', () => {
+      // 1. "kawa z markiem o 12:00" -> masks "markiem" as PERSON, rehydrates to nominative "Marek"
+      const resMarek = PrivacyGuard.mask('kawa z markiem o 12:00');
+      expect(resMarek.tokens).toHaveLength(1);
+      expect(resMarek.tokens[0].type).toBe('PERSON');
+      expect(resMarek.tokens[0].originalValue).toBe('markiem');
+      expect(resMarek.sanitizedText).toBe('kawa z [PERSON_1] o 12:00');
+
+      const rehydratedMarek = rehydrate({ contactPerson: resMarek.tokens[0].token }, resMarek.tokens);
+      expect(rehydratedMarek.contactPerson).toBe('Marek');
+      expect(normalizePersonToNominative(resMarek.tokens[0].originalValue)).toBe('Marek');
+
+      // 2. "spotkanie z beatą" -> masks "beatą" as PERSON, rehydrates to nominative "Beata"
+      const resBeata = PrivacyGuard.mask('spotkanie z beatą');
+      expect(resBeata.tokens).toHaveLength(1);
+      expect(resBeata.tokens[0].type).toBe('PERSON');
+      expect(resBeata.tokens[0].originalValue).toBe('beatą');
+      expect(resBeata.sanitizedText).toBe('spotkanie z [PERSON_1]');
+
+      const rehydratedBeata = rehydrate({ contactPerson: resBeata.tokens[0].token }, resBeata.tokens);
+      expect(rehydratedBeata.contactPerson).toBe('Beata');
+      expect(normalizePersonToNominative(resBeata.tokens[0].originalValue)).toBe('Beata');
+    });
+
+    it('rejects standalone non-name nouns and pronouns following prepositions', () => {
+      // 3. "kawa ze sobą" -> rejects sobą
+      const resSoba = PrivacyGuard.mask('kawa ze sobą');
+      expect(resSoba.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+      expect(resSoba.sanitizedText).toBe('kawa ze sobą');
+
+      // 4. "kawa z mlekiem" -> rejects mlekiem
+      const resMleko = PrivacyGuard.mask('kawa z mlekiem');
+      expect(resMleko.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+      expect(resMleko.sanitizedText).toBe('kawa z mlekiem');
+
+      // Additional stop-word / object tests
+      const resChleb = PrivacyGuard.mask('kanapka z masłem i chlebem');
+      expect(resChleb.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+      const resCukier = PrivacyGuard.mask('herbata z cukrem');
+      expect(resCukier.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+    });
+
+    it('detects single first names in German and English after prepositions', () => {
+      const deRes = PrivacyGuard.mask('treffen mit frank');
+      expect(deRes.tokens.some((t) => t.type === 'PERSON' && t.originalValue === 'frank')).toBe(true);
+
+      const enRes = PrivacyGuard.mask('meeting with john');
+      expect(enRes.tokens.some((t) => t.type === 'PERSON' && t.originalValue === 'john')).toBe(true);
+
+      const deHans = PrivacyGuard.mask('bei hans');
+      expect(deHans.tokens.some((t) => t.type === 'PERSON' && t.originalValue === 'hans')).toBe(true);
     });
   });
 });
