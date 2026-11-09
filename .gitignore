@@ -8,6 +8,7 @@ node_modules/
 
 # Environment variables & local secrets (CRITICAL FOR CONFIDENTIALITY)
 .env
+.env.production
 .env.local
 .env.development.local
 .env.test.local
