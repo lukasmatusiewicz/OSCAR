@@ -57,6 +57,7 @@ export const App: React.FC = () => {
     >
       {/* Top Application Header */}
       <header
+        className="oscar-app-header"
         style={{
           backgroundColor: '#ffffff',
           borderBottom: '1px solid #e2e8f0',
@@ -64,10 +65,15 @@ export const App: React.FC = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
           boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
           <div>
             <h1
               style={{
@@ -110,6 +116,7 @@ export const App: React.FC = () => {
               backgroundColor: '#f1f5f9',
               padding: '0.2rem',
               borderRadius: '8px',
+              flexWrap: 'wrap',
             }}
           >
             <button
@@ -152,7 +159,7 @@ export const App: React.FC = () => {
         </div>
 
         {/* Security Status Header Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <PrivacyShieldBadge
             riskLevel={sessionRiskLevel}
             isSecured={hasActiveKey}
@@ -183,7 +190,15 @@ export const App: React.FC = () => {
       </header>
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, padding: '1rem 0' }}>
+      <div
+        style={{
+          flex: 1,
+          padding: '1rem 0',
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
+        }}
+      >
         {activeTab === 'dashboard' ? (
           <Dashboard
             tasks={tasks}
@@ -226,6 +241,9 @@ export const App: React.FC = () => {
           textAlign: 'center',
           fontSize: '0.75rem',
           color: '#94a3b8',
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
         }}
       >
         OSCAR Confidential Computing • Zero Cleartext PII to Cloud • EU AI Act Articles 13 & 14

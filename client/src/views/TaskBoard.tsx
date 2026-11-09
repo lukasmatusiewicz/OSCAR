@@ -36,13 +36,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
     <div
       className={`oscar-task-board ${className}`.trim()}
       style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '1rem',
-        padding: '1rem',
         maxWidth: '1440px',
         margin: '0 auto',
-        alignItems: 'start',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {columns.map((col) => {

@@ -117,4 +117,27 @@ describe('Dashboard View', () => {
     expect(ClientCryptoService.hasSessionKey()).toBe(true);
     expect(screen.queryByText(/ephemeral key memory cleared/i)).not.toBeInTheDocument();
   });
+
+  it('applies responsive layout classes and container properties for desktop and mobile viewports', () => {
+    const { container } = render(<Dashboard initialTasks={mockTasks} initialDecrypted={mockDecrypted} />);
+
+    const dashboardEl = container.querySelector('.oscar-dashboard-view');
+    expect(dashboardEl).toBeInTheDocument();
+    expect(dashboardEl).toHaveStyle({
+      maxWidth: '1280px',
+      boxSizing: 'border-box',
+      width: '100%',
+    });
+
+    const asideEl = container.querySelector('.oscar-dashboard-aside');
+    expect(asideEl).toBeInTheDocument();
+    expect(asideEl).toHaveClass('oscar-dashboard-aside');
+    expect(asideEl).toHaveStyle({ width: '100%' });
+    expect(asideEl?.getAttribute('style')).toContain('min-width: 0');
+
+    const mainEl = container.querySelector('main');
+    expect(mainEl).toBeInTheDocument();
+    expect(mainEl).toHaveStyle({ width: '100%' });
+    expect(mainEl?.getAttribute('style')).toContain('min-width: 0');
+  });
 });
