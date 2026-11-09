@@ -17,6 +17,7 @@ import { GeminiOrchestrator } from '../agent/GeminiOrchestrator.js';
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
 import type { ITaskRepository } from '../store/ITaskRepository.js';
+import { logger } from '../utils/logger.js';
 
 export interface MemoRouterDependencies {
   orchestrator: GeminiOrchestrator;
@@ -51,9 +52,20 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
 
       // 3. Mask PII using ECMAScript Priority Overlap Resolution
       const sanitization = PrivacyGuard.mask(input.content);
+      logger.info('Memos', `Sanitized inbound memo: ${sanitization.tokenCount} token(s) detected`, {
+        tokenCount: sanitization.tokenCount,
+        tokenTypes: Array.from(new Set(sanitization.tokens.map((t) => t.type))),
+        riskLevel: sanitization.riskLevel,
+      });
 
       // 4. Extract structured task from sanitized prompt
       const orchestratorResult = await deps.orchestrator.extractTasks(sanitization.sanitizedText);
+      logger.debug('Memos', `Extracted task via ${orchestratorResult.provenance} (${orchestratorResult.modelVersion})`, {
+        category: orchestratorResult.task.category,
+        priority: orchestratorResult.task.priority,
+        provenance: orchestratorResult.provenance,
+        modelVersion: orchestratorResult.modelVersion,
+      });
 
       // 5. Re-hydrate synthetic tokens in the extracted task structure
       const rehydratedTask = PrivacyGuard.rehydrate(orchestratorResult.task, sanitization.tokens);
@@ -140,6 +152,11 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         amount,
         scheduledTime,
       });
+      logger.debug('Memos', 'Rehydrated task structure and validated payload', {
+        hasLocation: Boolean(location),
+        hasContactPerson: Boolean(contactPerson),
+        subtasksCount: decryptedPayload.subtasks?.length ?? 0,
+      });
 
       // 7. Envelope encrypt sensitive task & memo payloads with AES-256-GCM
       const encryptedTaskPayload = await EncryptionService.encrypt(decryptedPayload, keyBuffer);
@@ -203,6 +220,11 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       };
 
       await deps.taskStore.commitBatch(memoEntity, taskEntity, auditLog);
+      logger.info('Memos', `Atomically committed memo and task batch in ${Date.now() - requestStart}ms`, {
+        memoId,
+        taskId,
+        durationMs: Date.now() - requestStart,
+      });
 
       // 10. Return structured response with created tasks and PII telemetry
       const response: CreateMemoResponse = {

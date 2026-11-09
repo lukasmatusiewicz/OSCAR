@@ -241,7 +241,10 @@ describe('Reactive State Hooks', () => {
       expect(createdDecryptedPayload).not.toBeNull();
       expect(createdDecryptedPayload!.title).toBe('Spotkanie z kazikiem bąkiem');
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[useMemos] Gateway submission error:',
+        '%cERROR',
+        expect.any(String),
+        '[useMemos]',
+        'Gateway submission error:',
         expect.anything()
       );
 

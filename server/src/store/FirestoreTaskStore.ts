@@ -7,6 +7,7 @@ import {
 } from 'firebase-admin/firestore';
 import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
 import type { ITaskRepository } from './ITaskRepository.js';
+import { logger } from '../utils/logger.js';
 
 export const COLLECTION_MEMOS = 'memos';
 export const COLLECTION_TASKS = 'tasks';
@@ -35,12 +36,14 @@ export class FirestoreTaskStore implements ITaskRepository {
   constructor(options?: FirestoreTaskStoreOptions) {
     if (options?.firestore) {
       this.db = options.firestore;
+      logger.info('Firestore', 'FirestoreTaskStore initialized with injected Firestore instance');
       return;
     }
 
     const apps = getApps();
     if (apps.length > 0 && !options?.clientEmail && !options?.privateKey && !options?.projectId) {
       this.db = getFirestore(apps[0] as App);
+      logger.info('Firestore', 'FirestoreTaskStore initialized with existing Firebase App');
       return;
     }
 
@@ -87,6 +90,7 @@ export class FirestoreTaskStore implements ITaskRepository {
     }
 
     this.db = getFirestore(app);
+    logger.info('Firestore', `FirestoreTaskStore initialized for project: ${projectId}`);
   }
 
   /**
@@ -214,6 +218,11 @@ export class FirestoreTaskStore implements ITaskRepository {
       batch.set(this.db.collection(COLLECTION_PRIVACY_AUDIT_LOGS).doc(auditLog.id), auditLog);
     }
     await batch.commit();
+    logger.debug('Firestore', `Atomically committed batch: memo=${memo.id}, task=${task.id}`, {
+      memoId: memo.id,
+      taskId: task.id,
+      hasAuditLog: Boolean(auditLog),
+    });
   }
 
   /**

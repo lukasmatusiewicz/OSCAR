@@ -13,6 +13,7 @@ import {
   UpdateTaskInputSchema,
 } from '../types/contracts';
 import { ClientCryptoService } from './ClientCryptoService';
+import { logger } from '../utils/logger';
 import { z } from 'zod';
 
 export const DEFAULT_GATEWAY_URL = 'http://localhost:3000';
@@ -133,10 +134,13 @@ export class GatewayClient {
    */
   public async submitMemo(content: string, title?: string): Promise<CreateMemoResponse> {
     const payload: MemoInput = MemoInputSchema.parse({ content, title });
+    const url = this.formatUrl('/api/memos');
+    const start = Date.now();
+    logger.info('GatewayClient', `Outbound POST ${url}`);
 
     let response: Response;
     try {
-      response = await this.fetchImpl(this.formatUrl('/api/memos'), {
+      response = await this.fetchImpl(url, {
         method: 'POST',
         headers: this.buildHeaders(),
         body: JSON.stringify(payload),
@@ -147,6 +151,9 @@ export class GatewayClient {
         0,
       );
     }
+
+    const duration = Date.now() - start;
+    logger.info('GatewayClient', `Incoming POST ${url} -> ${response.status} (${duration}ms)`);
 
     if (!response.ok) {
       const { message, issues } = await this.parseErrorResponse(response);
@@ -163,9 +170,13 @@ export class GatewayClient {
    * @returns Array of TaskEntity records.
    */
   public async fetchTasks(): Promise<TaskEntity[]> {
+    const url = this.formatUrl('/api/tasks');
+    const start = Date.now();
+    logger.info('GatewayClient', `Outbound GET ${url}`);
+
     let response: Response;
     try {
-      response = await this.fetchImpl(this.formatUrl('/api/tasks'), {
+      response = await this.fetchImpl(url, {
         method: 'GET',
         headers: this.buildHeaders(),
       });
@@ -175,6 +186,9 @@ export class GatewayClient {
         0,
       );
     }
+
+    const duration = Date.now() - start;
+    logger.info('GatewayClient', `Incoming GET ${url} -> ${response.status} (${duration}ms)`);
 
     if (!response.ok) {
       const { message, issues } = await this.parseErrorResponse(response);
@@ -193,10 +207,13 @@ export class GatewayClient {
    */
   public async createTask(input: CreateTaskInput): Promise<TaskEntity> {
     const payload = CreateTaskInputSchema.parse(input);
+    const url = this.formatUrl('/api/tasks');
+    const start = Date.now();
+    logger.info('GatewayClient', `Outbound POST ${url}`);
 
     let response: Response;
     try {
-      response = await this.fetchImpl(this.formatUrl('/api/tasks'), {
+      response = await this.fetchImpl(url, {
         method: 'POST',
         headers: this.buildHeaders(),
         body: JSON.stringify(payload),
@@ -207,6 +224,9 @@ export class GatewayClient {
         0,
       );
     }
+
+    const duration = Date.now() - start;
+    logger.info('GatewayClient', `Incoming POST ${url} -> ${response.status} (${duration}ms)`);
 
     if (!response.ok) {
       const { message, issues } = await this.parseErrorResponse(response);
@@ -226,10 +246,13 @@ export class GatewayClient {
    */
   public async updateTask(id: string, updates: UpdateTaskInput): Promise<TaskEntity> {
     const payload = UpdateTaskInputSchema.parse(updates);
+    const url = this.formatUrl(`/api/tasks/${encodeURIComponent(id)}`);
+    const start = Date.now();
+    logger.info('GatewayClient', `Outbound PATCH ${url}`);
 
     let response: Response;
     try {
-      response = await this.fetchImpl(this.formatUrl(`/api/tasks/${encodeURIComponent(id)}`), {
+      response = await this.fetchImpl(url, {
         method: 'PATCH',
         headers: this.buildHeaders(),
         body: JSON.stringify(payload),
@@ -240,6 +263,9 @@ export class GatewayClient {
         0,
       );
     }
+
+    const duration = Date.now() - start;
+    logger.info('GatewayClient', `Incoming PATCH ${url} -> ${response.status} (${duration}ms)`);
 
     if (!response.ok) {
       const { message, issues } = await this.parseErrorResponse(response);
@@ -257,9 +283,13 @@ export class GatewayClient {
    * @returns True if deletion succeeded.
    */
   public async deleteTask(id: string): Promise<boolean> {
+    const url = this.formatUrl(`/api/tasks/${encodeURIComponent(id)}`);
+    const start = Date.now();
+    logger.info('GatewayClient', `Outbound DELETE ${url}`);
+
     let response: Response;
     try {
-      response = await this.fetchImpl(this.formatUrl(`/api/tasks/${encodeURIComponent(id)}`), {
+      response = await this.fetchImpl(url, {
         method: 'DELETE',
         headers: this.buildHeaders(),
       });
@@ -269,6 +299,9 @@ export class GatewayClient {
         0,
       );
     }
+
+    const duration = Date.now() - start;
+    logger.info('GatewayClient', `Incoming DELETE ${url} -> ${response.status} (${duration}ms)`);
 
     if (!response.ok) {
       const { message, issues } = await this.parseErrorResponse(response);
@@ -284,9 +317,13 @@ export class GatewayClient {
    * @returns HealthResponse.
    */
   public async healthCheck(): Promise<HealthResponse> {
+    const url = this.formatUrl('/api/health');
+    const start = Date.now();
+    logger.info('GatewayClient', `Outbound GET ${url}`);
+
     let response: Response;
     try {
-      response = await this.fetchImpl(this.formatUrl('/api/health'), {
+      response = await this.fetchImpl(url, {
         method: 'GET',
         headers: this.buildHeaders(),
       });
@@ -296,6 +333,9 @@ export class GatewayClient {
         0,
       );
     }
+
+    const duration = Date.now() - start;
+    logger.info('GatewayClient', `Incoming GET ${url} -> ${response.status} (${duration}ms)`);
 
     if (!response.ok) {
       const { message, issues } = await this.parseErrorResponse(response);

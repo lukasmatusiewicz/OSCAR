@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { DecryptedTaskPayload, TaskEntity, TaskPriority, TaskStatus } from '../types/contracts';
 import { ClientCryptoService } from '../services/ClientCryptoService';
 import { gatewayClient } from '../services/GatewayClient';
+import { logger } from '../utils/logger';
 
 /**
  * Custom hook for managing tasks, client-side decryption, and gateway synchronization.
@@ -94,6 +95,7 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
 
   const addTask = useCallback(
     (task: TaskEntity, decrypted?: DecryptedTaskPayload) => {
+      logger.info('useTasks', `Added task ${task.id} (status: ${task.status}, priority: ${task.priority})`);
       setTasks((prev) => [task, ...prev]);
       if (decrypted) {
         setDecryptedPayloads((prev) => ({ ...prev, [task.id]: decrypted }));
@@ -109,6 +111,7 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
   );
 
   const updateTaskStatus = useCallback((taskId: string, newStatus: TaskStatus) => {
+    logger.info('useTasks', `Updated task ${taskId} status -> ${newStatus}`);
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === taskId) {
@@ -129,6 +132,7 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
   }, []);
 
   const updateTaskPriority = useCallback((taskId: string, newPriority: TaskPriority) => {
+    logger.info('useTasks', `Updated task ${taskId} priority -> ${newPriority}`);
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === taskId) {
@@ -149,6 +153,7 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
   }, []);
 
   const deleteTask = useCallback((taskId: string) => {
+    logger.info('useTasks', `Deleted task ${taskId}`);
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     setDecryptedPayloads((prev) => {
       const copy = { ...prev };
