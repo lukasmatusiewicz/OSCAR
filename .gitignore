@@ -8,6 +8,8 @@ node_modules/
 
 # Environment variables & local secrets (CRITICAL FOR CONFIDENTIALITY)
 .env
+.env.*
+!.env.example
 .env.production
 .env.local
 .env.development.local
@@ -19,8 +21,12 @@ node_modules/
 *.key
 *.cert
 credentials.json
+*credentials*.json
+*service-account*.json
 *serviceAccount*.json
+*firebase-adminsdk*.json
 *-firebase-adminsdk-*.json
+*firebase*credentials*.json
 
 # Build outputs & caches
 dist/

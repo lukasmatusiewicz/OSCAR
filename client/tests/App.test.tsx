@@ -2,30 +2,77 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { App } from '../src/App';
 import { ClientCryptoService } from '../src/services/ClientCryptoService';
+import { gatewayClient } from '../src/services/GatewayClient';
+import { TaskEntity } from '../src/types/contracts';
 
 describe('App Root Component', () => {
   beforeEach(() => {
     ClientCryptoService.logout();
+    vi.spyOn(gatewayClient, 'fetchTasks').mockResolvedValue([]);
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     ClientCryptoService.logout();
   });
 
-  it('renders application header, tabs, and automatically initializes session key', () => {
+  it('renders application header, tabs, and automatically initializes session key', async () => {
     render(<App />);
+
+    await waitFor(() => {
+      expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
+    });
 
     expect(screen.getByText(/🎙️ oscar/i)).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /dashboard/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /task board/i })).toBeInTheDocument();
 
-    // Verify session key initialized automatically
+    // Verify session key initialized automatically and initial task hydration triggered
     expect(ClientCryptoService.hasSessionKey()).toBe(true);
     expect(screen.getByRole('button', { name: /logout and zero key/i })).toBeInTheDocument();
   });
 
-  it('switches between Dashboard and Task Board tabs', () => {
+  it('automatically hydrates and decrypts existing persisted tasks from backend on mount', async () => {
+    ClientCryptoService.initializeSessionKey();
+    const encryptedPayload = await ClientCryptoService.encrypt({
+      title: 'Hydrated Firestore Review Task',
+      summary: 'Persisted across page reload (F5)',
+      subtasks: [{ title: 'Verify Firestore hydration', completed: false }],
+    });
+
+    const persistedTask: TaskEntity = {
+      id: 'task_hydrated_mount_001',
+      memoId: 'memo_hydrated_mount_001',
+      userId: 'usr_default_session_01',
+      encryptedPayload,
+      category: 'WORK',
+      priority: 'HIGH',
+      status: 'PENDING',
+      scheduledDate: null,
+      tags: ['hydrated-tag'],
+      provenance: 'GEMINI_FLASH',
+      modelVersion: 'gemini-2.5-flash-001',
+      createdAt: '2026-11-09T10:00:00.000Z',
+      updatedAt: '2026-11-09T10:00:00.000Z',
+    };
+
+    vi.spyOn(gatewayClient, 'fetchTasks').mockResolvedValueOnce([persistedTask]);
+
     render(<App />);
+
+    expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => {
+      expect(screen.getByText('Hydrated Firestore Review Task')).toBeInTheDocument();
+    });
+    expect(screen.getByText('#hydrated-tag')).toBeInTheDocument();
+  });
+
+  it('switches between Dashboard and Task Board tabs', async () => {
+    render(<App />);
+    await waitFor(() => {
+      expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
+    });
 
     const boardTab = screen.getByRole('tab', { name: /task board/i });
     fireEvent.click(boardTab);
@@ -38,8 +85,11 @@ describe('App Root Component', () => {
     expect(screen.getByText(/new confidential voice\/text memo/i)).toBeInTheDocument();
   });
 
-  it('locks session and zeroes key when lock button is clicked in header', () => {
+  it('locks session and zeroes key when lock button is clicked in header', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
+    });
 
     const lockBtn = screen.getByRole('button', { name: /logout and zero key/i });
     fireEvent.click(lockBtn);
@@ -53,6 +103,9 @@ describe('App Root Component', () => {
 
   it('persists created tasks across tabs and displays them in Task Board', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
+    });
 
     // In Dashboard, submit a new memo
     const textarea = screen.getByLabelText(/confidential memo input/i);
@@ -86,8 +139,11 @@ describe('App Root Component', () => {
     expect(screen.getByText('🔒 Encrypted Task Content')).toBeInTheDocument();
   });
 
-  it('renders install app button in header when beforeinstallprompt event is dispatched', () => {
+  it('renders install app button in header when beforeinstallprompt event is dispatched', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
+    });
 
     expect(screen.queryByRole('button', { name: /install oscar app/i })).not.toBeInTheDocument();
 

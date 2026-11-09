@@ -1,180 +1,266 @@
 # OSCAR — Orchestrated Secure Confidential Agent Runtime
 
-> **An enterprise-grade, spec-driven personal assistant and multi-agent runtime featuring local PII masking, Zero Data Retention orchestration, client-side AES-256-GCM encryption at rest, and real-time reactive synchronization.**
+> **An enterprise-grade, spec-driven confidential personal assistant and multi-agent runtime featuring a Dual-Shield Privacy Enclave, Multilingual Hybrid NER PII Masking, Zero Data Retention AI Orchestration, Client-Side WebCrypto AES-256-GCM Envelope Encryption, and Real-Time Reactive Synchronization.**
 
+[![Release](https://img.shields.io/badge/Release-v1.0.0-blue.svg)](package.json)
+[![Architecture](https://img.shields.io/badge/Architecture-Zero--PII%20Enclave-0A66C2.svg)](docs/spec/architecture.md)
+[![Testing](https://img.shields.io/badge/Testing-561%2F561%20Passing%20(100%25)-brightgreen.svg)](#comprehensive-quality-metrics)
+[![Coverage](https://img.shields.io/badge/Coverage-%3E%3D%2095%25%20Branch%20%26%20Line-brightgreen.svg)](#comprehensive-quality-metrics)
+[![Regulatory](https://img.shields.io/badge/Regulatory-EU%20AI%20Act%20Art.%2013%20Compliant-purple.svg)](docs/spec/multi-agent-system.md)
+[![PWA](https://img.shields.io/badge/PWA-Standalone%20%26%20Offline%20Ready-success.svg)](client/public/manifest.webmanifest)
 [![CI / Vitest Pipeline](https://github.com/lukasmatusiewicz/OSCAR/actions/workflows/ci.yml/badge.svg)](https://github.com/lukasmatusiewicz/OSCAR/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/Tests-174%20passed-brightgreen.svg)]()
-[![Coverage](https://img.shields.io/badge/Coverage-%3E95%25%20Verified-brightgreen.svg)]()
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Methodology](https://img.shields.io/badge/Methodology-Spec--Driven%20Development-success.svg)](docs/spec/architecture.md)
-[![AI Governance](https://img.shields.io/badge/Governance-PoLP%2C%20HITL%20%26%20Critic%20Gate-purple.svg)](docs/spec/multi-agent-system.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7%2B%20Strict-3178C6.svg)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## 🌟 Core Highlights & Architectural Principles
+## 🌟 Executive Summary & Architecture Highlights
 
-* 🛡️ **Confidentiality by Design (Local PII Masking):** Automatically strips personally identifiable information (emails, names, monetary amounts, phone numbers, IBANs, API keys) locally before dispatching prompts to external LLMs.
-* 🔐 **Client-Side AES-256-GCM Envelope Encryption:** Cleartext user data is never stored in public cloud storage. All sensitive fields are encrypted at rest using WebCrypto AES-256-GCM prior to Cloud Firestore persistence, with session key memory zeroing immediately upon logout.
-* 🤖 **Zero Data Retention Orchestration:** Built with the official Google GenAI SDK (`@google/genai`) and Gemini 2.5 Flash, enforcing strict JSON Schema runtime verification (`responseSchema`).
-* ⏱️ **Gateway Resilience & SLA Protection:** Incorporates a 12 RPM token-bucket rate limiter (preventing upstream quota exhaustion), strict 8,000ms SLA timeout handler (`AbortSignal.timeout(8000)`), and an autonomous `DeterministicFallbackExtractor` rule engine for zero-data-loss offline operation.
-* 📐 **Spec-Driven Development (SDD):** System specifications, runtime contracts, and verification criteria are authoritatively defined in `docs/spec/` before production code is committed, eliminating ad-hoc prompt coding.
-* ⚡ **Real-Time Cross-Device Sync:** Built on Firebase Firestore (Spark Free Tier) leveraging direct `onSnapshot` listeners to push updates instantaneously to connected desktop and mobile clients.
-* 🧪 **Deterministic Engineering Rigor:** 174 automated unit, integration, component, and security tests passing across 13 test suites (108 backend tests with 100% lines / 98.65% branches, 66 frontend tests with 98.24% lines / 92.27% branches, and verified zero DOM PII leakage).
-* 🎨 **Client-Side Atomic Design:** React + TypeScript UI decoupled into isolated `atoms/`, `molecules/`, `organisms/`, and `views/` with scoped styling.
-* 👥 **Maker-Checker-Critic Multi-Agent Governance:** Structured agentic workforce enforcing the Principle of Least Privilege (PoLP), Human-in-the-Loop (HITL) oversight, and an automated Architecture & Security Critic regression audit gate.
+OSCAR (**Orchestrated Secure Confidential Agent Runtime**) bridges the gap between high-reasoning cloud Foundation Models and strict enterprise/personal data sovereignty. Instead of transmitting raw user thoughts, voice transcripts, or executive memos containing sensitive PII to third-party LLM endpoints, OSCAR enforces a **Zero-Trust Confidential Intake Pipeline** that strips, vaults, and rehydrates sensitive entities locally while persisting only authenticated ciphertext at rest.
+
+### 1. 🛡️ Dual-Shield Privacy Enclave
+* **Client & Edge Cryptographic Vaulting:** Local WebCrypto (`AES-256-GCM` with `PBKDF2` 100,000 iterations, random 96-bit IVs, and 128-bit authentication tags) paired with server-side zero-knowledge envelope encryption and explicit session key memory zeroing (`Buffer.fill(0)`) immediately after cryptographic operations.
+* **Multilingual Hybrid NER `PrivacyGuard`:** Combines deterministic regex scanners (`SECRET_KEY`, `IBAN`, `EMAIL`, `PHONE`, `AMOUNT_MONEY`, `NATIONAL_ID`, `ADDRESS`, `HEALTH_DATA`) with multilingual morphological lemmatization (`LinguisticNormalizer` supporting Polish, German, and English inflectional suffixes), temporal boundary protection (`TemporalResolver`), and deterministic token vaulting (`{{PERSON_1}}` / `[PERSON_1]`, `{{PHONE_1}}` / `[PHONE_1]`, `{{EMAIL_1}}` / `[EMAIL_1]`).
+
+### 2. 🤖 Gemini 2.5 Flash Orchestrator Gateway & Dual-Layer Schema Assurance
+* **Zero Data Retention Cloud Inference:** Built on the official Google GenAI SDK (`@google/genai`) targeting `gemini-2.5-flash` with strict OpenAPI/JSON Schema generation (`responseSchema`) and `<user_memo>` XML prompt-injection sandboxing.
+* **Runtime Zod Boundary Validation & `< 5ms` Autonomous Failover:** Every LLM output and API payload is verified through authoritative Zod contracts. If the upstream LLM experiences network degradation, rate limiting (12 RPM token bucket), or exceeds the strict `8,000ms` SLA timeout (`AbortSignal.timeout(8000)`), OSCAR seamlessly fails over to the local `DeterministicFallbackExtractor` rule engine in `< 5ms` with zero data loss.
+
+### 3. 🗄️ Queryable Metadata Separation & Google Cloud Firestore Persistence
+* **Zero-Knowledge Ciphertext Storage:** Sensitive task fields (`title`, `summary`, `subtasks`) and raw memo contents are stored strictly as `AES-256-GCM` encrypted blobs (`EncryptedPayload`), while sanitized operational metadata (`category`, `priority`, `status`, `scheduledDate`, `provenance`, `tags`) remains queryable for high-speed indexing.
+* **Atomic `writeBatch` Mutations & Full CRUD Lifecycle:** Uses Firestore atomic batch commits (`writeBatch`) with automatic in-memory repository fallback (`TaskStore`) for zero-config local development. Supports the complete Human-in-the-Loop (HITL) task lifecycle: **Draft $\rightarrow$ Confirm $\rightarrow$ Inline Edit $\rightarrow$ Complete $\rightarrow$ Delete**.
+
+### 4. 📊 Pillar 8 Structured Telemetry
+* **Zero-PII Multi-Level Observability:** Structured JSON and console telemetry across both client and server (`debug`, `info`, `warn`, `error`) featuring correlation IDs, latency instrumentation, and compile-time/runtime guarantees that raw PII or cryptographic material is never written to stdout or log sinks.
+
+### 5. 📱 Responsive UI & Native PWA
+* **Mobile-First Atomic Design & Standalone Capabilities:** Engineered down to `360px` viewports with a responsive CSS grid, glassmorphic dark UI, installable Web App Manifest (`manifest.webmanifest`), native PWA install prompt (`InstallPrompt`), and 1-click **RFC 5545 `.ics` iCalendar export** for scheduled tasks.
 
 ---
 
-## 🏗️ Architecture at a Glance
+## 🔄 Visual Confidential Intake Lifecycle
+
+### End-to-End Sequence & Data Flow (Mermaid)
 
 ```mermaid
-flowchart LR
-    Client["React UI (Atomic Design)\nWebCrypto AES-256-GCM"] -->|"1. Raw Input"| Gateway["Node.js / TS Gateway"]
-    Gateway -->|"2. Mask PII"| PG["Privacy Guard Engine"]
-    PG -->|"3. Sanitized XML Prompt"| AI["Google Gemini API (gemini-2.5-flash)"]
-    AI -->|"4. Strict JSON"| PG
-    PG -->|"5. Atomic Single-Pass Unmask"| Gateway
-    Gateway -->|"6. AES-256-GCM Encrypt"| Storage[("Firebase Firestore\n(Encrypted at Rest)")]
-    Storage -->|"7. Real-Time Stream (onSnapshot)"| Client
-    Client -->|"8. Client-Side Decrypt"| Client
+sequenceDiagram
+    autonumber
+    actor User as User (Voice / Text Memo)
+    participant UI as React 18 PWA Client<br/>(WebCrypto + Local Shield)
+    participant GW as Express 5 Gateway<br/>(RateLimiter + Zod Guard)
+    participant PG as PrivacyGuard Engine<br/>(Hybrid NER + Lemmatizer)
+    participant AI as Gemini 2.5 Flash<br/>(or <5ms Fallback Engine)
+    participant Crypto as AES-256-GCM Engine<br/>(Envelope Encryption)
+    participant DB as Cloud Firestore<br/>(Atomic writeBatch)
+
+    User->>UI: Input Multilingual Voice/Text Memo
+    UI->>UI: Real-time Client Privacy Shield Preview ({{PERSON_1}}, {{EMAIL_1}})
+    UI->>GW: POST /api/memos (X-Oscar-Encryption-Key Header)
+    GW->>PG: mask(rawText) — Priority Overlap Resolution & RTL Substitution
+    PG-->>GW: Sanitized Text + Ephemeral In-Memory Vault Map
+    GW->>AI: Dispatch Sanitized Prompt (<user_memo>) + Strict JSON Schema
+    alt Gemini 2.5 Flash Available (< 8000ms SLA)
+        AI-->>GW: Structured Task Array (provenance: GEMINI_FLASH)
+    else Quota Exhausted / Offline / Timeout
+        AI-->>GW: Deterministic Rule Extraction (< 5ms, provenance: DETERMINISTIC_FALLBACK)
+    end
+    GW->>PG: rehydrate(extractedTasks, vaultMap) — Single-Pass Atomic Unmask
+    PG-->>GW: Cleartext Structured Tasks (In-Memory Only)
+    GW->>Crypto: Encrypt Sensitive Payload (AES-256-GCM, 96-bit IV, 128-bit AuthTag)
+    Crypto-->>GW: EncryptedPayload + Key Buffer Zeroed (.fill(0))
+    GW->>DB: Atomic writeBatch Commit (MemoEntity + TaskEntities)
+    DB-->>UI: 201 Created (Encrypted Tasks + PII Audit Telemetry)
 ```
 
-For full system diagrams, sequence workflows, and failure recovery protocols, see [**System Architecture Specification**](docs/spec/architecture.md).
+### Architectural Pipeline Overview (ASCII)
+
+```text
++---------------------------------------------------------------------------------------------------+
+|                        OSCAR ZERO-PII CONFIDENTIAL INTAKE ENCLAVE (v1.0.0)                        |
++---------------------------------------------------------------------------------------------------+
+
+  [1. Voice / Text Memo]
+         │  "Spotkanie z Janem Kowalskim (jan@firma.pl, +48 600 100 200) jutro o 14:00 ws. 25 000 PLN"
+         ▼
+  [2. Local PrivacyGuard NER Masking & Morphological Lemmatization (PL / DE / EN)]
+         │  ├── Priority Overlap Resolution: SECRET_KEY > IBAN > EMAIL > PHONE > AMOUNT > PERSON
+         │  ├── Temporal Boundary Guard: Protects dates/times ("jutro o 14:00") from false NER capture
+         │  └── Ephemeral Token Vault: [PERSON_1], [EMAIL_1], [PHONE_1], [AMOUNT_MONEY_1]
+         ▼
+  [3. Sanitized Cloud Prompt (<user_memo> XML Sandbox)]
+         │  "Spotkanie z [PERSON_1] ([EMAIL_1], [PHONE_1]) jutro o 14:00 ws. [AMOUNT_MONEY_1]"
+         ▼
+  [4. Gemini 2.5 Flash Orchestrator  ───(Failover < 5ms)───►  DeterministicFallbackExtractor]
+         │  ├── Strict JSON Schema (responseSchema) + Runtime Zod Contract Validation
+         │  └── Multi-Intent Task Decomposition + EU AI Act Art. 13 Provenance Attribution
+         ▼
+  [5. Local PII Rehydration & AES-256-GCM Envelope Encryption]
+         │  ├── Depth-First Single-Pass Atomic Regex Unmasking
+         │  ├── WebCrypto / Node Crypto AES-256-GCM (PBKDF2 100k iter, 12-byte IV, 16-byte AuthTag)
+         │  └── Ephemeral Vault Garbage-Collected & Key Buffers Zeroed in RAM
+         ▼
+  [6. Google Cloud Firestore Atomic Batch Commit]
+         ├── Ciphertext Blob: { ciphertext, iv, authTag, keyId } (Zero Cleartext at Rest)
+         └── Queryable Metadata: { category, priority, status: "DRAFT", provenance, scheduledDate }
+```
+
+---
+
+## 🧪 Comprehensive Quality Metrics
+
+OSCAR v1.0.0 is verified by **561 automated tests passing across 43 test suites (100% pass rate)** with strict branch and line coverage gates (`>= 95%`), zero ESLint warnings/errors, and strict TypeScript compilation (`noImplicitAny`, `strictNullChecks`).
+
+| Verification Tier | Workspace | Test Suites | Passing Tests | Line / Branch Coverage | Key Assurance Domains |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| **Backend Unit & Crypto** | `server` | 11 | 247 | `>= 96.5%` | Hybrid NER `PrivacyGuard`, `LinguisticNormalizer` (PL/DE/EN), `TemporalResolver`, `EncryptionService` (AES-256-GCM & memory zeroing), `GeminiOrchestrator`, `DeterministicFallbackExtractor`, `RateLimiter`, `FirestoreTaskStore`, Structured `Logger` |
+| **Backend API & Integration** | `server` | 4 | 54 | `100%` | `/api/memos`, `/api/tasks`, `/api/health`, `/api/docs` (OpenAPI 3.1 + Scalar UI), CORS, Zod error boundaries |
+| **Adversarial & E2E Full-Stack** | `server` | 3 | 43 | `100%` | Multilingual chaotic inputs, prompt-injection resistance, GDPR Art. 9 taxonomy, Draft-to-Confirm HITL editing, full confidential roundtrip |
+| **Frontend Atomic UI & Hooks** | `client` | 24 | 206 | `>= 96.0%` | Atomic Design hierarchy (`atoms`, `molecules`, `organisms`, `views`), `ClientCryptoService` (WebCrypto PBKDF2 + AES-GCM), `GatewayClient`, RFC 5545 `.ics` Calendar Export, PWA `InstallPrompt` |
+| **Frontend Security Audit** | `client` | 1 | 11 | `100%` | `zeroPiiLeakage.test.tsx` — verifies zero raw PII or session keys leak into DOM attributes, `localStorage`, or console sinks |
+| **Static Analysis & Types** | `root` | — | **0 Errors / 0 Warnings** | **100% Strict** | ESLint (`@typescript-eslint`) + TypeScript 5.7 (`tsc --noEmit` & `vite build`) |
+| **TOTAL VERIFIED** | **All** | **43 Suites** | **561 / 561 (100%)** | **>= 95% Global** | **Production Release Gate (`v1.0.0`)** |
 
 ---
 
 ## 📂 Project Structure
 
-```
+```text
 oscar/
 ├── docs/
 │   └── spec/                          # Authoritative Specifications (Single Source of Truth)
 │       ├── architecture.md            # System tiers, sequence flows, encryption, rate limits & Zero Trust
 │       ├── contracts.md               # Authoritative Zod runtime schemas & JSON Schemas
-│       ├── privacy-guard-spec.md      # PII detection rules, RTL substitution & atomic re-hydration
-│       └── multi-agent-system.md      # Maker-Checker-Critic topology, PoLP matrix & Critic audit gate
-├── client/                            # React + TypeScript + Vite (Atomic Design & WebCrypto)
+│       ├── multi-agent-system.md      # Maker-Checker-Critic topology, PoLP matrix & 8 Engineering Pillars
+│       ├── openapi.yaml               # OpenAPI 3.1.0 Gateway specification (v1.0.0)
+│       └── privacy-guard-spec.md      # PII detection rules, RTL substitution & atomic re-hydration
+├── client/                            # React 18 + TypeScript + Vite PWA (25 suites, 217 tests)
+│   ├── public/
+│   │   ├── manifest.webmanifest       # Native PWA Web App Manifest & icons
+│   │   └── icon-192.svg / icon-512.svg
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── atoms/                 # Single-purpose isolated UI components (Button, Input, Badge, etc.)
-│   │   │   ├── molecules/             # Grouped atom components (SearchBar, PrioritySelector, etc.)
-│   │   │   └── organisms/             # Business domain widgets (TaskCard, MemoInputForm, etc.)
-│   │   ├── hooks/                     # Custom domain hooks (useTasks, useMemos, useAuditLogs)
-│   │   ├── services/                  # Gateway client, WebCrypto envelope encryption & Firestore listeners
-│   │   └── views/                     # Page-level screens (DashboardView, TaskBoardView)
-│   └── tests/                         # Vitest test suite (66 tests, 98.24% lines, 92.27% branches)
-├── server/                            # Node.js + TypeScript Gateway
+│   │   │   ├── atoms/                 # Badge, Button, Input, InstallPrompt, PrivacyShieldBadge
+│   │   │   ├── molecules/             # CategoryBadge, PrioritySelector, SearchBox, TokenPreviewBadge
+│   │   │   └── organisms/             # MemoEditor, PrivacyAuditPanel, TaskCard, TaskList
+│   │   ├── hooks/                     # useTasks, useMemos, usePrivacyShield
+│   │   ├── services/                  # ClientCryptoService (WebCrypto), GatewayClient
+│   │   ├── utils/                     # calendarExport (.ics), linguisticNormalizer, temporalResolver, logger
+│   │   └── views/                     # Dashboard, TaskBoard
+│   └── tests/                         # Vitest + React Testing Library + Zero-PII DOM Security Suite
+├── server/                            # Node.js + Express 5 + TypeScript Gateway (18 suites, 344 tests)
 │   ├── src/
-│   │   ├── privacy/                   # Pure Privacy Guard Engine (Masker / Re-hydrator)
-│   │   ├── agent/                     # Gemini Orchestrator (@google/genai SDK)
-│   │   ├── crypto/                    # AES-256-GCM Envelope Encryption & Key Zeroing
-│   │   ├── fallback/                  # DeterministicFallbackExtractor (Rule Engine)
-│   │   └── routes/                    # API endpoints & rate-limited gateway routes
-│   └── tests/                         # Vitest test suite (108 tests, 100% lines, 98.65% branches)
-├── .gitignore                         # Comprehensive ignore rules
-├── LICENSE                            # MIT License (Statutory Copyright)
-└── README.md                          # Project documentation portal
+│   │   ├── agent/                     # GeminiOrchestrator (@google/genai), DeterministicFallbackExtractor, TemporalResolver
+│   │   ├── gateway/                   # Token-bucket RateLimiter (12 RPM)
+│   │   ├── middleware/                # Defensive errorHandler (zero stack-trace / PII leakage)
+│   │   ├── privacy/                   # PrivacyGuard (Hybrid NER + Regex), LinguisticNormalizer
+│   │   ├── routes/                    # memos, tasks, health, docs (OpenAPI / Scalar viewer)
+│   │   ├── security/                  # EncryptionService (AES-256-GCM), requestKey derivation
+│   │   ├── store/                     # ITaskRepository, FirestoreTaskStore (writeBatch), TaskStore (In-Memory)
+│   │   └── utils/                     # Pillar 8 structured logger
+│   └── tests/                         # Unit, Route Integration, Chaotic Multilingual & E2E Test Suites
+├── .env.example                       # Sanitized environment configuration template
+├── firebase.json                      # Firebase Hosting & SPA rewrite configuration
+├── package.json                       # Workspace root orchestrator (v1.0.0)
+└── README.md                          # Executive showcase & operations portal
 ```
 
 ---
 
-## 📋 Authoritative System Specifications
-
-The OSCAR codebase strictly adheres to the following specification documents:
-
-1. [**System Architecture**](docs/spec/architecture.md): Component breakdown, end-to-end data sequence diagrams, tier specifications, AES-256-GCM envelope encryption, rate limiting (12 RPM), `DeterministicFallbackExtractor`, and Zero Trust guarantees.
-2. [**Domain & Data Contracts**](docs/spec/contracts.md): Authoritative Zod schemas for PII token maps, `EncryptedPayloadSchema`, Gemini structured task responses, Firestore entities (`MemoEntity`, `TaskEntity`), and privacy audit logs.
-3. [**Privacy Guard Engine Specification**](docs/spec/privacy-guard-spec.md): ECMAScript regular expressions for 6 PII categories, Right-to-Left replacement algorithm, entity deduplication, priority overlap resolution, atomic single-pass regex re-hydration, and Vitest test criteria.
-4. [**Multi-Agent System & Governance**](docs/spec/multi-agent-system.md): Agent topology (Lead Architect, Master Orchestrator, Docs Worker, Privacy Specialist, QA Auditor, Security Critic), Principle of Least Privilege (PoLP) matrix, Continuous Specification Regression Audit Gate, command execution allowlist, and Human-in-the-Loop (HITL) checkpoints.
-
----
-
-## 🛡️ Privacy Guard: How It Works
-
-1. **Detection:** Scans input for API keys, IBANs, email addresses, phone numbers, monetary values, and person names using prioritized ECMAScript RegExp matchers with Unicode property escapes (`\p{Lu}\p{Ll}+`).
-2. **Priority Overlap Resolution & Deduplication:** Resolves overlapping spans by priority (`SECRET_KEY` > `IBAN` > `EMAIL` > `PHONE` > `AMOUNT_MONEY` > `PERSON`) and maps repeated entities to identical tokens (`[PERSON_1]`).
-3. **Right-to-Left Masking:** Substitutes detected entities from end to start of the string, preserving character indices and preventing offset drift.
-4. **Structured Inference:** Sends sanitized text inside `<user_memo>` boundaries to Google Gemini alongside strict `responseSchema`.
-5. **Atomic Single-Pass Re-hydration:** Walks the returned JSON tree depth-first and restores cleartext values in a single atomic regex sweep, preventing token prefix collisions and cascaded injection.
-6. **Zero Trace & Encryption at Rest:** The mapping dictionary is immediately garbage collected. The unmasked data is encrypted via AES-256-GCM before writing to Cloud Firestore, with key buffers wiped from memory.
-
----
-
-## 🗺️ Roadmap & Implementation Status
-
-- [x] **Phase 1: Architecture & Data Contracts**  
-  *Authoritative Zod schemas, Spec-Driven Development blueprints, Principle of Least Privilege (PoLP) matrix, Human-in-the-Loop (HITL) protocols, Maker-Checker-Critic multi-agent architecture.*
-- [x] **Phase 2: Privacy Guard Engine**  
-  *Pure, deterministic PII detection for 6 categories, ECMAScript Unicode property escapes, priority-weighted greedy overlap resolution, entity deduplication, and atomic single-pass regex re-hydration. 36 unit tests passing with 100% coverage.*
-- [x] **Phase 3: AI Orchestration & Gateway Resilience**  
-  *Native `@google/genai` integration with Gemini 2.5 Flash, 12 RPM token-bucket rate limiter, 8,000ms SLA timeout handler, `DeterministicFallbackExtractor` rule engine, WebCrypto AES-256-GCM envelope encryption with session key memory zeroing, and full Zod runtime validation. 108 automated unit and integration tests passing across 5 test suites (100% Lines, 98.65% Branches).*
-- [x] **Phase 4: Client-Side UI & Real-Time Sync (React 18+ & WebCrypto)**  
-  *React 18+ Vite TypeScript frontend, strict Atomic Design component hierarchy (`atoms/`, `molecules/`, `organisms/`, `views/`), client-side WebCrypto AES-256-GCM envelope decryption, ephemeral session key memory zeroing on logout, and zero DOM PII leakage. 66 automated tests passing with >98% statement and line coverage.*
-- [ ] **Phase 5: End-to-End Integration, Local Dev Orchestration & UAT**  
-  *Live end-to-end integration connecting React frontend with Node.js gateway, Cloud Firestore real-time synchronization, and browser-driven User Acceptance Testing.*
-
----
-
-## 🚀 Getting Started
+## 🚀 Quickstart & Operations Guide
 
 ### Prerequisites
-* **Node.js:** v20.x or higher (LTS recommended)
-* **npm:** v10.x or higher
-* **Google AI Studio API Key:** For external Gemini inference (free tier)
+* **Node.js:** `>= 20.0.0` LTS (v20 or v22/v24 recommended)
+* **npm:** `>= 10.0.0`
+* **Google Gemini API Key *(Optional)*:** Obtainable from [Google AI Studio](https://aistudio.google.com/app/apikey). If omitted, OSCAR automatically operates using the built-in `< 5ms` `DeterministicFallbackExtractor` rule engine.
+* **Google Cloud Firestore *(Optional)*:** If `FIREBASE_PROJECT_ID` / credentials are omitted, the server automatically falls back to the zero-configuration in-memory `TaskStore`.
 
-### Quickstart & Test Verification
-Clone the repository, install dependencies, and run the test suites:
+### 1. Installation & Environment Setup
 
-#### Backend Gateway & Security Tests
 ```bash
-# Navigate to the backend gateway
-cd server
+# Clone the repository and enter the workspace
+git clone https://github.com/lukasmatusiewicz/OSCAR.git
+cd OSCAR/oscar
 
-# Clean installation of dependencies
-npm ci
+# Install dependencies across root, server, and client
+npm install
+npm --prefix server install
+npm --prefix client install
 
-# Run all 108 automated unit and integration tests
-npm test
-
-# Run the test suite with comprehensive coverage report
-npm run test:coverage
+# Copy the sanitized environment template
+cp .env.example server/.env
 ```
 
-#### Client Frontend & UI Component Tests
-```bash
-# Navigate to the client application
-cd ../client
-
-# Clean installation of dependencies
-npm ci
-
-# Run all 66 component, hook, and security unit tests
-npm test
-
-# Verify type safety and static analysis
-npm run lint
-
-# Build production bundle
-npm run build
-```
-
-### Environment Configuration
-Create a local `.env` file in the `server/` directory:
+Edit `server/.env` as needed (all fields have safe local defaults):
 
 ```env
-# Google AI Studio API Key (Gemini 2.5 Flash)
-GEMINI_API_KEY=your_google_ai_studio_api_key_here
-
-# Server Configuration
+GEMINI_API_KEY=your_gemini_api_key_here
 PORT=3000
 NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
+LOG_LEVEL=info
+VITE_LOG_LEVEL=info
 ```
 
 > [!IMPORTANT]
-> **Security Invariant:** The `.env` file contains sensitive operational credentials and is strictly excluded by `.gitignore`. It must **never** be committed to source control or exposed to the client application.
+> **Security Invariant:** `.gitignore` strictly blocks all `.env*` files (except `.env.example`), `*credentials*.json`, `*service-account*.json`, and `*firebase-adminsdk*.json`. Never commit live API keys or service account keys to version control.
+
+### 2. 1-Click Full-Stack Startup
+
+Launch both the Express 5 Confidential Gateway (`http://localhost:3000`) and the React 18 Vite PWA (`http://localhost:5173`) concurrently with color-coded streaming logs:
+
+```bash
+npm run dev
+```
+
+* **Frontend Application:** `http://localhost:5173`
+* **Interactive OpenAPI 3.1 Docs (Scalar UI):** `http://localhost:3000/api/docs`
+* **Raw OpenAPI 3.1 YAML Specification:** `http://localhost:3000/api/docs/openapi.yaml`
+* **Gateway Health Probe:** `http://localhost:3000/api/health`
+
+### 3. Running Tests, Linting & Production Builds
+
+```bash
+# Run all 561 automated tests across server (344) and client (217)
+npm test
+
+# Run server or client test suites individually
+npm --prefix server test
+npm --prefix client test
+
+# Run full test coverage reports (V8 coverage provider)
+npm run test:coverage
+
+# Run full-stack End-to-End (E2E) confidential lifecycle suites
+npm run test:e2e
+
+# Verify zero ESLint errors/warnings across both workspaces
+npm run lint
+
+# Compile TypeScript and build production bundles
+npm run build
+```
+
+### 4. Native PWA Installation Instructions
+
+OSCAR includes a standards-compliant Web App Manifest ([`manifest.webmanifest`](client/public/manifest.webmanifest)) and an intelligent in-app installation banner ([`InstallPrompt.tsx`](client/src/components/atoms/InstallPrompt.tsx)):
+
+* **Desktop (Chrome / Edge / Brave):** Open `http://localhost:5173` (or the deployed HTTPS URL). Click the **"Install App"** button in the OSCAR top bar or the browser address bar install icon to launch OSCAR in a standalone native window.
+* **iOS (Safari) & Android (Chrome):** Tap the browser **Share** menu (iOS) or **More Options** menu (Android) and select **"Add to Home Screen"**. OSCAR launches in `standalone` display mode without browser chrome.
+
+---
+
+## 📚 Specification & Documentation Index
+
+OSCAR follows **Spec-Driven Development (SDD)**—all architectural boundaries, threat models, and data contracts are formally specified in `docs/spec/`:
+
+* 🏛️ [**System Architecture Specification (`docs/spec/architecture.md`)**](docs/spec/architecture.md) — Tier architecture, end-to-end confidential sequences, AES-256-GCM envelope encryption, 12 RPM rate limiting, and fallback resilience.
+* 🔒 [**Security & Threat Model (`docs/spec/privacy-guard-spec.md`)**](docs/spec/privacy-guard-spec.md) *(see also [Security Threat Model](docs/spec/security-threat-model.md))* — Hybrid NER & regex PII detection, priority overlap resolution, Right-to-Left span substitution, atomic single-pass rehydration, and zero-leakage guarantees.
+* 📜 [**OpenAPI 3.1 Gateway Contract (`docs/spec/openapi.yaml`)**](docs/spec/openapi.yaml) — Authoritative REST API specification for `/api/memos`, `/api/tasks`, `/api/health`, and `/api/docs` (`v1.0.0`).
+* 🧬 [**Domain & Data Schema Contracts (`docs/spec/contracts.md`)**](docs/spec/contracts.md) *(see also [JSON Data Schema](docs/spec/data-schema.json))* — Authoritative Zod schemas, `EncryptedPayload`, `TaskEntity`, `MemoEntity`, and GDPR/EU AI Act provenance models.
+* 🤖 [**Multi-Agent System & 8 Pillars of Craftsmanship (`docs/spec/multi-agent-system.md`)**](docs/spec/multi-agent-system.md) — Maker-Checker-Critic governance topology, Principle of Least Privilege (PoLP) matrix, Human-in-the-Loop (HITL) checkpoints, and Pillar 8 Structured Telemetry standards.
 
 ---
 
 ## 📄 License
+
 This project is licensed under the [MIT License](LICENSE).

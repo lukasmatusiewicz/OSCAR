@@ -19,6 +19,7 @@ export const App: React.FC = () => {
     updateTaskPriority,
     updateTaskPayload,
     deleteTask,
+    fetchTasks,
     toggleSubtask,
     clearDecryptedPayloads,
     draftsCount,
@@ -40,6 +41,10 @@ export const App: React.FC = () => {
       initializeKey();
     }
   }, [initializeKey]);
+
+  useEffect(() => {
+    void fetchTasks();
+  }, [fetchTasks]);
 
   const handleLockAndZero = () => {
     logoutAndZeroKey();
