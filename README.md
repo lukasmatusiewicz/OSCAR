@@ -80,15 +80,15 @@ sequenceDiagram
 +---------------------------------------------------------------------------------------------------+
 
   [1. Voice / Text Memo]
-         │  "Spotkanie z Janem Kowalskim (jan@firma.pl, +48 600 100 200) jutro o 14:00 ws. 25 000 PLN"
+         │  "Meeting with John Doe (john@company.com, +49 600100200) tomorrow at 14:00. Note: 25 000 EUR"
          ▼
   [2. Local PrivacyGuard NER Masking & Morphological Lemmatization (PL / DE / EN)]
          │  ├── Priority Overlap Resolution: SECRET_KEY > IBAN > EMAIL > PHONE > AMOUNT > PERSON
-         │  ├── Temporal Boundary Guard: Protects dates/times ("jutro o 14:00") from false NER capture
+         │  ├── Temporal Boundary Guard: Protects dates/times ("tomorrow at 14:00") from false NER capture
          │  └── Ephemeral Token Vault: [PERSON_1], [EMAIL_1], [PHONE_1], [AMOUNT_MONEY_1]
          ▼
   [3. Sanitized Cloud Prompt (<user_memo> XML Sandbox)]
-         │  "Spotkanie z [PERSON_1] ([EMAIL_1], [PHONE_1]) jutro o 14:00 ws. [AMOUNT_MONEY_1]"
+         │  "Meeting with [PERSON_1] ([EMAIL_1], [PHONE_1]) tomorrow at 14:00. Note: [AMOUNT_MONEY_1]"
          ▼
   [4. Gemini 2.5 Flash Orchestrator  ───(Failover < 5ms)───►  DeterministicFallbackExtractor]
          │  ├── Strict JSON Schema (responseSchema) + Runtime Zod Contract Validation
