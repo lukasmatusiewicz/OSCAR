@@ -330,4 +330,24 @@ describe('MemoEditor & detectClientTokens', () => {
     expect(threeTokens.tokens.length).toBe(3);
     expect(threeTokens.riskLevel).toBe('HIGH');
   });
+
+  it('detects single-word names after prepositions (markiem, beatą) and rejects non-names (mlekiem, sobą)', () => {
+    // Single name detection
+    const marekRes = detectClientTokens('kawa z markiem o 12:00');
+    const marekToken = marekRes.tokens.find((t) => t.type === 'PERSON');
+    expect(marekToken).toBeDefined();
+    expect(marekToken?.originalValue).toBe('markiem');
+
+    const beataRes = detectClientTokens('spotkanie z beatą');
+    const beataToken = beataRes.tokens.find((t) => t.type === 'PERSON');
+    expect(beataToken).toBeDefined();
+    expect(beataToken?.originalValue).toBe('beatą');
+
+    // Single non-name / pronoun rejection
+    const sobaRes = detectClientTokens('kawa ze sobą');
+    expect(sobaRes.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+
+    const mlekoRes = detectClientTokens('kawa z mlekiem');
+    expect(mlekoRes.tokens.filter((t) => t.type === 'PERSON')).toHaveLength(0);
+  });
 });

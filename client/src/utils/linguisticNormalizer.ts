@@ -16,7 +16,7 @@ const PREPOSITIONS_REGEX =
 const LOCATION_PREPOSITIONS_REGEX = /^(?:w|we|in|im|at|à|au)\s+/iu;
 
 // Polish mobile-e masculine first names where nominative has 'e' that drops in inflection
-const MOBILE_E_NAMES: Record<string, string> = {
+export const MOBILE_E_NAMES: Record<string, string> = {
   // Instrumental
   frankiem: 'Franek',
   markiem: 'Marek',
@@ -62,7 +62,7 @@ const MOBILE_E_NAMES: Record<string, string> = {
 };
 
 // Common Polish masculine first names in genitive (-a) to nominative (base consonant)
-const MASCULINE_GENITIVE_FIRST_NAMES: Record<string, string> = {
+export const MASCULINE_GENITIVE_FIRST_NAMES: Record<string, string> = {
   jana: 'Jan',
   piotra: 'Piotr',
   michała: 'Michał',
@@ -98,7 +98,7 @@ const MASCULINE_GENITIVE_FIRST_NAMES: Record<string, string> = {
 };
 
 // Common Polish feminine first names in genitive (-y / -i) to nominative (-a)
-const FEMININE_GENITIVE_FIRST_NAMES: Record<string, string> = {
+export const FEMININE_GENITIVE_FIRST_NAMES: Record<string, string> = {
   anny: 'Anna',
   hanny: 'Hanna',
   katarzyny: 'Katarzyna',

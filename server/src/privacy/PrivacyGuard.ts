@@ -2,6 +2,9 @@ import { PIITokenMap, PIIType, SanitizationResult, RiskLevel } from '../types/co
 import {
   normalizePersonToNominative,
   normalizeAddressCasing,
+  MOBILE_E_NAMES,
+  MASCULINE_GENITIVE_FIRST_NAMES,
+  FEMININE_GENITIVE_FIRST_NAMES,
 } from './LinguisticNormalizer.js';
 
 export interface RawMatch {
@@ -250,7 +253,390 @@ export const EXCLUDED_NAME_WORDS = new Set([
   'them',
   'myself',
   'yourself',
+  // Common food, drink, and object items
+  'mlekiem',
+  'mleko',
+  'cukrem',
+  'cukier',
+  'chlebem',
+  'chleb',
+  'masłem',
+  'masło',
+  'herbatą',
+  'herbata',
+  'kawą',
+  'kawa',
+  'cytryną',
+  'cytryna',
+  'wodą',
+  'woda',
+  'serem',
+  'ser',
+  'lodem',
+  'lód',
+  'solą',
+  'sól',
+  'pieprzem',
+  'pieprz',
+  'miodem',
+  'miód',
+  'obiadem',
+  'obiad',
+  'kolacją',
+  'kolacja',
+  'śniadaniem',
+  'śniadanie',
+  'piwem',
+  'piwo',
+  'winem',
+  'wino',
+  'sokiem',
+  'sok',
+  'ciastem',
+  'ciasto',
+  'deserem',
+  'deser',
+  'autem',
+  'auto',
+  'samochodem',
+  'samochód',
+  'pociągiem',
+  'pociąg',
+  'rowerem',
+  'rower',
+  'taksówką',
+  'taksówka',
+  'samolotem',
+  'samolot',
+  'autobusem',
+  'autobus',
+  'kartą',
+  'karta',
+  'gotówką',
+  'gotówka',
+  'pieniędzmi',
+  'pieniądze',
+  'dokumentem',
+  'dokument',
+  'umową',
+  'umowa',
+  'prezentem',
+  'prezent',
+  'uśmiechem',
+  'uśmiech',
+  'sprawą',
+  'sprawa',
+  'firmą',
+  'firma',
+  'zespołem',
+  'zespół',
+  'grupą',
+  'grupa',
+  'pracą',
+  'praca',
+  'szkołą',
+  'szkoła',
+  'pomocą',
+  'pomoc',
+  'chęcią',
+  'chęć',
+  'uwagą',
+  'uwaga',
+  'okazją',
+  'okazja',
+  'chwilą',
+  'chwila',
+  'plastikiem',
+  'plastik',
+  'drewnem',
+  'drewno',
+  'metalem',
+  'metal',
+  'papierem',
+  'papier',
+  'milk',
+  'sugar',
+  'bread',
+  'butter',
+  'tea',
+  'coffee',
+  'lemon',
+  'water',
+  'cheese',
+  'ice',
+  'beer',
+  'wine',
+  'car',
+  'train',
+  'bus',
+  'card',
+  'cash',
+  'money',
+  'milch',
+  'zucker',
+  'brot',
+  'tee',
+  'kaffee',
+  'zitrone',
+  'wasser',
+  'käse',
+  'eis',
+  'bier',
+  'wein',
+  'zug',
+  'karte',
+  'geld',
+  'lait',
+  'sucre',
+  'pain',
+  'beurre',
+  'thé',
+  'café',
+  'citron',
+  'eau',
+  'fromage',
+  'glace',
+  'bière',
+  'vin',
+  'voiture',
+  'carte',
+  'argent',
 ]);
+
+export const KNOWN_SINGLE_NAMES = new Set([
+  'frank',
+  'john',
+  'hans',
+  'anna',
+  'mark',
+  'james',
+  'robert',
+  'michael',
+  'william',
+  'david',
+  'richard',
+  'joseph',
+  'thomas',
+  'charles',
+  'christopher',
+  'daniel',
+  'matthew',
+  'anthony',
+  'donald',
+  'paul',
+  'george',
+  'steven',
+  'edward',
+  'brian',
+  'ronald',
+  'kevin',
+  'jason',
+  'jeffrey',
+  'mary',
+  'patricia',
+  'jennifer',
+  'linda',
+  'elizabeth',
+  'barbara',
+  'susan',
+  'jessica',
+  'sarah',
+  'karen',
+  'nancy',
+  'lisa',
+  'betty',
+  'margaret',
+  'sandra',
+  'ashley',
+  'kimberly',
+  'emily',
+  'donna',
+  'michelle',
+  'carol',
+  'amanda',
+  'melissa',
+  'deborah',
+  'stephanie',
+  'rebecca',
+  'sharon',
+  'laura',
+  'cynthia',
+  'kathleen',
+  'amy',
+  'angela',
+  'shirley',
+  'emma',
+  'olivia',
+  'ava',
+  'isabella',
+  'sophia',
+  'charlotte',
+  'mia',
+  'amelia',
+  'harper',
+  'evelyn',
+  'abigail',
+  'alex',
+  'peter',
+  'simon',
+  'lucas',
+  'jack',
+  'sam',
+  'ben',
+  'tom',
+  'tim',
+  'dan',
+  'max',
+  'leo',
+  'felix',
+  'klaus',
+  'stefan',
+  'jürgen',
+  'wolfgang',
+  'dieter',
+  'helmut',
+  'werner',
+  'gerhard',
+  'manfred',
+  'heinz',
+  'kurt',
+  'ulrich',
+  'monika',
+  'ursula',
+  'renate',
+  'helga',
+  'gisela',
+  'ingrid',
+  'birgit',
+  'sabine',
+  'petra',
+  'andreas',
+  'jean',
+  'pierre',
+  'michel',
+  'alain',
+  'philippe',
+  'bernard',
+  'christian',
+  'claude',
+  'françois',
+  'luc',
+  'marc',
+  'marie',
+  'monique',
+  'catherine',
+  'françoise',
+  'isabelle',
+  'sylvie',
+  'martine',
+  'claire',
+  'sophie',
+  'jan',
+  'piotr',
+  'paweł',
+  'michał',
+  'adam',
+  'tomasz',
+  'krzysztof',
+  'marcin',
+  'grzegorz',
+  'wojciech',
+  'marek',
+  'łukasz',
+  'mateusz',
+  'jakub',
+  'bartek',
+  'tomek',
+  'wojtek',
+  'jacek',
+  'kamil',
+  'filip',
+  'szymon',
+  'aleksander',
+  'kacper',
+  'radek',
+  'rysiek',
+  'stasiek',
+  'krzysiek',
+  'maciek',
+  'franek',
+  'beata',
+  'ewa',
+  'marta',
+  'katarzyna',
+  'agnieszka',
+  'magda',
+  'magdalena',
+  'joanna',
+  'natalia',
+  'karolina',
+  'zofia',
+  'dorota',
+  'alicja',
+  'paulina',
+  'justyna',
+  'izabela',
+  'julia',
+  'weronika',
+  'patrycja',
+  'dominika',
+  'kinga',
+  'sylwia',
+  'kamila',
+  'ola',
+  'kasia',
+  'basia',
+  'gosia',
+  'ania',
+  'asia',
+  'zuzanna',
+  'maja',
+  'oliwia',
+  'lena',
+  'wiktoria',
+  'gabriela',
+  'antonina',
+  'pola',
+  'klaudia',
+  'iga',
+  'helena',
+  'aleksandra',
+]);
+
+/**
+ * Validates whether a single captured word after a preposition qualifies as a legitimate person name.
+ * Prevents non-name common nouns (e.g. "mlekiem", "chlebem", "sobą") from being masked as PERSON.
+ */
+export function isValidSingleName(word: string): boolean {
+  const lower = word.toLowerCase().trim();
+  if (lower.length < 2) return false;
+  if (EXCLUDED_NAME_WORDS.has(lower)) return false;
+  if (INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lower)) return false;
+
+  // 1. In known name inflection dictionaries (keys or values)
+  if (
+    lower in MOBILE_E_NAMES ||
+    lower in MASCULINE_GENITIVE_FIRST_NAMES ||
+    lower in FEMININE_GENITIVE_FIRST_NAMES
+  ) {
+    return true;
+  }
+
+  // 2. Ends in standard Slavic/Germanic name inflection suffixes (like -kiem, -iem, -em, -ą)
+  if (
+    (/(?:kiem|iem|em)$/iu.test(lower) && lower.length >= 4) ||
+    (lower.endsWith('ą') && lower.length >= 3)
+  ) {
+    return true;
+  }
+
+  // 3. Matches known single names
+  if (KNOWN_SINGLE_NAMES.has(lower)) {
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Validates Polish PESEL checksum using statutory weights [1, 3, 7, 9, 1, 3, 7, 9, 1, 3].
@@ -898,7 +1284,7 @@ export class PrivacyGuard {
     const nameWord = '\\p{Lu}[\\p{Ll}\'-]+';
 
     const personPrepRegex = new RegExp(
-      `\\b(?:${prepPattern})\\s+(${nameWord}(?:\\s+${nameWord}){1,2})`,
+      `\\b(?:${prepPattern})\\s+(${nameWord}(?:\\s+${nameWord}){0,2})`,
       'gu',
     );
 
@@ -923,11 +1309,16 @@ export class PrivacyGuard {
     for (const m of text.matchAll(personPrepRegex)) {
       if (m.index !== undefined && m[1]) {
         const lowerVal = m[1].toLowerCase();
+        const words = lowerVal.split(/\s+/).map((w) => w.replace(/[.,]/g, ''));
         const isCityOrExcluded =
           INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
           EXCLUDED_NAME_WORDS.has(lowerVal) ||
-          m[1].split(/\s+/).some((w) => EXCLUDED_NAME_WORDS.has(w.toLowerCase()));
+          words.some((w) => EXCLUDED_NAME_WORDS.has(w));
         if (isCityOrExcluded) continue;
+
+        if (words.length === 1 && !isValidSingleName(words[0])) {
+          continue;
+        }
 
         const offset = m[0].lastIndexOf(m[1]);
         const s = m.index + offset;
@@ -947,10 +1338,10 @@ export class PrivacyGuard {
     }
 
     const lowercasePrepositionPatterns = [
-      /\b(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]{2,}(?:\s+[a-ząćęłńóśźż]{2,})+)\b/gu,
-      /\b(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]{2,}(?:\s+[a-zäöüß]{2,})+)\b/gu,
-      /\b(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]{2,}(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]{2,})+)\b/gu,
-      /\b(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]{2,}(?:\s+[a-z]{2,})+)\b/gu,
+      /\b(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]{2,}(?:\s+[a-ząćęłńóśźż]{2,}){0,2})(?!\p{L})/gu,
+      /\b(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]{2,}(?:\s+[a-zäöüß]{2,}){0,2})(?!\p{L})/gu,
+      /\b(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]{2,}(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]{2,}){0,2})(?!\p{L})/gu,
+      /\b(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]{2,}(?:\s+[a-z]{2,}){0,2})(?!\p{L})/gu,
     ];
 
     for (const pattern of lowercasePrepositionPatterns) {
@@ -963,6 +1354,10 @@ export class PrivacyGuard {
             EXCLUDED_NAME_WORDS.has(lowerVal) ||
             words.some((w) => EXCLUDED_NAME_WORDS.has(w));
           if (isCityOrExcluded) continue;
+
+          if (words.length === 1 && !isValidSingleName(words[0])) {
+            continue;
+          }
 
           const offset = m[0].lastIndexOf(m[1]);
           const s = m.index + offset;
