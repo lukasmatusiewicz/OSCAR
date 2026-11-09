@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OSCAR Gateway API
-  version: 1.0.0
+  version: "1.0.0"
   description: Confidential Agent Runtime Gateway API providing local PII masking, Zero Data Retention AI orchestration, and client-side AES-256-GCM envelope encryption.
   contact:
     name: OSCAR Core Engineering Team
