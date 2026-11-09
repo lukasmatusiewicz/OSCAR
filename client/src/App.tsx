@@ -4,6 +4,7 @@ import { TaskBoard } from './views/TaskBoard';
 import { useTasks } from './hooks/useTasks';
 import { usePrivacyShield } from './hooks/usePrivacyShield';
 import { PrivacyShieldBadge } from './components/atoms/PrivacyShieldBadge';
+import { InstallPrompt } from './components/atoms/InstallPrompt';
 import { Button } from './components/atoms/Button';
 import { ClientCryptoService } from './services/ClientCryptoService';
 
@@ -160,6 +161,7 @@ export const App: React.FC = () => {
 
         {/* Security Status Header Bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <InstallPrompt />
           <PrivacyShieldBadge
             riskLevel={sessionRiskLevel}
             isSecured={hasActiveKey}
