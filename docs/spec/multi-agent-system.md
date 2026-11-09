@@ -171,7 +171,7 @@ Execution begins only after the Supervisor responds with explicit confirmation (
 * **Zero Autonomous Merges:** No agent has permissions to execute `git merge main`, `git checkout main`, or push to `main`.
 * **Human Handover:** When a feature branch passes all Auditor and Critic checks, the Master Orchestrator pushes the branch and presents a structured Pull Request summary to the Supervisor. The Supervisor alone reviews, approves, and merges the PR on GitHub.
 
-### 7.3 Engineering Craftsmanship & Code Hygiene Gate (Mandatory QA Sign-Off Matrix)
+### 7.3 8-Pillar Engineering Craftsmanship & Code Hygiene Gate (Mandatory QA Sign-Off Matrix)
 
 1. **Git & History Hygiene (Atomic Commits):**
    - Strictly granular, bisectable commits following Conventional Commits (`feat(...)`, `test(...)`, `refactor(...)`). Monolithic single-commit phase squashes are strictly rejected.
@@ -187,6 +187,11 @@ Execution begins only after the Supervisor responds with explicit confirmation (
    - No hardcoded numbers or strings. All timeouts, thresholds, rate limits, and cryptographic identifiers must be defined as exported named constants.
 7. **Semantic HTML & Accessibility (WCAG 2.1 AA):**
    - Strictly semantic elements (interactive controls must be native `<button>`, forms require `<label>` / `aria-label`). Zero non-semantic clickable divs.
+8. **Structured Telemetry & Zero-PII Observability Mandate:**
+   - Every newly authored or modified API route, business domain service, cryptographic operation, and state mutation MUST be instrumented with structured logger calls (`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()`).
+   - Unstructured raw `console.log()` statements are strictly barred by ESLint and code review.
+   - **Zero-PII Logging Invariant:** Log outputs must NEVER output cleartext user data or unmasked PII (personal names, contact details, raw notes content, or session keys). Logs must strictly output operational metadata: execution durations in milliseconds, HTTP methods and routes, status codes, entity IDs, and aggregated PII token types with counts (e.g., `Detected 2 PII tokens [PERSON, PHONE] in 4.2ms`).
+   - **Mandatory QA Gate Enforcement:** The independent QA & Security Auditor must inspect telemetry coverage as part of the Pre-Commit Quality Gate. Absence of structured telemetry or presence of plaintext PII in log calls results in an immediate audit rejection.
 
 ### 7.4 Incident Escalation & Circuit Breaker
 If an agent encounters any of the following conditions, it must halt execution immediately and escalate to the Master Orchestrator and the Supervisor:
@@ -202,7 +207,7 @@ To eliminate cognitive drift, context saturation, and non-deterministic hallucin
 1. **Strict Ephemerality & Task Boundedness:**
    - Subagents are strictly ephemeral, single-purpose worker processes instantiated for a tightly scoped engineering task or lifecycle phase.
    - Reusing bloated subagent execution contexts across distinct phases or divergent deliverables is **strictly prohibited**. Cumulative conversational tokens inevitably cause context saturation, stale assumption propagation, and hallucination risks.
-   - Upon completion of its assigned brief and verification against the 7-Pillar Craftsmanship Gate (Section 7.3), the subagent delivers its final structured report to the Master Orchestrator and terminates immediately.
+   - Upon completion of its assigned brief and verification against the 8-Pillar Craftsmanship Gate (Section 7.3), the subagent delivers its final structured report to the Master Orchestrator and terminates immediately.
 
 2. **Clean-Slate Instantiation:**
    - Every distinct deliverable, architectural milestone, or lifecycle phase must instantiate a fresh subagent starting from a clean slate.
