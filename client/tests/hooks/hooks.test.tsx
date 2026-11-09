@@ -288,6 +288,72 @@ describe('Reactive State Hooks', () => {
       consoleErrorSpy.mockRestore();
     });
 
+    it('correctly extracts temporal boundaries and normalized time during offline fallback', async () => {
+      let createdDecryptedPayload: DecryptedTaskPayload | null = null;
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const formatIso = (d: Date) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const getTomorrow = () => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return formatIso(d);
+      };
+
+      const getUpcomingWednesday = () => {
+        const d = new Date();
+        const currentDay = d.getDay();
+        let diff = (3 - currentDay + 7) % 7;
+        if (diff === 0) diff = 7;
+        d.setDate(d.getDate() + diff);
+        return formatIso(d);
+      };
+
+      const { result } = renderHook(() =>
+        useMemos({
+          onTaskCreated: (_task, decrypted) => {
+            createdDecryptedPayload = decrypted;
+          },
+        })
+      );
+
+      // 1. "Spotkanie z Marcinem Jutro o 12"
+      await act(async () => {
+        await result.current.submitMemo('Spotkanie z Marcinem Jutro o 12');
+      });
+      expect(createdDecryptedPayload!.contactPerson).toBe('Marcin');
+      expect(createdDecryptedPayload!.scheduledDate).toBe(getTomorrow());
+      expect(createdDecryptedPayload!.scheduledTime).toBe('12:00');
+
+      // 2. "Środa o 15"
+      await act(async () => {
+        await result.current.submitMemo('Środa o 15');
+      });
+      expect(createdDecryptedPayload!.scheduledDate).toBe(getUpcomingWednesday());
+      expect(createdDecryptedPayload!.scheduledTime).toBe('15:00');
+
+      // 3. German: "Treffen mit Markus morgen um 14"
+      await act(async () => {
+        await result.current.submitMemo('Treffen mit Markus morgen um 14');
+      });
+      expect(createdDecryptedPayload!.contactPerson).toBe('Markus');
+      expect(createdDecryptedPayload!.scheduledDate).toBe(getTomorrow());
+      expect(createdDecryptedPayload!.scheduledTime).toBe('14:00');
+
+      // 4. English: "Call with Sarah tomorrow at 3pm"
+      await act(async () => {
+        await result.current.submitMemo('Call with Sarah tomorrow at 3pm');
+      });
+      expect(createdDecryptedPayload!.contactPerson).toBe('Sarah');
+      expect(createdDecryptedPayload!.scheduledDate).toBe(getTomorrow());
+      expect(createdDecryptedPayload!.scheduledTime).toBe('15:00');
+    });
+
     it('synthesizes Google Calendar-style structured summary with tokens in offline fallback', async () => {
       let createdDecrypted: DecryptedTaskPayload | null = null;
       let createdTask: TaskEntity | null = null;
@@ -346,11 +412,11 @@ describe('Reactive State Hooks', () => {
       expect(createdDecrypted!.contactPerson).toBe('Dr. Alice');
       expect(createdDecrypted!.location).toBe('Berlin Office');
       expect(createdDecrypted!.amount).toBe('1000 EUR');
-      expect(createdDecrypted!.scheduledTime).toBe('tomorrow at 14:00');
+      expect(createdDecrypted!.scheduledTime).toBe('14:00');
       expect(createdDecrypted!.summary).toContain('👤 Contact: Dr. Alice');
       expect(createdDecrypted!.summary).toContain('📍 Location: Berlin Office');
       expect(createdDecrypted!.summary).toContain('💰 Amount: 1000 EUR');
-      expect(createdDecrypted!.summary).toContain('⏰ Time: tomorrow at 14:00');
+      expect(createdDecrypted!.summary).toContain('⏰ Time: 14:00');
       expect(createdDecrypted!.summary).toContain('📝 Notes: sk-12345678901234567890');
     });
 

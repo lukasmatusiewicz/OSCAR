@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+export { TEMPORAL_STOP_WORDS } from '../privacy/PrivacyGuard.js';
 
 const DAYS_IN_WEEK = 7;
 
@@ -22,16 +23,22 @@ const WEEKDAY_MAP: Record<string, number> = {
   donnerstag: 4,
   freitag: 5,
   samstag: 6,
+  sonnabend: 6,
   // Polish
+  niedziela: 0,
   niedzielę: 0,
   niedziele: 0,
   poniedziałek: 1,
+  poniedzialek: 1,
   wtorek: 2,
+  środa: 3,
+  sroda: 3,
   środę: 3,
   srode: 3,
   czwartek: 4,
   piątek: 5,
   piatek: 5,
+  sobota: 6,
   sobotę: 6,
   sobote: 6,
 };
@@ -171,9 +178,9 @@ export function resolveRelativeDate(
   }
 
   // 6. Weekdays: Upcoming weekday (1 to 7 days ahead)
-  // Polish: w(?:e)?\s+(poniedziałek|wtorek|środę|srode|czwartek|piątek|piatek|sobotę|sobote|niedzielę|niedziele)
+  // Polish: (?:w(?:e)?\s+)?(poniedziałek|...)
   const plWeekdayMatch = text.match(
-    /(?<!\p{L})w(?:e)?\s+(poniedziałek|wtorek|środę|srode|czwartek|piątek|piatek|sobotę|sobote|niedzielę|niedziele)(?!\p{L})/iu,
+    /(?<!\p{L})(?:w(?:e)?\s+)?(poniedziałek|poniedzialek|wtorek|środa|sroda|środę|srode|czwartek|piątek|piatek|sobota|sobotę|sobote|niedziela|niedzielę|niedziele)(?!\p{L})/iu,
   );
   if (plWeekdayMatch && plWeekdayMatch[1]) {
     const dayName = plWeekdayMatch[1].toLowerCase();
@@ -187,9 +194,9 @@ export function resolveRelativeDate(
     }
   }
 
-  // German: am\s+(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)
+  // German: (?:am\s+)?(Montag|...)
   const deWeekdayMatch = text.match(
-    /(?<!\p{L})am\s+(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)(?!\p{L})/iu,
+    /(?<!\p{L})(?:am\s+)?(montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonnabend|sonntag)(?!\p{L})/iu,
   );
   if (deWeekdayMatch && deWeekdayMatch[1]) {
     const dayName = deWeekdayMatch[1].toLowerCase();
@@ -221,3 +228,5 @@ export function resolveRelativeDate(
 
   return null;
 }
+
+export { extractScheduledTime } from './DeterministicFallbackExtractor.js';

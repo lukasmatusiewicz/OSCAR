@@ -142,7 +142,99 @@ const addressRegex = new RegExp(
   'gu',
 );
 
+export const TEMPORAL_STOP_WORDS = new Set([
+  // Polish
+  'dzisiaj',
+  'jutro',
+  'pojutrze',
+  'wczoraj',
+  'przedwczoraj',
+  'rano',
+  'wieczorem',
+  'południe',
+  'poludnie',
+  'noc',
+  'nocy',
+  'poniedziałek',
+  'poniedzialek',
+  'wtorek',
+  'środa',
+  'sroda',
+  'środę',
+  'srode',
+  'czwartek',
+  'piątek',
+  'piatek',
+  'sobota',
+  'sobotę',
+  'sobote',
+  'niedziela',
+  'niedzielę',
+  'niedziele',
+  'tydzień',
+  'tydzien',
+  'miesiąc',
+  'miesiac',
+  'rok',
+  'godzina',
+  'godzinie',
+  'godz',
+  'o',
+  // German
+  'heute',
+  'morgen',
+  'übermorgen',
+  'ubermorgen',
+  'gestern',
+  'vorgestern',
+  'früh',
+  'fruh',
+  'abend',
+  'abends',
+  'mittag',
+  'mittags',
+  'nacht',
+  'montag',
+  'dienstag',
+  'mittwoch',
+  'donnerstag',
+  'freitag',
+  'samstag',
+  'sonnabend',
+  'sonntag',
+  'woche',
+  'monat',
+  'jahr',
+  'stunde',
+  'uhr',
+  'um',
+  'am',
+  // English
+  'today',
+  'tomorrow',
+  'yesterday',
+  'morning',
+  'evening',
+  'noon',
+  'afternoon',
+  'night',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+  'week',
+  'month',
+  'year',
+  'hour',
+  'at',
+  'on',
+]);
+
 const EXCLUDED_PERSON_WORDS = new Set([
+  ...TEMPORAL_STOP_WORDS,
   'street',
   'st',
   'road',
@@ -460,6 +552,8 @@ export const KNOWN_SINGLE_NAMES = new Set([
   'max',
   'leo',
   'felix',
+  'markus',
+  'marcus',
   'klaus',
   'stefan',
   'jürgen',
@@ -582,6 +676,7 @@ export function isValidSingleName(word: string): boolean {
   const lower = word.toLowerCase().trim();
   if (lower.length < 2) return false;
   if (EXCLUDED_PERSON_WORDS.has(lower)) return false;
+  if (TEMPORAL_STOP_WORDS.has(lower)) return false;
 
   // 1. In known name inflection dictionaries (keys or values)
   if (
@@ -715,7 +810,7 @@ function resolveOverlaps(matches: RawMatch[]): RawMatch[] {
   return accepted.sort((a, b) => a.startIndex - b.startIndex);
 }
 
-export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskLevel: RiskLevel } {
+export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskLevel: RiskLevel; sanitizedText: string } {
   const rawMatches: RawMatch[] = [];
 
   // 1. SECRET_KEY
@@ -933,8 +1028,20 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
   for (const pattern of lowercasePrepositionPatterns) {
     for (const m of text.matchAll(pattern)) {
       if (m.index !== undefined && m[1]) {
-        const words = m[1].toLowerCase().split(/\s+/).map((w) => w.replace(/[.,]/g, ''));
-        if (words.some((w) => EXCLUDED_PERSON_WORDS.has(w))) {
+        const candidateWords = m[1].split(/\s+/);
+        while (candidateWords.length > 1) {
+          const lastWord = candidateWords[candidateWords.length - 1].toLowerCase().replace(/[.,]/g, '');
+          if (TEMPORAL_STOP_WORDS.has(lastWord) || EXCLUDED_PERSON_WORDS.has(lastWord)) {
+            candidateWords.pop();
+          } else {
+            break;
+          }
+        }
+        if (candidateWords.length === 0) continue;
+
+        const candidateVal = candidateWords.join(' ');
+        const words = candidateWords.map((w) => w.toLowerCase().replace(/[.,]/g, ''));
+        if (words.some((w) => EXCLUDED_PERSON_WORDS.has(w) || TEMPORAL_STOP_WORDS.has(w))) {
           continue;
         }
         if (words.length === 1 && !isValidSingleName(words[0])) {
@@ -942,7 +1049,7 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
         }
         const offset = m[0].lastIndexOf(m[1]);
         const startIndex = m.index + offset;
-        const endIndex = startIndex + m[1].length;
+        const endIndex = startIndex + candidateVal.length;
         const alreadyMatched = rawMatches.some(
           (existing) =>
             existing.type === 'PERSON' &&
@@ -952,7 +1059,7 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
         if (!alreadyMatched) {
           rawMatches.push({
             type: 'PERSON',
-            value: m[1],
+            value: candidateVal,
             startIndex,
             endIndex,
           });
@@ -1007,7 +1114,19 @@ export function detectClientTokens(text: string): { tokens: PIITokenMap[]; riskL
     }
   }
 
-  return { tokens, riskLevel };
+  let sanitizedText = text;
+  const sortedMatches = [...resolved].sort((a, b) => b.startIndex - a.startIndex);
+  for (const match of sortedMatches) {
+    const tok = tokens.find((t) => t.startIndex === match.startIndex);
+    if (tok) {
+      sanitizedText =
+        sanitizedText.slice(0, match.startIndex) +
+        tok.token +
+        sanitizedText.slice(match.endIndex);
+    }
+  }
+
+  return { tokens, riskLevel, sanitizedText };
 }
 
 export const MemoEditor: React.FC<MemoEditorProps> = ({

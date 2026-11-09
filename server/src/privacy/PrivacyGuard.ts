@@ -77,7 +77,99 @@ export const INTERNATIONAL_CITIES = [
   'Gdańsku',
 ];
 
+export const TEMPORAL_STOP_WORDS = new Set([
+  // Polish
+  'dzisiaj',
+  'jutro',
+  'pojutrze',
+  'wczoraj',
+  'przedwczoraj',
+  'rano',
+  'wieczorem',
+  'południe',
+  'poludnie',
+  'noc',
+  'nocy',
+  'poniedziałek',
+  'poniedzialek',
+  'wtorek',
+  'środa',
+  'sroda',
+  'środę',
+  'srode',
+  'czwartek',
+  'piątek',
+  'piatek',
+  'sobota',
+  'sobotę',
+  'sobote',
+  'niedziela',
+  'niedzielę',
+  'niedziele',
+  'tydzień',
+  'tydzien',
+  'miesiąc',
+  'miesiac',
+  'rok',
+  'godzina',
+  'godzinie',
+  'godz',
+  'o',
+  // German
+  'heute',
+  'morgen',
+  'übermorgen',
+  'ubermorgen',
+  'gestern',
+  'vorgestern',
+  'früh',
+  'fruh',
+  'abend',
+  'abends',
+  'mittag',
+  'mittags',
+  'nacht',
+  'montag',
+  'dienstag',
+  'mittwoch',
+  'donnerstag',
+  'freitag',
+  'samstag',
+  'sonnabend',
+  'sonntag',
+  'woche',
+  'monat',
+  'jahr',
+  'stunde',
+  'uhr',
+  'um',
+  'am',
+  // English
+  'today',
+  'tomorrow',
+  'yesterday',
+  'morning',
+  'evening',
+  'noon',
+  'afternoon',
+  'night',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+  'week',
+  'month',
+  'year',
+  'hour',
+  'at',
+  'on',
+]);
+
 export const EXCLUDED_NAME_WORDS = new Set([
+  ...TEMPORAL_STOP_WORDS,
   'new',
   'york',
   'kassel',
@@ -490,6 +582,8 @@ export const KNOWN_SINGLE_NAMES = new Set([
   'max',
   'leo',
   'felix',
+  'markus',
+  'marcus',
   'klaus',
   'stefan',
   'jürgen',
@@ -612,6 +706,7 @@ export function isValidSingleName(word: string): boolean {
   const lower = word.toLowerCase().trim();
   if (lower.length < 2) return false;
   if (EXCLUDED_NAME_WORDS.has(lower)) return false;
+  if (TEMPORAL_STOP_WORDS.has(lower)) return false;
   if (INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lower)) return false;
 
   // 1. In known name inflection dictionaries (keys or values)
@@ -1325,12 +1420,25 @@ export class PrivacyGuard {
 
     for (const m of text.matchAll(personPrepRegex)) {
       if (m.index !== undefined && m[1]) {
-        const lowerVal = m[1].toLowerCase();
-        const words = lowerVal.split(/\s+/).map((w) => w.replace(/[.,]/g, ''));
+        const candidateWords = m[1].split(/\s+/);
+        while (candidateWords.length > 1) {
+          const lastWord = candidateWords[candidateWords.length - 1].toLowerCase().replace(/[.,]/g, '');
+          if (TEMPORAL_STOP_WORDS.has(lastWord) || EXCLUDED_NAME_WORDS.has(lastWord)) {
+            candidateWords.pop();
+          } else {
+            break;
+          }
+        }
+        if (candidateWords.length === 0) continue;
+
+        const candidateVal = candidateWords.join(' ');
+        const lowerVal = candidateVal.toLowerCase();
+        const words = candidateWords.map((w) => w.toLowerCase().replace(/[.,]/g, ''));
         const isCityOrExcluded =
           INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
           EXCLUDED_NAME_WORDS.has(lowerVal) ||
-          words.some((w) => EXCLUDED_NAME_WORDS.has(w));
+          TEMPORAL_STOP_WORDS.has(lowerVal) ||
+          words.some((w) => EXCLUDED_NAME_WORDS.has(w) || TEMPORAL_STOP_WORDS.has(w));
         if (isCityOrExcluded) continue;
 
         if (words.length === 1 && !isValidSingleName(words[0])) {
@@ -1339,14 +1447,14 @@ export class PrivacyGuard {
 
         const offset = m[0].lastIndexOf(m[1]);
         const s = m.index + offset;
-        const e = s + m[1].length;
+        const e = s + candidateVal.length;
         const alreadyMatched = initialPersonMatches.some(
           (existing) => s < existing.endIndex && e > existing.startIndex,
         );
         if (!alreadyMatched) {
           initialPersonMatches.push({
             type: 'PERSON',
-            value: m[1],
+            value: candidateVal,
             startIndex: s,
             endIndex: e,
           });
@@ -1364,12 +1472,25 @@ export class PrivacyGuard {
     for (const pattern of lowercasePrepositionPatterns) {
       for (const m of text.matchAll(pattern)) {
         if (m.index !== undefined && m[1]) {
-          const lowerVal = m[1].toLowerCase();
-          const words = lowerVal.split(/\s+/).map((w) => w.replace(/[.,]/g, ''));
+          const candidateWords = m[1].split(/\s+/);
+          while (candidateWords.length > 1) {
+            const lastWord = candidateWords[candidateWords.length - 1].toLowerCase().replace(/[.,]/g, '');
+            if (TEMPORAL_STOP_WORDS.has(lastWord) || EXCLUDED_NAME_WORDS.has(lastWord)) {
+              candidateWords.pop();
+            } else {
+              break;
+            }
+          }
+          if (candidateWords.length === 0) continue;
+
+          const candidateVal = candidateWords.join(' ');
+          const lowerVal = candidateVal.toLowerCase();
+          const words = candidateWords.map((w) => w.toLowerCase().replace(/[.,]/g, ''));
           const isCityOrExcluded =
             INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
             EXCLUDED_NAME_WORDS.has(lowerVal) ||
-            words.some((w) => EXCLUDED_NAME_WORDS.has(w));
+            TEMPORAL_STOP_WORDS.has(lowerVal) ||
+            words.some((w) => EXCLUDED_NAME_WORDS.has(w) || TEMPORAL_STOP_WORDS.has(w));
           if (isCityOrExcluded) continue;
 
           if (words.length === 1 && !isValidSingleName(words[0])) {
@@ -1378,14 +1499,14 @@ export class PrivacyGuard {
 
           const offset = m[0].lastIndexOf(m[1]);
           const s = m.index + offset;
-          const e = s + m[1].length;
+          const e = s + candidateVal.length;
           const alreadyMatched = initialPersonMatches.some(
             (existing) => s < existing.endIndex && e > existing.startIndex,
           );
           if (!alreadyMatched) {
             initialPersonMatches.push({
               type: 'PERSON',
-              value: m[1],
+              value: candidateVal,
               startIndex: s,
               endIndex: e,
             });
@@ -1399,7 +1520,12 @@ export class PrivacyGuard {
       if (m.index !== undefined) {
         const w1 = m[1].toLowerCase();
         const w2 = m[2].toLowerCase();
-        if (!EXCLUDED_NAME_WORDS.has(w1) && !EXCLUDED_NAME_WORDS.has(w2)) {
+        if (
+          !EXCLUDED_NAME_WORDS.has(w1) &&
+          !EXCLUDED_NAME_WORDS.has(w2) &&
+          !TEMPORAL_STOP_WORDS.has(w1) &&
+          !TEMPORAL_STOP_WORDS.has(w2)
+        ) {
           const s = m.index;
           const e = s + m[0].length;
           const alreadyMatched = initialPersonMatches.some(

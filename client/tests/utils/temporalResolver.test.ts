@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveRelativeDate } from '../../src/utils/temporalResolver';
+import { resolveRelativeDate, extractScheduledTime } from '../../src/utils/temporalResolver';
 
 describe('client temporalResolver Unit Suite', () => {
   // Reference date: Monday, November 9, 2026 at 12:00:00 (midday local)
@@ -44,7 +44,12 @@ describe('client temporalResolver Unit Suite', () => {
       expect(resolveRelativeDate('Wyjazd w sobote', refDate)).toBe('2026-11-14');
       expect(resolveRelativeDate('Odpoczynek w niedzielę', refDate)).toBe('2026-11-15');
       expect(resolveRelativeDate('Odpoczynek w niedziele', refDate)).toBe('2026-11-15');
+      expect(resolveRelativeDate('Środa o 15', refDate)).toBe('2026-11-11');
+      expect(resolveRelativeDate('Sroda o 15', refDate)).toBe('2026-11-11');
+      expect(resolveRelativeDate('Sobota wyjazd', refDate)).toBe('2026-11-14');
+      expect(resolveRelativeDate('Niedziela odpoczynek', refDate)).toBe('2026-11-15');
       expect(resolveRelativeDate('Spotkanie w poniedziałek', refDate)).toBe('2026-11-16');
+      expect(resolveRelativeDate('Spotkanie w poniedzialek', refDate)).toBe('2026-11-16');
     });
   });
 
@@ -121,6 +126,29 @@ describe('client temporalResolver Unit Suite', () => {
       const expectedStr = `${year}-${month}-${day}`;
 
       expect(resolveRelativeDate('tomorrow')).toBe(expectedStr);
+    });
+  });
+
+  describe('extractScheduledTime', () => {
+    it('normalizes single-hour and prefixed times correctly across variants', () => {
+      expect(extractScheduledTime('Spotkanie o 12')).toBe('12:00');
+      expect(extractScheduledTime('Spotkanie o 15')).toBe('15:00');
+      expect(extractScheduledTime('Kawa o 9 rano')).toBe('09:00');
+      expect(extractScheduledTime('Treffen um 14')).toBe('14:00');
+      expect(extractScheduledTime('Meeting um 9')).toBe('09:00');
+      expect(extractScheduledTime('Call at 15')).toBe('15:00');
+      expect(extractScheduledTime('Sync at 3pm')).toBe('15:00');
+      expect(extractScheduledTime('Sync at 3 pm')).toBe('15:00');
+      expect(extractScheduledTime('Breakfast at 9am')).toBe('09:00');
+      expect(extractScheduledTime('Breakfast at 9 am')).toBe('09:00');
+      expect(extractScheduledTime('Lunch o 12:30')).toBe('12:30');
+      expect(extractScheduledTime('Workshop um 14:00')).toBe('14:00');
+      expect(extractScheduledTime('Review at 15:30')).toBe('15:30');
+      expect(extractScheduledTime('Wizyta godz. 12')).toBe('12:00');
+      expect(extractScheduledTime('Wizyta godz 14:00')).toBe('14:00');
+      expect(extractScheduledTime('Standard 12:00')).toBe('12:00');
+      expect(extractScheduledTime('Invalid o 25')).toBeNull();
+      expect(extractScheduledTime('')).toBeNull();
     });
   });
 });

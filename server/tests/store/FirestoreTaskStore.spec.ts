@@ -362,6 +362,34 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
       expect(certStore).toBeInstanceOf(FirestoreTaskStore);
     });
 
+    it('initializes with clientEmail and privateKey from environment variables (FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)', () => {
+      const { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+      const rawPem = privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
+      const escapedPem = rawPem.replace(/\n/g, '\\n');
+
+      const originalEmail = process.env.FIREBASE_CLIENT_EMAIL;
+      const originalKey = process.env.FIREBASE_PRIVATE_KEY;
+      const originalProject = process.env.FIREBASE_PROJECT_ID;
+
+      try {
+        process.env.FIREBASE_CLIENT_EMAIL = 'env-svc@oscar-env.iam.gserviceaccount.com';
+        process.env.FIREBASE_PRIVATE_KEY = escapedPem;
+        process.env.FIREBASE_PROJECT_ID = 'oscar-env-cert-proj';
+
+        const envStore = new FirestoreTaskStore();
+        expect(envStore).toBeInstanceOf(FirestoreTaskStore);
+      } finally {
+        if (originalEmail !== undefined) process.env.FIREBASE_CLIENT_EMAIL = originalEmail;
+        else delete process.env.FIREBASE_CLIENT_EMAIL;
+
+        if (originalKey !== undefined) process.env.FIREBASE_PRIVATE_KEY = originalKey;
+        else delete process.env.FIREBASE_PRIVATE_KEY;
+
+        if (originalProject !== undefined) process.env.FIREBASE_PROJECT_ID = originalProject;
+        else delete process.env.FIREBASE_PROJECT_ID;
+      }
+    });
+
     it('initializes using FIRESTORE_EMULATOR_HOST environment configuration', () => {
       const originalEmu = process.env.FIRESTORE_EMULATOR_HOST;
       try {
