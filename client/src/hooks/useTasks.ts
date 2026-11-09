@@ -187,6 +187,7 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
 
   const updateTaskPayload = useCallback(
     (taskId: string, updatedPayload: DecryptedTaskPayload) => {
+      logger.info('useTasks', `Updating task payload for ${taskId}`);
       setDecryptedPayloads((prev) => ({
         ...prev,
         [taskId]: updatedPayload,
@@ -200,12 +201,49 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
               contactPerson: updatedPayload.contactPerson ?? t.contactPerson,
               amount: updatedPayload.amount ?? t.amount,
               scheduledTime: updatedPayload.scheduledTime ?? t.scheduledTime,
+              scheduledDate:
+                updatedPayload.scheduledDate !== undefined
+                  ? updatedPayload.scheduledDate
+                  : t.scheduledDate,
               updatedAt: new Date().toISOString(),
             };
           }
           return t;
         }),
       );
+
+      // Re-encrypt updated payload with session key and dispatch to gateway
+      (async () => {
+        if (ClientCryptoService.hasSessionKey()) {
+          try {
+            const newEncryptedPayload = await ClientCryptoService.encrypt(updatedPayload);
+            if (isMountedRef.current) {
+              setTasks((prev) =>
+                prev.map((t) =>
+                  t.id === taskId ? { ...t, encryptedPayload: newEncryptedPayload } : t,
+                ),
+              );
+            }
+          } catch {
+            // Keep existing encryption
+          }
+        }
+
+        gatewayClient
+          .patchTask(taskId, {
+            title: updatedPayload.title,
+            summary: updatedPayload.summary,
+            subtasks: updatedPayload.subtasks,
+            location: updatedPayload.location,
+            contactPerson: updatedPayload.contactPerson,
+            amount: updatedPayload.amount,
+            scheduledTime: updatedPayload.scheduledTime,
+            scheduledDate: updatedPayload.scheduledDate,
+          })
+          .catch(() => {
+            // Optimistic update retained offline
+          });
+      })();
     },
     [],
   );

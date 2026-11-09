@@ -228,6 +228,11 @@ export const DecryptedTaskPayloadSchema = z.object({
     .nullable()
     .optional()
     .describe('Colloquial or explicit time specification'),
+  scheduledDate: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('ISO 8601 scheduled date string or null'),
 });
 
 export type DecryptedTaskPayload = z.infer<typeof DecryptedTaskPayloadSchema>;

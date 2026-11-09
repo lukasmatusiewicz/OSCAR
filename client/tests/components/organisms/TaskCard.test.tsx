@@ -402,4 +402,86 @@ describe('TaskCard', () => {
       expect(screen.getByTestId(`task-status-badge-${weirdTask.id}`)).toBeInTheDocument();
     });
   });
+
+  describe('Task Deletion across all statuses', () => {
+    it.each<TaskStatus>(['DRAFT', 'PENDING', 'IN_PROGRESS', 'COMPLETED'])(
+      'renders Delete button and invokes onDelete for task in %s status',
+      (status) => {
+        const handleDelete = vi.fn();
+        const testTask: TaskEntity = { ...mockTask, status };
+
+        render(
+          <TaskCard
+            task={testTask}
+            decryptedPayload={mockDecrypted}
+            onDelete={handleDelete}
+          />
+        );
+
+        const deleteBtn = screen.getByRole('button', { name: /delete task/i });
+        expect(deleteBtn).toBeInTheDocument();
+        fireEvent.click(deleteBtn);
+        expect(handleDelete).toHaveBeenCalledWith(testTask.id);
+      }
+    );
+  });
+
+  describe('Confirmed Task Editing', () => {
+    it('allows editing confirmed task (PENDING), displays "Edit Task" title, updates fields including scheduledDate, and preserves status', () => {
+      const handleTaskUpdate = vi.fn();
+      const handleStatusChange = vi.fn();
+      const pendingTask: TaskEntity = { ...mockTask, status: 'PENDING' };
+
+      render(
+        <TaskCard
+          task={pendingTask}
+          decryptedPayload={mockDecrypted}
+          onTaskUpdate={handleTaskUpdate}
+          onStatusChange={handleStatusChange}
+        />
+      );
+
+      // Click Edit button in actions area
+      const editBtn = screen.getByRole('button', { name: /edit task/i });
+      fireEvent.click(editBtn);
+
+      // Verify title shows "Edit Task"
+      expect(screen.getByText('✏️ Edit Task')).toBeInTheDocument();
+
+      // Edit fields
+      const titleInput = screen.getByRole('textbox', { name: /^title$/i });
+      fireEvent.change(titleInput, { target: { value: 'Confirmed Task New Title' } });
+
+      const dateInput = screen.getByLabelText(/scheduled date/i);
+      fireEvent.change(dateInput, { target: { value: '2026-11-25' } });
+
+      // Save
+      const saveBtn = screen.getByRole('button', { name: /confirm & save task/i });
+      fireEvent.click(saveBtn);
+
+      expect(handleTaskUpdate).toHaveBeenCalledWith(
+        pendingTask.id,
+        expect.objectContaining({
+          title: 'Confirmed Task New Title',
+          scheduledDate: '2026-11-25',
+        })
+      );
+      // Confirmed task status should NOT be transitioned to PENDING again
+      expect(handleStatusChange).not.toHaveBeenCalled();
+    });
+
+    it('allows editing task in IN_PROGRESS status and shows Edit button', () => {
+      const inProgressTask: TaskEntity = { ...mockTask, status: 'IN_PROGRESS' };
+
+      render(
+        <TaskCard
+          task={inProgressTask}
+          decryptedPayload={mockDecrypted}
+        />
+      );
+
+      const editBtn = screen.getByRole('button', { name: /edit task/i });
+      expect(editBtn).toBeInTheDocument();
+    });
+  });
 });
