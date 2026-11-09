@@ -1,7 +1,7 @@
-import { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
-import { ITaskRepository } from './ITaskRepository.js';
+import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
+import type { ITaskRepository } from './ITaskRepository.js';
 
-export { ITaskRepository } from './ITaskRepository.js';
+export type { ITaskRepository } from './ITaskRepository.js';
 
 /**
  * In-memory store for TaskEntity and MemoEntity records.

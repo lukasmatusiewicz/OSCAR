@@ -5,8 +5,8 @@ import {
   QueryDocumentSnapshot,
   DocumentData,
 } from 'firebase-admin/firestore';
-import { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
-import { ITaskRepository } from './ITaskRepository.js';
+import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
+import type { ITaskRepository } from './ITaskRepository.js';
 
 export const COLLECTION_MEMOS = 'memos';
 export const COLLECTION_TASKS = 'tasks';
