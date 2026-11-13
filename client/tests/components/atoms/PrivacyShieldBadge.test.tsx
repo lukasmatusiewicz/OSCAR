@@ -10,13 +10,13 @@ describe('PrivacyShieldBadge', () => {
     expect(screen.getByTestId('privacy-shield-token-count')).toHaveTextContent('3');
   });
 
-  it('renders high risk warning styling and zero risk correctly', () => {
+  it('renders high risk warning styling and NONE risk correctly', () => {
     const { unmount } = render(<PrivacyShieldBadge riskLevel="HIGH" isSecured={true} tokenCount={8} />);
     expect(screen.getByText(/high privacy sensitivity/i)).toBeInTheDocument();
     unmount();
 
     render(<PrivacyShieldBadge riskLevel="NONE" isSecured={true} tokenCount={0} />);
-    expect(screen.getByText(/zero risk/i)).toBeInTheDocument();
+    expect(screen.getByText(/no pii detected/i)).toBeInTheDocument();
   });
 
   it('renders offline indicator when isSecured is false', () => {
