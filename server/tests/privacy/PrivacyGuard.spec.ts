@@ -3,7 +3,9 @@ import {
   PrivacyGuard,
   rehydrate,
   TOKEN_PATTERN,
+  isValidIban,
   isValidPesel,
+  isValidSingleName,
   isGermanSteuerId,
   isValidSsn,
 } from '../../src/privacy/PrivacyGuard.js';
@@ -1687,6 +1689,64 @@ describe('PrivacyGuard Engine Suite', () => {
         arabicDigitPesel.tokens.some((t) => t.type === 'NATIONAL_ID' && t.originalValue === '٤٤٠٥١٤٠١٣٥٩'),
       ).toBe(true);
       expect(arabicDigitPesel.sanitizedText).toBe('PESEL: [NATIONAL_ID_1].');
+    });
+  });
+
+  // =========================================================================
+  // 14. Helper & Edge Branch Coverage (isValidSingleName, isValidIban, titleCase, maskAsync)
+  // =========================================================================
+  describe('Helper & Edge Branch Coverage', () => {
+    it('covers isValidSingleName guard branches (short, excluded, temporal, city, valid)', () => {
+      expect(isValidSingleName('')).toBe(false);
+      expect(isValidSingleName('a')).toBe(false);
+      expect(isValidSingleName('mlekiem')).toBe(false);
+      expect(isValidSingleName('jutro')).toBe(false);
+      expect(isValidSingleName('berlin')).toBe(false);
+      expect(isValidSingleName('markiem')).toBe(true);
+    });
+
+    it('covers isValidIban length, format, and checksum branches', () => {
+      expect(isValidIban('DE89')).toBe(false);
+      expect(isValidIban('DE89 3704 0044 0532 0130 00!')).toBe(false);
+      expect(isValidIban('1289370400440532013000')).toBe(false);
+      expect(isValidIban('DEAB370400440532013000')).toBe(false);
+      expect(isValidIban('DE89 3704 0044 0532 0130 00')).toBe(true);
+    });
+
+    it('covers empty hyphen part in titleCasePersonToken during contactPerson rehydration', () => {
+      const tokens: PIITokenMap[] = [
+        {
+          token: '[PERSON_1]',
+          type: 'PERSON',
+          originalValue: 'anna--maria',
+          startIndex: 0,
+          endIndex: 11,
+        },
+      ];
+      const rehydrated = rehydrate({ contactPerson: '[PERSON_1]' }, tokens);
+      expect(rehydrated.contactPerson).toBe('Anna--Maria');
+    });
+
+    it('covers non-overlapping lowercase preposition matches', () => {
+      const res = PrivacyGuard.mask('spotkanie z janem oraz rozmowa z anną');
+      const personTokens = res.tokens.filter((t) => t.type === 'PERSON');
+      expect(personTokens.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('covers maskAsync entity fallback branches (entity without entity_group, missing label)', async () => {
+      const mockPipe = (async () => [
+        { entity: 'B-PER', word: 'Alice', start: 0, end: 5 },
+        { entity: 'I-LOC', word: 'Paris', start: 9, end: 14 },
+        { word: 'Ignored', start: 15, end: 22 },
+      ]) as unknown as Parameters<typeof PrivacyGuard.setPipeline>[0];
+      PrivacyGuard.setPipeline(mockPipe);
+      try {
+        const result = await PrivacyGuard.maskAsync('Alice in Paris today');
+        expect(result.tokens.some((t) => t.type === 'PERSON' && t.originalValue === 'Alice')).toBe(true);
+        expect(result.tokens.some((t) => t.type === 'ADDRESS' && t.originalValue === 'Paris')).toBe(true);
+      } finally {
+        PrivacyGuard.setPipeline(undefined);
+      }
     });
   });
 });
