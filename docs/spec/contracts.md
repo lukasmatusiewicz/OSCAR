@@ -326,7 +326,7 @@ export const MemoEntitySchema = z.object({
   id: EntityIdSchema.describe('Unique document identifier (UUIDv4 or Firestore ID)'),
   userId: EntityIdSchema.describe('Owner user identifier'),
   encryptedPayload: EncryptedPayloadSchema.describe('AES-256-GCM ciphertext containing unmasked memo content'),
-  sanitizedContentPreview: z.string().describe('Redacted preview safe for client-side listing (contains only synthetic tokens)'),
+  sanitizedContentPreview: z.string().optional().describe('Optional redacted preview (omitted at rest for zero plaintext PII)'),
   hasPII: z.boolean().describe('Flag indicating if any sensitive tokens were detected and masked'),
   maskedFieldsCount: z.number().int().nonnegative().describe('Total number of masked tokens'),
   createdAt: FirestoreTimestampSchema.describe('Creation timestamp'),
@@ -357,6 +357,7 @@ export const DecryptedTaskPayloadSchema = z.object({
   title: z.string().min(3).max(250).describe('Re-hydrated title accommodating token expansion beyond 120 chars'),
   summary: z.string().min(5).max(1000).describe('Re-hydrated summary accommodating token expansion beyond 500 chars'),
   subtasks: z.array(DecryptedSubtaskItemSchema).min(1).max(10).describe('Checklist with re-hydrated cleartext items'),
+  scheduledDate: z.string().nullable().optional().describe('ISO 8601 scheduled deadline or null'),
   location: z.string().nullable().optional().describe('Extracted physical location, meeting venue, or city'),
   contactPerson: z.string().nullable().optional().describe('Primary person of contact or counterparty'),
   amount: z.string().nullable().optional().describe('Associated financial budget or invoice amount'),
@@ -367,13 +368,13 @@ export type DecryptedTaskPayload = z.infer<typeof DecryptedTaskPayloadSchema>;
 ```
 
 #### B. Persisted Task Document (`TaskEntitySchema`)
-Stored in the `tasks` collection. Sensitive fields (`title`, `summary`, `subtasks`) are envelope-encrypted in `encryptedPayload`, while operational/queryable metadata (`category`, `priority`, `status`, `scheduledDate`, `tags`, `provenance`, `modelVersion`, `location`, `contactPerson`, `amount`, `scheduledTime`, `createdAt`, `updatedAt`) remains unencrypted for database indexing and filtering:
+Stored in the `tasks` collection. All potentially sensitive fields (`title`, `summary`, `subtasks`, `location`, `contactPerson`, `amount`, `scheduledTime`) are envelope-encrypted inside `encryptedPayload` (zero plaintext PII at rest), while non-PII operational/queryable metadata (`category`, `priority`, `status`, `scheduledDate`, `tags`, `provenance`, `modelVersion`, `createdAt`, `updatedAt`) remains unencrypted for database indexing and filtering:
 ```typescript
 export const TaskEntitySchema = z.object({
   id: EntityIdSchema.describe('Unique document identifier (UUIDv4 or Firestore ID)'),
   memoId: EntityIdSchema.describe('Foreign key reference linking to source MemoEntity'),
   userId: EntityIdSchema.describe('Owner user identifier'),
-  encryptedPayload: EncryptedPayloadSchema.describe('AES-256-GCM ciphertext of { title, summary, subtasks }'),
+  encryptedPayload: EncryptedPayloadSchema.describe('AES-256-GCM ciphertext of { title, summary, subtasks, location, contactPerson, amount, scheduledTime }'),
   category: TaskCategorySchema.describe('Non-PII queryable category'),
   priority: TaskPrioritySchema.describe('Non-PII queryable urgency level'),
   status: TaskStatusSchema.describe('Workflow state, defaults to DRAFT for human review'),
@@ -383,10 +384,7 @@ export const TaskEntitySchema = z.object({
   modelVersion: z.string().min(1).describe('Model or rule version identifier (e.g. "gemini-2.5-flash-001" or "fallback-v1")'),
   createdAt: FirestoreTimestampSchema.describe('Creation timestamp'),
   updatedAt: FirestoreTimestampSchema.describe('Last update timestamp'),
-  location: z.string().nullable().optional().describe('Extracted physical location, meeting venue, or city'),
-  contactPerson: z.string().nullable().optional().describe('Primary person of contact or counterparty'),
-  amount: z.string().nullable().optional().describe('Associated financial budget or invoice amount'),
-  scheduledTime: z.string().nullable().optional().describe('Colloquial or explicit time specification')
+  scheduledTime: z.string().nullable().optional().describe('Optional colloquial or explicit time specification')
 });
 
 export type TaskEntity = z.infer<typeof TaskEntitySchema>;
@@ -419,7 +417,80 @@ export type PrivacyAuditLog = z.infer<typeof PrivacyAuditLogSchema>;
 
 ---
 
-## 7. Schema Validation & Safe Parsing Helper
+## 7. REST Gateway Contracts
+
+The Express REST Gateway validates all inbound HTTP payloads and serializes responses using these authoritative Zod schemas (synchronized with `docs/spec/openapi.yaml`):
+
+```typescript
+export const MemoInputSchema = z.object({
+  content: z.string().min(1).max(10000).describe('Raw user memo text for privacy masking and extraction'),
+  title: z.string().max(200).optional().describe('Optional title for the memo')
+});
+export type MemoInput = z.infer<typeof MemoInputSchema>;
+
+export const MaskedTokenSummarySchema = z.object({
+  token: z.string().regex(/^\[[A-Z_]+_\d+\]$/),
+  type: PIITypeSchema
+});
+export type MaskedTokenSummary = z.infer<typeof MaskedTokenSummarySchema>;
+
+export const MemoPIIStatsSchema = z.object({
+  detectedEntityCount: z.number().int().nonnegative(),
+  maskedTokens: z.array(MaskedTokenSummarySchema),
+  riskLevel: RiskLevelSchema
+});
+export type MemoPIIStats = z.infer<typeof MemoPIIStatsSchema>;
+
+export const CreateMemoResponseSchema = z.object({
+  task: TaskEntitySchema,
+  tasks: z.array(TaskEntitySchema),
+  memo: MemoEntitySchema,
+  piiStats: MemoPIIStatsSchema
+});
+export type CreateMemoResponse = z.infer<typeof CreateMemoResponseSchema>;
+
+export const CreateTaskInputSchema = z.object({
+  title: z.string().min(3).max(250),
+  summary: z.string().min(5).max(1000).optional(),
+  category: TaskCategorySchema.default('OTHER'),
+  priority: TaskPrioritySchema.default('MEDIUM'),
+  status: TaskStatusSchema.default('DRAFT'),
+  scheduledDate: z.string().nullable().default(null),
+  tags: z.array(z.string().min(1).max(30)).max(8).default([]),
+  subtasks: z.array(DecryptedSubtaskItemSchema).max(10).optional(),
+  location: z.string().nullable().optional(),
+  contactPerson: z.string().nullable().optional(),
+  amount: z.string().nullable().optional(),
+  scheduledTime: z.string().nullable().optional()
+});
+export type CreateTaskInput = z.infer<typeof CreateTaskInputSchema>;
+
+export const UpdateTaskInputSchema = z.object({
+  title: z.string().min(3).max(250).optional(),
+  summary: z.string().min(5).max(1000).optional(),
+  status: TaskStatusSchema.optional(),
+  priority: TaskPrioritySchema.optional(),
+  category: TaskCategorySchema.optional(),
+  scheduledDate: z.string().nullable().optional(),
+  tags: z.array(z.string().min(1).max(30)).max(8).optional(),
+  subtasks: z.array(DecryptedSubtaskItemSchema).max(10).optional(),
+  location: z.string().nullable().optional(),
+  contactPerson: z.string().nullable().optional(),
+  amount: z.string().nullable().optional(),
+  scheduledTime: z.string().nullable().optional()
+});
+export type UpdateTaskInput = z.infer<typeof UpdateTaskInputSchema>;
+
+export const HealthResponseSchema = z.object({
+  status: z.literal('ok'),
+  timestamp: z.string().datetime()
+});
+export type HealthResponse = z.infer<typeof HealthResponseSchema>;
+```
+
+---
+
+## 8. Schema Validation & Safe Parsing Helper
 
 To ensure robust error handling without throwing uncaught runtime exceptions, domain services invoke standard safe-parsing wrappers:
 
