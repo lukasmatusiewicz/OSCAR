@@ -496,6 +496,7 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
 
   describe('Full Express HTTP Integration with FirestoreTaskStore', () => {
     const rawKeyHex = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const rawKeyBase64 = Buffer.from(rawKeyHex, 'hex').toString('base64');
     let app: ReturnType<typeof createApp>;
 
     beforeEach(() => {
@@ -510,7 +511,7 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
       // 1. POST /api/tasks
       const createRes = await inProcessApp(app)
         .post('/api/tasks')
-        .set('X-Oscar-Encryption-Key', rawKeyHex)
+        .set('X-Oscar-Encryption-Key', rawKeyBase64)
         .send({
           title: 'Secure Firestore Task Execution',
           summary: 'Persist encrypted task entity in Google Cloud Firestore.',
@@ -537,7 +538,7 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
       // 3. PATCH /api/tasks/:id
       const patchRes = await inProcessApp(app)
         .patch(`/api/tasks/${createdTask.id}`)
-        .set('X-Oscar-Encryption-Key', rawKeyHex)
+        .set('X-Oscar-Encryption-Key', rawKeyBase64)
         .send({
           status: 'COMPLETED',
           title: 'Updated Firestore Task Title',
@@ -570,7 +571,7 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
 
       const memoRes = await inProcessApp(app)
         .post('/api/memos')
-        .set('X-Oscar-Encryption-Key', rawKeyHex)
+        .set('X-Oscar-Encryption-Key', rawKeyBase64)
         .send({ content: memoContent });
 
       expect(memoRes.status).toBe(200);
@@ -607,6 +608,59 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
           delete process.env.FIREBASE_PROJECT_ID;
         }
       }
+    });
+  });
+
+  describe('Startup Credential Validation & Connectivity Probe', () => {
+    it('rejects half-configured credentials when clientEmail is set without privateKey', () => {
+      expect(
+        () =>
+          new FirestoreTaskStore({
+            projectId: 'oscar-partial-creds',
+            clientEmail: 'service@oscar.iam.gserviceaccount.com',
+          }),
+      ).toThrow('Incomplete Firebase credentials');
+    });
+
+    it('rejects half-configured credentials when FIREBASE_PRIVATE_KEY is set without FIREBASE_CLIENT_EMAIL', () => {
+      const originalEmail = process.env.FIREBASE_CLIENT_EMAIL;
+      const originalKey = process.env.FIREBASE_PRIVATE_KEY;
+      try {
+        delete process.env.FIREBASE_CLIENT_EMAIL;
+        process.env.FIREBASE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nFAKE\\n-----END PRIVATE KEY-----';
+        expect(() => new FirestoreTaskStore({ projectId: 'oscar-partial-env' })).toThrow(
+          'Incomplete Firebase credentials',
+        );
+      } finally {
+        if (originalEmail !== undefined) process.env.FIREBASE_CLIENT_EMAIL = originalEmail;
+        else delete process.env.FIREBASE_CLIENT_EMAIL;
+        if (originalKey !== undefined) process.env.FIREBASE_PRIVATE_KEY = originalKey;
+        else delete process.env.FIREBASE_PRIVATE_KEY;
+      }
+    });
+
+    it('verifyConnection() resolves when Firestore listCollections() succeeds', async () => {
+      const mockDb = {
+        listCollections: vi.fn().mockResolvedValue([]),
+      } as unknown as Firestore;
+
+      const probeStore = new FirestoreTaskStore({ firestore: mockDb });
+      await expect(probeStore.verifyConnection()).resolves.toBeUndefined();
+      expect(mockDb.listCollections).toHaveBeenCalledTimes(1);
+    });
+
+    it('verifyConnection() catches raw SDK errors and rethrows actionable OSCAR error without leaking secrets', async () => {
+      const mockDb = {
+        listCollections: vi
+          .fn()
+          .mockRejectedValue(new Error('7 PERMISSION_DENIED: raw secret-token-xyz')),
+      } as unknown as Firestore;
+
+      const probeStore = new FirestoreTaskStore({ firestore: mockDb });
+      await expect(probeStore.verifyConnection()).rejects.toThrow(
+        'Firestore connection verification failed',
+      );
+      await expect(probeStore.verifyConnection()).rejects.not.toThrow('secret-token-xyz');
     });
   });
 });

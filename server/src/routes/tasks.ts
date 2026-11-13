@@ -47,46 +47,51 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
       const input = CreateTaskInputSchema.parse(req.body);
       const keyBuffer = getEncryptionKeyFromRequest(req);
 
-      const decryptedPayload: DecryptedTaskPayload = DecryptedTaskPayloadSchema.parse({
-        title: input.title,
-        summary: input.summary ?? input.title.padEnd(5, '.'),
-        subtasks:
-          input.subtasks && input.subtasks.length > 0
-            ? input.subtasks
-            : [{ title: `Review: ${input.title}`.substring(0, 200), completed: false }],
-        location: input.location ?? null,
-        contactPerson: input.contactPerson ?? null,
-        amount: input.amount ?? null,
-        scheduledTime: input.scheduledTime ?? null,
-      });
+      let taskEntity: TaskEntity;
+      try {
+        const decryptedPayload: DecryptedTaskPayload = DecryptedTaskPayloadSchema.parse({
+          title: input.title,
+          summary: input.summary ?? input.title.padEnd(5, '.'),
+          subtasks:
+            input.subtasks && input.subtasks.length > 0
+              ? input.subtasks
+              : [{ title: `Review: ${input.title}`.substring(0, 200), completed: false }],
+          location: input.location ?? null,
+          contactPerson: input.contactPerson ?? null,
+          amount: input.amount ?? null,
+          scheduledTime: input.scheduledTime ?? null,
+        });
 
-      const encryptedPayload = await EncryptionService.encrypt(decryptedPayload, keyBuffer);
-      EncryptionService.zeroKey(keyBuffer);
+        const encryptedPayload = await EncryptionService.encrypt(decryptedPayload, keyBuffer);
 
-      const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-      const nowIso = new Date().toISOString();
+        const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        const nowIso = new Date().toISOString();
 
-      const taskEntity: TaskEntity = {
-        id: taskId,
-        memoId: `memo_manual_${taskId}`,
-        userId: 'usr_session_default_01',
-        encryptedPayload,
-        category: input.category ?? 'OTHER',
-        priority: input.priority ?? 'MEDIUM',
-        status: input.status ?? 'DRAFT',
-        scheduledDate: input.scheduledDate ?? null,
-        tags: input.tags ?? [],
-        provenance: 'DETERMINISTIC_FALLBACK',
-        modelVersion: 'manual-entry-v1',
-        createdAt: nowIso,
-        updatedAt: nowIso,
-        location: input.location ?? null,
-        contactPerson: input.contactPerson ?? null,
-        amount: input.amount ?? null,
-        scheduledTime: input.scheduledTime ?? null,
-      };
+        taskEntity = {
+          id: taskId,
+          memoId: `memo_manual_${taskId}`,
+          userId: 'usr_session_default_01',
+          encryptedPayload,
+          category: input.category ?? 'OTHER',
+          priority: input.priority ?? 'MEDIUM',
+          status: input.status ?? 'DRAFT',
+          scheduledDate: input.scheduledDate ?? null,
+          tags: input.tags ?? [],
+          provenance: 'DETERMINISTIC_FALLBACK',
+          modelVersion: 'manual-entry-v1',
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          location: input.location ?? null,
+          contactPerson: input.contactPerson ?? null,
+          amount: input.amount ?? null,
+          scheduledTime: input.scheduledTime ?? null,
+        };
 
-      await deps.taskStore.addTask(taskEntity);
+        await deps.taskStore.addTask(taskEntity);
+      } finally {
+        EncryptionService.zeroKey(keyBuffer);
+      }
+
       res.status(201).json(taskEntity);
     } catch (err: unknown) {
       next(err);
@@ -133,31 +138,34 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
         input.scheduledTime !== undefined
       ) {
         const keyBuffer = getEncryptionKeyFromRequest(req);
-        const existingDecrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
-          existing.encryptedPayload,
-          keyBuffer,
-        );
+        try {
+          const existingDecrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+            existing.encryptedPayload,
+            keyBuffer,
+          );
 
-        const mergedDecrypted: DecryptedTaskPayload = DecryptedTaskPayloadSchema.parse({
-          title: input.title ?? existingDecrypted.title,
-          summary: input.summary ?? existingDecrypted.summary,
-          subtasks: input.subtasks ?? existingDecrypted.subtasks,
-          location:
-            input.location !== undefined ? input.location : (existingDecrypted.location ?? null),
-          contactPerson:
-            input.contactPerson !== undefined
-              ? input.contactPerson
-              : (existingDecrypted.contactPerson ?? null),
-          amount: input.amount !== undefined ? input.amount : (existingDecrypted.amount ?? null),
-          scheduledTime:
-            input.scheduledTime !== undefined
-              ? input.scheduledTime
-              : (existingDecrypted.scheduledTime ?? null),
-        });
+          const mergedDecrypted: DecryptedTaskPayload = DecryptedTaskPayloadSchema.parse({
+            title: input.title ?? existingDecrypted.title,
+            summary: input.summary ?? existingDecrypted.summary,
+            subtasks: input.subtasks ?? existingDecrypted.subtasks,
+            location:
+              input.location !== undefined ? input.location : (existingDecrypted.location ?? null),
+            contactPerson:
+              input.contactPerson !== undefined
+                ? input.contactPerson
+                : (existingDecrypted.contactPerson ?? null),
+            amount: input.amount !== undefined ? input.amount : (existingDecrypted.amount ?? null),
+            scheduledTime:
+              input.scheduledTime !== undefined
+                ? input.scheduledTime
+                : (existingDecrypted.scheduledTime ?? null),
+          });
 
-        const newEncryptedPayload = await EncryptionService.encrypt(mergedDecrypted, keyBuffer);
-        EncryptionService.zeroKey(keyBuffer);
-        updates.encryptedPayload = newEncryptedPayload;
+          const newEncryptedPayload = await EncryptionService.encrypt(mergedDecrypted, keyBuffer);
+          updates.encryptedPayload = newEncryptedPayload;
+        } finally {
+          EncryptionService.zeroKey(keyBuffer);
+        }
       }
 
       const updated = await deps.taskStore.updateTask(taskId, updates);

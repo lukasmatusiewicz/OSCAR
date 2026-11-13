@@ -44,8 +44,16 @@ export class FirestoreTaskStore implements ITaskRepository {
     const privateKey = options?.privateKey ?? process.env.FIREBASE_PRIVATE_KEY;
     const projectId = options?.projectId ?? process.env.FIREBASE_PROJECT_ID ?? 'oscar-local';
 
+    const hasClientEmail = Boolean(clientEmail && clientEmail.trim().length > 0);
+    const hasPrivateKey = Boolean(privateKey && privateKey.trim().length > 0);
+    if (hasClientEmail !== hasPrivateKey) {
+      throw new Error(
+        'Incomplete Firebase credentials: both FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY must be provided together',
+      );
+    }
+
     const apps = getApps();
-    if (apps.length > 0 && !clientEmail && !privateKey && !options?.projectId) {
+    if (apps.length > 0 && !hasClientEmail && !hasPrivateKey && !options?.projectId) {
       this.db = getFirestore(apps[0] as App);
       logger.info('Firestore', 'FirestoreTaskStore initialized with existing Firebase App');
       return;
@@ -53,7 +61,7 @@ export class FirestoreTaskStore implements ITaskRepository {
 
     let app: App;
 
-    if (clientEmail && privateKey) {
+    if (hasClientEmail && hasPrivateKey && clientEmail && privateKey) {
       const formattedKey = privateKey.replace(/\\n/g, '\n');
       const appName =
         apps.length > 0
@@ -92,6 +100,26 @@ export class FirestoreTaskStore implements ITaskRepository {
 
     this.db = getFirestore(app);
     logger.info('Firestore', `FirestoreTaskStore initialized for project: ${projectId}`);
+  }
+
+  /**
+   * Probes Firestore credentials and connectivity before the HTTP server accepts traffic.
+   * Catches raw SDK/auth errors and rethrows a clear, actionable OSCAR startup error
+   * without leaking raw secrets or credentials.
+   */
+  public async verifyConnection(): Promise<void> {
+    try {
+      await this.db.listCollections();
+      logger.info('Firestore', 'Firestore connection verified successfully');
+    } catch (err: unknown) {
+      const errorName = err instanceof Error ? err.name : 'UnknownError';
+      logger.error('Firestore', 'Firestore startup connectivity probe failed', {
+        name: errorName,
+      });
+      throw new Error(
+        'Firestore connection verification failed: verify FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, or FIRESTORE_EMULATOR_HOST configuration.',
+      );
+    }
   }
 
   /**

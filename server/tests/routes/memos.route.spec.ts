@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
 import { createApp, DEFAULT_CORS_ORIGIN } from '../../src/app.js';
 import { TaskStore } from '../../src/store/TaskStore.js';
@@ -437,6 +437,7 @@ describe('Memos Route Integration', () => {
 
       const res = await inProcessApp(brokenApp)
         .post('/api/memos')
+        .set('x-oscar-encryption-key', testKeyBase64)
         .send({ content: 'Valid memo content here' });
 
       expect(res.status).toBe(500);
@@ -458,6 +459,45 @@ describe('Memos Route Integration', () => {
       const testErr = new Error('After headers error');
       errorHandler(testErr, mockReq, mockRes, fakeNext);
       expect(nextCalledWith).toBe(testErr);
+    });
+
+    it('returns 400 when X-Oscar-Encryption-Key header is missing in non-development mode', async () => {
+      const res = await inProcessApp(app)
+        .post('/api/memos')
+        .send({ content: 'Valid memo content without key' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Invalid encryption key');
+      expect(res.body.code).toBe('INVALID_ENCRYPTION_KEY');
+    });
+
+    it('returns 400 when X-Oscar-Encryption-Key header is malformed', async () => {
+      const res = await inProcessApp(app)
+        .post('/api/memos')
+        .set('x-oscar-encryption-key', 'not-a-valid-32-byte-key')
+        .send({ content: 'Valid memo content with bad key' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Invalid encryption key');
+      expect(res.body.code).toBe('INVALID_ENCRYPTION_KEY');
+    });
+
+    it('zeros key buffer in finally even when EncryptionService.encrypt throws', async () => {
+      const encryptSpy = vi
+        .spyOn(EncryptionService, 'encrypt')
+        .mockRejectedValueOnce(new Error('Simulated WebCrypto failure'));
+      const zeroKeySpy = vi.spyOn(EncryptionService, 'zeroKey');
+
+      const res = await inProcessApp(app)
+        .post('/api/memos')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({ content: 'Valid memo content for zeroKey finally test' });
+
+      expect(res.status).toBe(500);
+      expect(zeroKeySpy).toHaveBeenCalledTimes(1);
+
+      encryptSpy.mockRestore();
+      zeroKeySpy.mockRestore();
     });
   });
 

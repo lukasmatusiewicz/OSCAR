@@ -60,6 +60,8 @@ export function createApp(options: AppOptions = {}): Express {
     (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PROJECT_ID.trim().length > 0
       ? new FirestoreTaskStore()
       : defaultTaskStore);
+  app.locals.taskStore = store;
+  app.locals.taskStore = store;
 
   // Mount API routers under /api
   app.use('/api', createHealthRouter());
