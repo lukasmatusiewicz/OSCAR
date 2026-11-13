@@ -18,6 +18,7 @@ import { resolveRelativeDate, extractScheduledTime } from '../utils/temporalReso
 import { TEMPORAL_STOP_WORDS } from '../components/organisms/MemoEditor';
 
 export interface UseMemosOptions {
+  simulateOffline?: boolean;
   onTaskCreated?: (task: TaskEntity, decrypted: DecryptedTaskPayload) => void;
   onTokensDetected?: (tokens: MaskedTokenSummary[]) => void;
 }
@@ -45,30 +46,10 @@ export function useMemos(options?: UseMemosOptions) {
           ClientCryptoService.initializeSessionKey();
         }
 
-        // Attempt submission via GatewayClient
-        try {
-          const gatewayResponse = await gatewayClient.submitMemo(rawContent);
-
-          // Decrypt the created task payload with client session key
-          const decryptedTask = await ClientCryptoService.decrypt<DecryptedTaskPayload>(
-            gatewayResponse.task.encryptedPayload,
-          );
-
-          setIsOfflineFallback(false);
-          setWarning(null);
-          setMemos((prev) => [gatewayResponse.memo, ...prev]);
-          options?.onTokensDetected?.(gatewayResponse.piiStats.maskedTokens);
-          options?.onTaskCreated?.(gatewayResponse.task, decryptedTask);
-          logger.info('useMemos', `Memo submitted successfully via gateway (task ID: ${gatewayResponse.task.id})`);
-
-          return gatewayResponse.memo;
-        } catch (err: unknown) {
-          logger.error('useMemos', 'Gateway submission error:', err);
-          // Graceful fallback to offline deterministic mode when gateway is unavailable (EU AI Act Article 13)
+        const runOfflineFallback = async (reason: string): Promise<MemoEntity> => {
+          // Graceful fallback to offline deterministic mode (EU AI Act Article 13)
           setIsOfflineFallback(true);
-          setWarning(
-            'Backend gateway unreachable. Deterministic rule-based fallback was used to generate this task (EU AI Act Article 13 transparency).',
-          );
+          setWarning(reason);
 
           let sanitizedPreview = rawContent;
           const sortedTokens = [...tokens].sort((a, b) => b.startIndex - a.startIndex);
@@ -303,6 +284,37 @@ export function useMemos(options?: UseMemosOptions) {
           logger.info('useMemos', `Offline fallback state active: generated local task (task ID: ${taskId})`);
 
           return memoEntity;
+        };
+
+        if (options?.simulateOffline) {
+          logger.info('useMemos', 'Simulated Offline mode enabled: routing directly to deterministic fallback');
+          return await runOfflineFallback(
+            'Simulated Offline mode active. Deterministic rule-based fallback was used to generate this task (EU AI Act Article 13 transparency).',
+          );
+        }
+
+        // Attempt submission via GatewayClient
+        try {
+          const gatewayResponse = await gatewayClient.submitMemo(rawContent);
+
+          // Decrypt the created task payload with client session key
+          const decryptedTask = await ClientCryptoService.decrypt<DecryptedTaskPayload>(
+            gatewayResponse.task.encryptedPayload,
+          );
+
+          setIsOfflineFallback(false);
+          setWarning(null);
+          setMemos((prev) => [gatewayResponse.memo, ...prev]);
+          options?.onTokensDetected?.(gatewayResponse.piiStats.maskedTokens);
+          options?.onTaskCreated?.(gatewayResponse.task, decryptedTask);
+          logger.info('useMemos', `Memo submitted successfully via gateway (task ID: ${gatewayResponse.task.id})`);
+
+          return gatewayResponse.memo;
+        } catch (err: unknown) {
+          logger.error('useMemos', 'Gateway submission error:', err);
+          return await runOfflineFallback(
+            'Backend gateway unreachable. Deterministic rule-based fallback was used to generate this task (EU AI Act Article 13 transparency).',
+          );
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Failed to submit confidential memo';

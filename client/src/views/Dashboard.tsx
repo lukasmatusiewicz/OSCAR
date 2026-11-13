@@ -40,6 +40,7 @@ export interface DashboardProps {
   fetchError?: string | null;
   syncError?: string | null;
   onRetryFetch?: () => void;
+  simulateOffline?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -68,6 +69,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   fetchError: propFetchError,
   syncError: propSyncError,
   onRetryFetch,
+  simulateOffline = false,
 }) => {
   // Always call fallback hooks unconditionally to satisfy React Rules of Hooks
   const fallbackTasks = useTasks(initialTasks);
@@ -132,6 +134,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     warning: memoWarning,
     submitMemo,
   } = useMemos({
+    simulateOffline,
     onTaskCreated: (task, decrypted) => {
       handleTaskCreated(task, decrypted);
     },
