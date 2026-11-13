@@ -6,6 +6,8 @@ export interface TaskBoardProps {
   tasks: TaskEntity[];
   decryptedPayloads?: Record<string, DecryptedTaskPayload>;
   isDecrypted?: boolean;
+  undecryptableIds?: Record<string, boolean>;
+  unsyncedIds?: Record<string, boolean>;
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
@@ -18,6 +20,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   tasks,
   decryptedPayloads = {},
   isDecrypted = true,
+  undecryptableIds = {},
+  unsyncedIds = {},
   onStatusChange,
   onPriorityChange,
   onSubtaskToggle,
@@ -106,6 +110,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                     task={t}
                     decryptedPayload={decryptedPayloads[t.id]}
                     isDecrypted={isDecrypted}
+                    isUndecryptable={Boolean(undecryptableIds[t.id])}
+                    isUnsynced={Boolean(unsyncedIds[t.id])}
                     onStatusChange={onStatusChange}
                     onPriorityChange={onPriorityChange}
                     onSubtaskToggle={onSubtaskToggle}

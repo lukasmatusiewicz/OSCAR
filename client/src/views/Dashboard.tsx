@@ -32,8 +32,14 @@ export interface DashboardProps {
   sessionRiskLevel?: RiskLevel;
   recordMaskedTokens?: (tokens: { type: PIIType }[]) => void;
   onLogoutAndZeroKey?: () => void;
-  onInitializeKey?: (key?: Uint8Array | string) => void;
   draftsCount?: number;
+  undecryptableIds?: Record<string, boolean>;
+  unsyncedIds?: Record<string, boolean>;
+  isLoadingTasks?: boolean;
+  fetchError?: string | null;
+  syncError?: string | null;
+  onRetryFetch?: () => void;
+  simulateOffline?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -54,8 +60,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   sessionRiskLevel: propSessionRiskLevel,
   recordMaskedTokens: propRecordMaskedTokens,
   onLogoutAndZeroKey,
-  onInitializeKey,
   draftsCount: propDraftsCount,
+  undecryptableIds: propUndecryptableIds,
+  unsyncedIds: propUnsyncedIds,
+  isLoadingTasks: propIsLoadingTasks,
+  fetchError: propFetchError,
+  syncError: propSyncError,
+  onRetryFetch,
+  simulateOffline = false,
 }) => {
   // Always call fallback hooks unconditionally to satisfy React Rules of Hooks
   const fallbackTasks = useTasks(initialTasks);
@@ -75,6 +87,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const handleDelete = onDelete || fallbackTasks.deleteTask;
   const draftsCount =
     propDraftsCount !== undefined ? propDraftsCount : fallbackTasks.draftsCount;
+  const undecryptableIds =
+    propUndecryptableIds !== undefined ? propUndecryptableIds : fallbackTasks.undecryptableIds;
+  const unsyncedIds =
+    propUnsyncedIds !== undefined ? propUnsyncedIds : fallbackTasks.unsyncedIds;
+  const isLoadingTasks =
+    propIsLoadingTasks !== undefined ? propIsLoadingTasks : fallbackTasks.isLoading;
+  const fetchError =
+    propFetchError !== undefined ? propFetchError : fallbackTasks.fetchError;
+  const syncError =
+    propSyncError !== undefined ? propSyncError : fallbackTasks.syncError;
+  const handleRetryFetch = onRetryFetch || fallbackTasks.fetchTasks;
+  const hasUndecryptableTasks = Object.values(undecryptableIds).some(Boolean);
 
   const hasActiveKey =
     propHasActiveKey !== undefined ? propHasActiveKey : fallbackShield.hasActiveKey;
@@ -95,19 +119,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handleInitKey = () => {
-    if (onInitializeKey) {
-      onInitializeKey();
-    } else {
-      fallbackShield.initializeKey();
-    }
-  };
-
   const {
     isSubmitting,
     warning: memoWarning,
     submitMemo,
   } = useMemos({
+    simulateOffline,
     onTaskCreated: (task, decrypted) => {
       handleTaskCreated(task, decrypted);
     },
@@ -155,26 +172,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 Ephemeral Key Memory Cleared
               </strong>
               <span style={{ fontSize: '0.8125rem', color: '#b91c1c' }}>
-                Key buffer zeroed. Initialize a fresh session key to encrypt memos and decrypt
-                sensitive tasks.
+                Key buffer zeroed. Use the header &ldquo;Init Session Key&rdquo; control to
+                initialize a fresh session key to encrypt memos and decrypt sensitive tasks.
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleInitKey}
-              style={{
-                backgroundColor: '#dc2626',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '0.4rem 0.8rem',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Generate Session Key
-            </button>
           </div>
         )}
 
@@ -204,10 +205,103 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         <MemoEditor onSubmit={submitMemo} isLoading={isSubmitting} />
 
+        {isLoadingTasks && (
+          <div
+            role="status"
+            data-testid="tasks-loading-indicator"
+            style={{
+              padding: '0.65rem 1rem',
+              borderRadius: '8px',
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              fontSize: '0.8125rem',
+              color: '#1d4ed8',
+              fontWeight: 500,
+            }}
+          >
+            Loading encrypted tasks from gateway...
+          </div>
+        )}
+
+        {fetchError && (
+          <div
+            role="alert"
+            data-testid="fetch-error-banner"
+            style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '8px',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '0.75rem',
+              fontSize: '0.8125rem',
+              color: '#991b1b',
+            }}
+          >
+            <span>
+              <strong>Failed to load tasks:</strong> {fetchError}
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleRetryFetch()}
+              style={{
+                backgroundColor: '#dc2626',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {syncError && (
+          <div
+            role="alert"
+            data-testid="sync-error-banner"
+            style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '8px',
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fde68a',
+              fontSize: '0.8125rem',
+              color: '#92400e',
+            }}
+          >
+            <strong>Sync warning:</strong> {syncError} Changes are kept locally but not synced with the gateway.
+          </div>
+        )}
+
+        {hasUndecryptableTasks && (
+          <div
+            role="status"
+            data-testid="undecryptable-tasks-banner"
+            style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '8px',
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fde68a',
+              fontSize: '0.8125rem',
+              color: '#92400e',
+            }}
+          >
+            Some tasks were encrypted with a previous session key (lost on page reload) and cannot be decrypted. You can delete stale tasks.
+          </div>
+        )}
+
         <TaskList
           tasks={tasks}
           decryptedPayloads={decryptedPayloads}
           isDecrypted={hasActiveKey}
+          undecryptableIds={undecryptableIds}
+          unsyncedIds={unsyncedIds}
           onStatusChange={handleStatusChange}
           onPriorityChange={handlePriorityChange}
           onSubtaskToggle={handleSubtaskToggle}

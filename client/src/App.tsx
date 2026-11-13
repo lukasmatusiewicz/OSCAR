@@ -10,10 +10,16 @@ import { ClientCryptoService } from './services/ClientCryptoService';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'board'>('dashboard');
+  const [simulateOffline, setSimulateOffline] = useState(false);
 
   const {
     tasks,
     decryptedPayloads,
+    undecryptableIds,
+    isLoading,
+    fetchError,
+    unsyncedIds,
+    syncError,
     addTask,
     updateTaskStatus,
     updateTaskPriority,
@@ -21,6 +27,7 @@ export const App: React.FC = () => {
     deleteTask,
     fetchTasks,
     toggleSubtask,
+    decryptAllTasks,
     clearDecryptedPayloads,
     draftsCount,
   } = useTasks();
@@ -49,6 +56,11 @@ export const App: React.FC = () => {
   const handleLockAndZero = () => {
     logoutAndZeroKey();
     clearDecryptedPayloads();
+  };
+
+  const handleInitKey = () => {
+    initializeKey();
+    void decryptAllTasks(tasks);
   };
 
   return (
@@ -166,6 +178,30 @@ export const App: React.FC = () => {
 
         {/* Security Status Header Bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={simulateOffline}
+            aria-label="Simulate Offline"
+            data-testid="simulate-offline-toggle"
+            onClick={() => setSimulateOffline((prev) => !prev)}
+            style={{
+              padding: '0.3rem 0.65rem',
+              borderRadius: '9999px',
+              border: `1px solid ${simulateOffline ? '#f59e0b' : '#cbd5e1'}`,
+              backgroundColor: simulateOffline ? '#fef3c7' : '#f8fafc',
+              color: simulateOffline ? '#92400e' : '#475569',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+            }}
+          >
+            <span aria-hidden="true">{simulateOffline ? '⚡' : '🌐'}</span>
+            <span>{simulateOffline ? 'Simulated Offline' : 'Simulate Offline'}</span>
+          </button>
           <InstallPrompt />
           <PrivacyShieldBadge
             riskLevel={sessionRiskLevel}
@@ -187,7 +223,7 @@ export const App: React.FC = () => {
             <Button
               size="sm"
               variant="primary"
-              onClick={() => initializeKey()}
+              onClick={handleInitKey}
               style={{ fontSize: '0.75rem' }}
             >
               🔑 Init Session Key
@@ -222,14 +258,22 @@ export const App: React.FC = () => {
             sessionRiskLevel={sessionRiskLevel}
             recordMaskedTokens={recordMaskedTokens}
             onLogoutAndZeroKey={handleLockAndZero}
-            onInitializeKey={initializeKey}
             draftsCount={draftsCount}
+            undecryptableIds={undecryptableIds}
+            unsyncedIds={unsyncedIds}
+            isLoadingTasks={isLoading}
+            fetchError={fetchError}
+            syncError={syncError}
+            onRetryFetch={fetchTasks}
+            simulateOffline={simulateOffline}
           />
         ) : (
           <TaskBoard
             tasks={tasks}
             decryptedPayloads={decryptedPayloads}
             isDecrypted={hasActiveKey}
+            undecryptableIds={undecryptableIds}
+            unsyncedIds={unsyncedIds}
             onStatusChange={updateTaskStatus}
             onPriorityChange={updateTaskPriority}
             onSubtaskToggle={toggleSubtask}

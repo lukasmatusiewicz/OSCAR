@@ -19,7 +19,7 @@ export const PrivacyShieldBadge: React.FC<PrivacyShieldBadgeProps> = ({
   const getRiskColor = (level: RiskLevel) => {
     switch (level) {
       case 'NONE':
-        return { bg: '#ecfdf5', text: '#047857', border: '#a7f3d0', label: 'Zero Risk' };
+        return { bg: '#ecfdf5', text: '#047857', border: '#a7f3d0', label: 'No PII Detected' };
       case 'LOW':
         return { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0', label: 'Protected' };
       case 'MEDIUM':

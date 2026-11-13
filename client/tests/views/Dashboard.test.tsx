@@ -101,21 +101,16 @@ describe('Dashboard View', () => {
     });
   });
 
-  it('zeroes key memory and shows alert when logout button is pressed', async () => {
+  it('zeroes key memory and shows alert without duplicate key button when logout button is pressed', async () => {
     render(<Dashboard initialTasks={mockTasks} initialDecrypted={mockDecrypted} />);
 
     const logoutBtn = screen.getByRole('button', { name: /zero session key & logout/i });
     fireEvent.click(logoutBtn);
 
     expect(screen.getByText(/ephemeral key memory cleared/i)).toBeInTheDocument();
+    expect(screen.getByText(/init session key/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /generate session key/i })).not.toBeInTheDocument();
     expect(ClientCryptoService.hasSessionKey()).toBe(false);
-
-    // Re-initialize key
-    const reinitBtn = screen.getByRole('button', { name: /generate session key/i });
-    fireEvent.click(reinitBtn);
-
-    expect(ClientCryptoService.hasSessionKey()).toBe(true);
-    expect(screen.queryByText(/ephemeral key memory cleared/i)).not.toBeInTheDocument();
   });
 
   it('applies responsive layout classes and container properties for desktop and mobile viewports', () => {

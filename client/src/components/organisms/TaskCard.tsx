@@ -11,6 +11,8 @@ export interface TaskCardProps {
   task: TaskEntity;
   decryptedPayload?: DecryptedTaskPayload | null;
   isDecrypted?: boolean;
+  isUndecryptable?: boolean;
+  isUnsynced?: boolean;
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
@@ -23,6 +25,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   task,
   decryptedPayload,
   isDecrypted = true,
+  isUndecryptable = false,
+  isUnsynced = false,
   onStatusChange,
   onPriorityChange,
   onSubtaskToggle,
@@ -166,6 +170,22 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
+          {isUnsynced && (
+            <span
+              data-testid={`task-unsynced-badge-${task.id}`}
+              style={{
+                padding: '0.2rem 0.5rem',
+                borderRadius: '9999px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                backgroundColor: '#fef2f2',
+                color: '#b91c1c',
+                border: '1px solid #fecaca',
+              }}
+            >
+              ⚠ Not synced
+            </span>
+          )}
           <span
             data-testid={`task-status-badge-${task.id}`}
             style={{
@@ -590,7 +610,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 overflowWrap: 'anywhere',
               }}
             >
-              {isDecrypted && decryptedPayload
+              {!isUndecryptable && isDecrypted && decryptedPayload
                 ? decryptedPayload.title
                 : '🔒 Encrypted Task Content'}
             </h4>
@@ -598,21 +618,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               style={{
                 margin: 0,
                 fontSize: '0.875rem',
-                color: '#475569',
+                color: isUndecryptable ? '#b45309' : '#475569',
                 lineHeight: 1.5,
                 whiteSpace: 'pre-line',
                 wordBreak: 'break-word',
                 overflowWrap: 'anywhere',
               }}
             >
-              {isDecrypted && decryptedPayload
+              {!isUndecryptable && isDecrypted && decryptedPayload
                 ? decryptedPayload.summary
-                : 'Encrypted with AES-256-GCM. Active session key required to view cleartext.'}
+                : isUndecryptable
+                  ? 'Cannot decrypt: encrypted with a previous session key (lost on page reload).'
+                  : 'Encrypted with AES-256-GCM. Active session key required to view cleartext.'}
             </p>
           </div>
 
           {/* Subtasks Checklist */}
-          {isDecrypted &&
+          {!isUndecryptable &&
+            isDecrypted &&
             decryptedPayload &&
             decryptedPayload.subtasks &&
             decryptedPayload.subtasks.length > 0 && (
