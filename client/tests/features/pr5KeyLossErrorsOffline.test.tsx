@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, renderHook, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, renderHook, act, within } from '@testing-library/react';
 import { TaskCard } from '../../src/components/organisms/TaskCard';
 import { useTasks } from '../../src/hooks/useTasks';
 import { useMemos } from '../../src/hooks/useMemos';
@@ -223,9 +223,14 @@ describe('PR 5: Key-Loss UX, Timeouts/Errors, Offline Simulation & F-12', () => 
 
       render(<App />);
 
-      // F-12: Header + MemoEditor PrivacyShieldBadge (not duplicated in PrivacyAuditPanel), with "No PII Detected" (no "Zero Risk")
+      // F-12: PrivacyAuditPanel + MemoEditor PrivacyShieldBadge (not duplicated in Header), with "No PII Detected" (no "Zero Risk")
       expect(screen.queryByText(/zero risk/i)).not.toBeInTheDocument();
       expect(screen.getAllByText(/no pii detected/i)).toHaveLength(2);
+      const auditPanel = screen.getByRole('complementary', {
+        name: /privacy and security audit panel/i,
+      });
+      expect(within(auditPanel).getByText(/no pii detected/i)).toBeInTheDocument();
+      expect(within(auditPanel).getByTestId('simulate-offline-toggle')).toBeInTheDocument();
 
       // R-34: fetchError alert + Retry button
       await waitFor(() => {

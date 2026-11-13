@@ -30,5 +30,36 @@ describe('PrivacyAuditPanel', () => {
     const logoutBtn = screen.getByRole('button', { name: /zero session key & logout/i });
     fireEvent.click(logoutBtn);
     expect(handleLogout).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('status')).toHaveTextContent(/high privacy sensitivity/i);
+  });
+
+  it('renders Init Session Key button when hasActiveKey is false and toggles Simulate Offline', () => {
+    const handleLogout = vi.fn();
+    const handleInitKey = vi.fn();
+    const handleToggleOffline = vi.fn();
+
+    render(
+      <PrivacyAuditPanel
+        metrics={{
+          totalTokensMasked: 0,
+          tokensByType: {},
+          sessionRiskLevel: 'NONE',
+          hasActiveKey: false,
+        }}
+        onLogoutAndZeroKey={handleLogout}
+        onInitializeKey={handleInitKey}
+        simulateOffline={true}
+        onToggleSimulateOffline={handleToggleOffline}
+      />
+    );
+
+    const initBtn = screen.getByRole('button', { name: /init session key/i });
+    fireEvent.click(initBtn);
+    expect(handleInitKey).toHaveBeenCalledTimes(1);
+
+    const offlineSwitch = screen.getByRole('switch', { name: /simulate offline/i });
+    expect(offlineSwitch).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(offlineSwitch);
+    expect(handleToggleOffline).toHaveBeenCalledTimes(1);
   });
 });
