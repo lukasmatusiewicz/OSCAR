@@ -23,9 +23,11 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
   const [error, setError] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [unsyncedIds, setUnsyncedIds] = useState<Record<string, boolean>>({});
+  const [localOnlyIds, setLocalOnlyIds] = useState<Record<string, boolean>>({});
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const decryptedPayloadsRef = useRef<Record<string, DecryptedTaskPayload>>({});
+  const localOnlyIdsRef = useRef<Record<string, boolean>>({});
   const isMountedRef = useRef<boolean>(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -144,8 +146,13 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
     }
   }, []);
 
-  const addTask = useCallback((task: TaskEntity, decrypted?: DecryptedTaskPayload) => {
-    logger.info('useTasks', `Added task ${task.id} (status: ${task.status}, priority: ${task.priority})`);
+  const addTask = useCallback(
+    (task: TaskEntity, decrypted?: DecryptedTaskPayload, meta?: { isLocalOnly?: boolean }) => {
+      logger.info('useTasks', `Added task ${task.id} (status: ${task.status}, priority: ${task.priority})`);
+      if (meta?.isLocalOnly) {
+        localOnlyIdsRef.current = { ...localOnlyIdsRef.current, [task.id]: true };
+        setLocalOnlyIds(localOnlyIdsRef.current);
+      }
     if (decrypted) {
       decryptedPayloadsRef.current = { ...decryptedPayloadsRef.current, [task.id]: decrypted };
       setDecryptedPayloads(decryptedPayloadsRef.current);
@@ -194,7 +201,11 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
         }),
       );
 
-      // Optimistic background sync with gateway
+      // Optimistic background sync with gateway (skipped for local-only offline tasks)
+      if (localOnlyIdsRef.current[taskId]) {
+        return;
+      }
+
       gatewayClient
         .updateTask(taskId, { status: newStatus })
         .then(() => clearUnsynced(taskId))
@@ -219,7 +230,11 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
         }),
       );
 
-      // Optimistic background sync with gateway
+      // Optimistic background sync with gateway (skipped for local-only offline tasks)
+      if (localOnlyIdsRef.current[taskId]) {
+        return;
+      }
+
       gatewayClient
         .updateTask(taskId, { priority: newPriority })
         .then(() => clearUnsynced(taskId))
@@ -248,6 +263,14 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
       delete next[taskId];
       return next;
     });
+
+    if (localOnlyIdsRef.current[taskId]) {
+      const nextLocal = { ...localOnlyIdsRef.current };
+      delete nextLocal[taskId];
+      localOnlyIdsRef.current = nextLocal;
+      setLocalOnlyIds(nextLocal);
+      return;
+    }
 
     gatewayClient.deleteTask(taskId).catch((err: unknown) => {
       if (isMountedRef.current) {
@@ -321,6 +344,10 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
           }
         }
 
+        if (localOnlyIdsRef.current[taskId]) {
+          return;
+        }
+
         gatewayClient
           .patchTask(taskId, {
             title: updatedPayload.title,
@@ -360,6 +387,7 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
     error,
     fetchError,
     unsyncedIds,
+    localOnlyIds,
     syncError,
     addTask,
     updateTaskStatus,

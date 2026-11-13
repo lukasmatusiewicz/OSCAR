@@ -20,7 +20,11 @@ export interface DashboardProps {
   className?: string;
   tasks?: TaskEntity[];
   decryptedPayloads?: Record<string, DecryptedTaskPayload>;
-  onTaskCreated?: (task: TaskEntity, decrypted?: DecryptedTaskPayload) => void;
+  onTaskCreated?: (
+    task: TaskEntity,
+    decrypted?: DecryptedTaskPayload,
+    meta?: { isLocalOnly?: boolean },
+  ) => void;
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
@@ -143,8 +147,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     submitMemo,
   } = useMemos({
     simulateOffline,
-    onTaskCreated: (task, decrypted) => {
-      handleTaskCreated(task, decrypted);
+    onTaskCreated: (task, decrypted, meta) => {
+      handleTaskCreated(task, decrypted, meta);
     },
     onTokensDetected: (tokens) => {
       recordMaskedTokens(tokens);
