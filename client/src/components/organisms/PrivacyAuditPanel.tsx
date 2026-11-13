@@ -1,7 +1,6 @@
 import React from 'react';
 import { PIIType, RiskLevel } from '../../types/contracts';
 import { Button } from '../atoms/Button';
-import { PrivacyShieldBadge } from '../atoms/PrivacyShieldBadge';
 
 export interface PrivacyMetrics {
   totalTokensMasked: number;
@@ -58,11 +57,6 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
             Privacy Shield & Audit
           </h3>
         </div>
-        <PrivacyShieldBadge
-          riskLevel={metrics.sessionRiskLevel}
-          isSecured={metrics.hasActiveKey}
-          tokenCount={metrics.totalTokensMasked}
-        />
       </div>
 
       {/* Security Status Box */}

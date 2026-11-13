@@ -258,7 +258,6 @@ export const App: React.FC = () => {
             sessionRiskLevel={sessionRiskLevel}
             recordMaskedTokens={recordMaskedTokens}
             onLogoutAndZeroKey={handleLockAndZero}
-            onInitializeKey={handleInitKey}
             draftsCount={draftsCount}
             undecryptableIds={undecryptableIds}
             unsyncedIds={unsyncedIds}

@@ -32,7 +32,6 @@ export interface DashboardProps {
   sessionRiskLevel?: RiskLevel;
   recordMaskedTokens?: (tokens: { type: PIIType }[]) => void;
   onLogoutAndZeroKey?: () => void;
-  onInitializeKey?: (key?: Uint8Array | string) => void;
   draftsCount?: number;
   undecryptableIds?: Record<string, boolean>;
   unsyncedIds?: Record<string, boolean>;
@@ -61,7 +60,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   sessionRiskLevel: propSessionRiskLevel,
   recordMaskedTokens: propRecordMaskedTokens,
   onLogoutAndZeroKey,
-  onInitializeKey,
   draftsCount: propDraftsCount,
   undecryptableIds: propUndecryptableIds,
   unsyncedIds: propUnsyncedIds,
@@ -121,14 +119,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handleInitKey = () => {
-    if (onInitializeKey) {
-      onInitializeKey();
-    } else {
-      fallbackShield.initializeKey();
-    }
-  };
-
   const {
     isSubmitting,
     warning: memoWarning,
@@ -182,26 +172,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 Ephemeral Key Memory Cleared
               </strong>
               <span style={{ fontSize: '0.8125rem', color: '#b91c1c' }}>
-                Key buffer zeroed. Initialize a fresh session key to encrypt memos and decrypt
-                sensitive tasks.
+                Key buffer zeroed. Use the header &ldquo;Init Session Key&rdquo; control to
+                initialize a fresh session key to encrypt memos and decrypt sensitive tasks.
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleInitKey}
-              style={{
-                backgroundColor: '#dc2626',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '0.4rem 0.8rem',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Generate Session Key
-            </button>
           </div>
         )}
 
