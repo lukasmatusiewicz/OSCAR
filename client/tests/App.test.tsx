@@ -47,7 +47,6 @@ describe('App Root Component', () => {
     expect(screen.getByRole('button', { name: /zero session key & logout/i })).toBeInTheDocument();
 
     // Verify top header is clean (privacy badge, offline toggle, and lock/key button moved to PrivacyAuditPanel)
-    const header = screen.getByRole('banner');
     expect(within(header).queryByTestId('simulate-offline-toggle')).not.toBeInTheDocument();
     expect(within(header).queryByText(/no pii detected/i)).not.toBeInTheDocument();
     expect(within(header).queryByRole('button', { name: /zero session key & logout/i })).not.toBeInTheDocument();
