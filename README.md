@@ -36,18 +36,6 @@ flowchart LR
 
 ---
 
-## 📸 Visual Showcase
-
-> [!NOTE]
-> Drop screenshots into `docs/images/` (`oscar-dashboard.png` and `oscar-offline-fallback.png`) to render them below.
-
-| Main Confidential Intake & Encrypted Task Board | Simulate Offline / EU AI Act Art. 13 Transparency Banner |
-| :---: | :---: |
-| ![OSCAR Dashboard — Main confidential intake & encrypted task board](docs/images/oscar-dashboard.png) | ![OSCAR Offline Fallback — Simulate Offline & EU AI Act Art. 13 transparency banner](docs/images/oscar-offline-fallback.png) |
-| *High-contrast light slate UI with segmented pill nav switcher, live client PII shield (`clientPiiMasker.ts`), and consolidated `PrivacyAuditPanel`.* | *`Simulate Offline` switch activating `<5ms` deterministic local fallback with explicit EU AI Act Art. 13 provenance badge.* |
-
----
-
 ## 🌟 Executive Summary & Architecture Highlights
 
 OSCAR (**Orchestrated Secure Confidential Agent Runtime**) bridges the gap between high-reasoning cloud Foundation Models and strict enterprise/personal data sovereignty. Instead of transmitting raw user thoughts, voice transcripts, or executive memos containing sensitive PII to third-party LLM endpoints, OSCAR enforces a **Zero-Trust Confidential Intake Pipeline** that strips, vaults, and rehydrates sensitive entities locally while persisting only authenticated ciphertext at rest.
@@ -158,7 +146,6 @@ OSCAR v1.0.0 is verified by **608 automated tests passing across 46 test suites 
 ```text
 oscar/
 ├── docs/
-│   ├── images/                        # UI screenshots for README Visual Showcase
 │   └── spec/                          # Authoritative Specifications (Single Source of Truth)
 │       ├── architecture.md            # System tiers, sequence flows, encryption, rate limits & Zero Trust
 │       ├── contracts.md               # Authoritative Zod runtime schemas & JSON Schemas
