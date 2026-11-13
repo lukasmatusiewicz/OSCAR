@@ -22,7 +22,7 @@ describe('Memos Route Integration', () => {
   });
 
   describe('POST /api/memos', () => {
-    it('processes valid memo, sanitizes PII, extracts task, encrypts payload, and returns 200 with metrics', async () => {
+    it('processes valid memo, sanitizes PII, extracts task, encrypts payload, and returns 201 with metrics', async () => {
       const memoContent =
         'Schedule strategy review with Alice Newman (alice@example.com, +49 170 1234567) to approve 15000 EUR project budget tomorrow.';
 
