@@ -14,6 +14,11 @@ export const App: React.FC = () => {
   const {
     tasks,
     decryptedPayloads,
+    undecryptableIds,
+    isLoading,
+    fetchError,
+    unsyncedIds,
+    syncError,
     addTask,
     updateTaskStatus,
     updateTaskPriority,
@@ -21,6 +26,7 @@ export const App: React.FC = () => {
     deleteTask,
     fetchTasks,
     toggleSubtask,
+    decryptAllTasks,
     clearDecryptedPayloads,
     draftsCount,
   } = useTasks();
@@ -49,6 +55,11 @@ export const App: React.FC = () => {
   const handleLockAndZero = () => {
     logoutAndZeroKey();
     clearDecryptedPayloads();
+  };
+
+  const handleInitKey = () => {
+    initializeKey();
+    void decryptAllTasks(tasks);
   };
 
   return (
@@ -187,7 +198,7 @@ export const App: React.FC = () => {
             <Button
               size="sm"
               variant="primary"
-              onClick={() => initializeKey()}
+              onClick={handleInitKey}
               style={{ fontSize: '0.75rem' }}
             >
               🔑 Init Session Key
@@ -222,14 +233,22 @@ export const App: React.FC = () => {
             sessionRiskLevel={sessionRiskLevel}
             recordMaskedTokens={recordMaskedTokens}
             onLogoutAndZeroKey={handleLockAndZero}
-            onInitializeKey={initializeKey}
+            onInitializeKey={handleInitKey}
             draftsCount={draftsCount}
+            undecryptableIds={undecryptableIds}
+            unsyncedIds={unsyncedIds}
+            isLoadingTasks={isLoading}
+            fetchError={fetchError}
+            syncError={syncError}
+            onRetryFetch={fetchTasks}
           />
         ) : (
           <TaskBoard
             tasks={tasks}
             decryptedPayloads={decryptedPayloads}
             isDecrypted={hasActiveKey}
+            undecryptableIds={undecryptableIds}
+            unsyncedIds={unsyncedIds}
             onStatusChange={updateTaskStatus}
             onPriorityChange={updateTaskPriority}
             onSubtaskToggle={toggleSubtask}

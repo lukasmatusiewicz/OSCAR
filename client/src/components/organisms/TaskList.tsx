@@ -14,6 +14,8 @@ export interface TaskListProps {
   tasks: TaskEntity[];
   decryptedPayloads?: Record<string, DecryptedTaskPayload>;
   isDecrypted?: boolean;
+  undecryptableIds?: Record<string, boolean>;
+  unsyncedIds?: Record<string, boolean>;
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
@@ -26,6 +28,8 @@ export const TaskList: React.FC<TaskListProps> = ({
   tasks,
   decryptedPayloads = {},
   isDecrypted = true,
+  undecryptableIds = {},
+  unsyncedIds = {},
   onStatusChange,
   onPriorityChange,
   onSubtaskToggle,
@@ -260,6 +264,8 @@ export const TaskList: React.FC<TaskListProps> = ({
               task={t}
               decryptedPayload={decryptedPayloads[t.id]}
               isDecrypted={isDecrypted}
+              isUndecryptable={Boolean(undecryptableIds[t.id])}
+              isUnsynced={Boolean(unsyncedIds[t.id])}
               onStatusChange={onStatusChange}
               onPriorityChange={onPriorityChange}
               onSubtaskToggle={onSubtaskToggle}

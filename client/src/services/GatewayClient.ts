@@ -87,6 +87,18 @@ export class GatewayClient {
   }
 
   /**
+   * Creates an AbortSignal that aborts after timeoutMs (default 8000ms),
+   * optionally combined with a caller-provided AbortSignal.
+   */
+  private createTimeoutSignal(callerSignal?: AbortSignal, timeoutMs = 8000): AbortSignal {
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    if (callerSignal && typeof AbortSignal.any === 'function') {
+      return AbortSignal.any([callerSignal, timeoutSignal]);
+    }
+    return callerSignal ?? timeoutSignal;
+  }
+
+  /**
    * Prepares standard HTTP request headers, injecting ephemeral encryption key
    * if active in the ClientCryptoService session store.
    */
@@ -132,7 +144,11 @@ export class GatewayClient {
    * @param title Optional memo title.
    * @returns CreateMemoResponse conforming to schema contracts.
    */
-  public async submitMemo(content: string, title?: string): Promise<CreateMemoResponse> {
+  public async submitMemo(
+    content: string,
+    title?: string,
+    signal?: AbortSignal,
+  ): Promise<CreateMemoResponse> {
     const payload: MemoInput = MemoInputSchema.parse({ content, title });
     const url = this.formatUrl('/api/memos');
     const start = Date.now();
@@ -144,6 +160,7 @@ export class GatewayClient {
         method: 'POST',
         headers: this.buildHeaders(),
         body: JSON.stringify(payload),
+        signal: this.createTimeoutSignal(signal),
       });
     } catch (err: unknown) {
       throw new GatewayError(
@@ -169,7 +186,7 @@ export class GatewayClient {
    *
    * @returns Array of TaskEntity records.
    */
-  public async fetchTasks(): Promise<TaskEntity[]> {
+  public async fetchTasks(signal?: AbortSignal): Promise<TaskEntity[]> {
     const url = this.formatUrl('/api/tasks');
     const start = Date.now();
     logger.info('GatewayClient', `Outbound GET ${url}`);
@@ -179,6 +196,7 @@ export class GatewayClient {
       response = await this.fetchImpl(url, {
         method: 'GET',
         headers: this.buildHeaders(),
+        signal: this.createTimeoutSignal(signal),
       });
     } catch (err: unknown) {
       throw new GatewayError(
@@ -205,7 +223,7 @@ export class GatewayClient {
    * @param input Task properties to persist.
    * @returns Created TaskEntity.
    */
-  public async createTask(input: CreateTaskInput): Promise<TaskEntity> {
+  public async createTask(input: CreateTaskInput, signal?: AbortSignal): Promise<TaskEntity> {
     const payload = CreateTaskInputSchema.parse(input);
     const url = this.formatUrl('/api/tasks');
     const start = Date.now();
@@ -217,6 +235,7 @@ export class GatewayClient {
         method: 'POST',
         headers: this.buildHeaders(),
         body: JSON.stringify(payload),
+        signal: this.createTimeoutSignal(signal),
       });
     } catch (err: unknown) {
       throw new GatewayError(
@@ -244,7 +263,11 @@ export class GatewayClient {
    * @param updates Partial properties to apply.
    * @returns Updated TaskEntity.
    */
-  public async updateTask(id: string, updates: UpdateTaskInput): Promise<TaskEntity> {
+  public async updateTask(
+    id: string,
+    updates: UpdateTaskInput,
+    signal?: AbortSignal,
+  ): Promise<TaskEntity> {
     const payload = UpdateTaskInputSchema.parse(updates);
     const url = this.formatUrl(`/api/tasks/${encodeURIComponent(id)}`);
     const start = Date.now();
@@ -256,6 +279,7 @@ export class GatewayClient {
         method: 'PATCH',
         headers: this.buildHeaders(),
         body: JSON.stringify(payload),
+        signal: this.createTimeoutSignal(signal),
       });
     } catch (err: unknown) {
       throw new GatewayError(
@@ -284,8 +308,12 @@ export class GatewayClient {
    * @param updates Partial properties to apply.
    * @returns Updated TaskEntity.
    */
-  public async patchTask(id: string, updates: UpdateTaskInput): Promise<TaskEntity> {
-    return this.updateTask(id, updates);
+  public async patchTask(
+    id: string,
+    updates: UpdateTaskInput,
+    signal?: AbortSignal,
+  ): Promise<TaskEntity> {
+    return this.updateTask(id, updates, signal);
   }
 
   /**
@@ -294,7 +322,7 @@ export class GatewayClient {
    * @param id Unique task identifier.
    * @returns True if deletion succeeded.
    */
-  public async deleteTask(id: string): Promise<boolean> {
+  public async deleteTask(id: string, signal?: AbortSignal): Promise<boolean> {
     const url = this.formatUrl(`/api/tasks/${encodeURIComponent(id)}`);
     const start = Date.now();
     logger.info('GatewayClient', `Outbound DELETE ${url}`);
@@ -304,6 +332,7 @@ export class GatewayClient {
       response = await this.fetchImpl(url, {
         method: 'DELETE',
         headers: this.buildHeaders(),
+        signal: this.createTimeoutSignal(signal),
       });
     } catch (err: unknown) {
       throw new GatewayError(
@@ -328,7 +357,7 @@ export class GatewayClient {
    *
    * @returns HealthResponse.
    */
-  public async healthCheck(): Promise<HealthResponse> {
+  public async healthCheck(signal?: AbortSignal): Promise<HealthResponse> {
     const url = this.formatUrl('/api/health');
     const start = Date.now();
     logger.info('GatewayClient', `Outbound GET ${url}`);
@@ -338,6 +367,7 @@ export class GatewayClient {
       response = await this.fetchImpl(url, {
         method: 'GET',
         headers: this.buildHeaders(),
+        signal: this.createTimeoutSignal(signal),
       });
     } catch (err: unknown) {
       throw new GatewayError(
