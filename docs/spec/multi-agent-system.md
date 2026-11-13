@@ -138,6 +138,12 @@ To prevent documentation drift, hallucinated metrics, or stale architectural cla
 * **Not Required (Trivial Fixes):** Skip the pre-edit auditor for trivial fixes—such as typos, updating a single test count, or adding screenshot links—that do not introduce new architectural or security claims.
 * **Gate Enforcement:** For any task meeting the mandatory criteria above, no Maker agent may author or update `README.md` or `docs/spec/*` without a completed Pre-Edit Verification Gate audit report from the corresponding Auditor.
 
+### 4.6 Documentation Tone & Engineering Humility Standard
+To keep project documentation grounded in verifiable engineering facts, all Makers (including the `Documentation & Spec Worker`) and the `Documentation & Claims Auditor` must enforce the following tone rules across `README.md` and `docs/spec/`:
+* **No Marketing Hype or Overstated Maturity Claims:** Use plain, factual, modest engineering language. Avoid promotional phrasing or overstated maturity claims such as `"enterprise-grade"`, `"Executive Summary"`, `"revolutionary"`, `"unbreakable"`, `"Dark Factory achieved"`, `"battle-tested"`, `"zero-trust"`, or similar superlatives.
+* **Explicit Separation of Current Scope vs. Future Goals:** State current scope, operational constraints, and known limitations plainly. Documentation must clearly distinguish **what works today** (verified behavior, measured test counts, and implemented controls) from **what remains a future goal** (e.g., multi-tenant authentication, client-side E2EE / passphrase-derived keys, Service Worker asset caching, or an isolated holdout test harness).
+* **Audit Enforcement:** The `Documentation & Claims Auditor` flags any unverified maturity claim, promotional exaggeration, or blurred boundary between implemented features and roadmap items as a finding for remediation.
+
 ---
 
 ## 5. Constitutional Guardrails & Autonomous Rule Enforcement (Anti-Sycophancy)
