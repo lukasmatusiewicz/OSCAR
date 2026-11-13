@@ -1,10 +1,11 @@
-import { initializeApp, getApps, cert, applicationDefault, App } from 'firebase-admin/app';
+import { initializeApp, getApps, applicationDefault, App } from 'firebase-admin/app';
 import {
   getFirestore,
   Firestore,
   QueryDocumentSnapshot,
   DocumentData,
 } from 'firebase-admin/firestore';
+import { GoogleAuth } from 'google-auth-library';
 import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
 import type { ITaskRepository } from './ITaskRepository.js';
 import { logger } from '../utils/logger.js';
@@ -59,26 +60,26 @@ export class FirestoreTaskStore implements ITaskRepository {
       return;
     }
 
-    let app: App;
-
     if (hasClientEmail && hasPrivateKey && clientEmail && privateKey) {
       const formattedKey = privateKey.replace(/\\n/g, '\n');
-      const appName =
-        apps.length > 0
-          ? `oscar-cert-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
-          : undefined;
-      app = initializeApp(
-        {
-          credential: cert({
-            projectId,
-            clientEmail,
-            privateKey: formattedKey,
-          }),
-          projectId,
+      const auth = new GoogleAuth({
+        projectId,
+        credentials: {
+          client_email: clientEmail,
+          private_key: formattedKey,
         },
-        appName,
-      );
-    } else if (process.env.FIRESTORE_EMULATOR_HOST) {
+      });
+      this.db = new Firestore({
+        projectId,
+        auth,
+      });
+      logger.info('Firestore', `FirestoreTaskStore initialized for project: ${projectId}`);
+      return;
+    }
+
+    let app: App;
+
+    if (process.env.FIRESTORE_EMULATOR_HOST) {
       const appName =
         apps.length > 0
           ? `oscar-emu-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
