@@ -130,56 +130,6 @@ export const App: React.FC = () => {
               Confidential AI Voice & Task Agent • Client-Side WebCrypto AES-256-GCM
             </p>
           </div>
-
-          {/* Primary Navigation */}
-          <nav
-            aria-label="Primary navigation"
-            style={{
-              display: 'flex',
-              gap: '0.25rem',
-              backgroundColor: '#f1f5f9',
-              padding: '0.2rem',
-              borderRadius: '8px',
-              flexWrap: 'wrap',
-            }}
-          >
-            <button
-              type="button"
-              aria-current={activeTab === 'dashboard' ? 'page' : undefined}
-              onClick={() => setActiveTab('dashboard')}
-              style={{
-                border: 'none',
-                backgroundColor: activeTab === 'dashboard' ? '#ffffff' : 'transparent',
-                color: activeTab === 'dashboard' ? '#0f172a' : '#334155',
-                fontWeight: activeTab === 'dashboard' ? 700 : 500,
-                padding: '0.35rem 0.85rem',
-                borderRadius: '6px',
-                fontSize: '0.8125rem',
-                cursor: 'pointer',
-                boxShadow: activeTab === 'dashboard' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-              }}
-            >
-              Dashboard
-            </button>
-            <button
-              type="button"
-              aria-current={activeTab === 'board' ? 'page' : undefined}
-              onClick={() => setActiveTab('board')}
-              style={{
-                border: 'none',
-                backgroundColor: activeTab === 'board' ? '#ffffff' : 'transparent',
-                color: activeTab === 'board' ? '#0f172a' : '#334155',
-                fontWeight: activeTab === 'board' ? 700 : 500,
-                padding: '0.35rem 0.85rem',
-                borderRadius: '6px',
-                fontSize: '0.8125rem',
-                cursor: 'pointer',
-                boxShadow: activeTab === 'board' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-              }}
-            >
-              Task Board
-            </button>
-          </nav>
         </div>
 
         {/* Security Status Header Bar */}
@@ -237,6 +187,28 @@ export const App: React.FC = () => {
           )}
         </div>
       </header>
+
+      {/* Primary View Switcher Bar */}
+      <div className="oscar-view-switcher-bar" data-testid="view-switcher-bar">
+        <nav aria-label="Primary navigation" className="oscar-nav-switcher">
+          <button
+            type="button"
+            aria-current={activeTab === 'dashboard' ? 'page' : undefined}
+            onClick={() => setActiveTab('dashboard')}
+            className={`oscar-nav-pill${activeTab === 'dashboard' ? ' oscar-nav-pill--active' : ''}`}
+          >
+            Dashboard
+          </button>
+          <button
+            type="button"
+            aria-current={activeTab === 'board' ? 'page' : undefined}
+            onClick={() => setActiveTab('board')}
+            className={`oscar-nav-pill${activeTab === 'board' ? ' oscar-nav-pill--active' : ''}`}
+          >
+            Task Board
+          </button>
+        </nav>
+      </div>
 
       {/* Main Content Area */}
       <div
