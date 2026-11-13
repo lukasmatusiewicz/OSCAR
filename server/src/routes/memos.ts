@@ -14,6 +14,10 @@ import {
   normalizeAddressCasing,
 } from '../privacy/LinguisticNormalizer.js';
 import { GeminiOrchestrator } from '../agent/GeminiOrchestrator.js';
+import {
+  stripCommandPrefixes,
+  deduplicateSummaryMetadata,
+} from '../agent/DeterministicFallbackExtractor.js';
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
 import type { ITaskRepository } from '../store/ITaskRepository.js';
@@ -136,6 +140,8 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         }
       }
 
+      summary = deduplicateSummaryMetadata(summary);
+
       if (summary.length < 5) {
         summary = summary.padEnd(5, '.');
       } else if (summary.length > 1000) {
@@ -145,7 +151,9 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       // 6. Validate re-hydrated task against DecryptedTaskPayloadSchema (bounds expansion accommodation)
       const decryptedPayload: DecryptedTaskPayload = DecryptedTaskPayloadSchema.parse({
         title:
-          input.title && input.title.trim().length > 0 ? input.title.trim() : rehydratedTask.title,
+          input.title && input.title.trim().length > 0
+            ? input.title.trim()
+            : stripCommandPrefixes(rehydratedTask.title),
         summary,
         subtasks: rehydratedTask.subtasks,
         location,

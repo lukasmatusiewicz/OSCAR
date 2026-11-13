@@ -75,6 +75,74 @@ export function extractScheduledTime(text: string): string | null {
   return null;
 }
 
+const PREAMBLE_REGEX =
+  /^(?:hey|hi|hello|cześć|hej|hallo|bonjour|dear|szanowny|szanowna|panie|pani)(?:\s+[\p{L}]+)*[,\s:]+/iu;
+
+const DIRECTIVE_FILLERS_REGEX =
+  /^(?:please\s+remind\s+me\s+to|remind\s+me\s+to|add\s+to\s+(?:my|the)\s+(?:to-?do\s+)?list(?:\s*[:,-])?|add\s+to\s+list(?:\s*[:,-])?|put\s+on\s+(?:my|the)\s+list(?:\s*[:,-])?|don't\s+forget\s+to|remember\s+to|i\s+need\s+to|we\s+need\s+to|i\s+must|we\s+must|dodaj\s+mi\s+do\s+listy(?:\s+zadań|\s+rzeczy\s+do\s+zrobienia)?(?:\s*[:,-])?|dodaj\s+do\s+listy(?:\s+zadań|\s+rzeczy\s+do\s+zrobienia)?(?:\s*[:,-])?|dopisz\s+do\s+listy(?:\s+zadań)?(?:\s*[:,-])?|zapisz\s+na\s+liście(?:\s+zadań)?(?:\s*[:,-])?|pamiętaj\s+(?:żeby|aby)(?:\s+zaplanować)?|przypomnij\s+mi(?:\s+(?:żeby|aby|o|że))?|muszę|musimy|zaplanuj|zanotuj(?:\s*[:,-])?|füge\s+(?:mir\s+)?(?:zur|zu\s+meiner)\s+liste\s+hinzu(?:\s*[:,-])?|erinnere\s+mich\s+(?:an\s+das|an|daran)|vergiss\s+nicht\s+zu|ajoute\s+à\s+(?:ma|la)\s+liste(?:\s*[:,-])?|n'oublie\s+pas\s+de|pense\s+à|rappelle-moi\s+de|memo\s*:?|notes?\s*:?)(?:\s+|$)/iu;
+
+/**
+ * Strips conversational preambles and command prefixes (e.g., "Dodaj mi do listy...",
+ * "Przypomnij mi...", "Add to my list...", "Remind me to...") from a task title.
+ */
+export function stripCommandPrefixes(rawTitle: string): string {
+  if (!rawTitle || typeof rawTitle !== 'string') return rawTitle;
+  let cleaned = rawTitle.trim();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    if (PREAMBLE_REGEX.test(cleaned)) {
+      const next = cleaned.replace(PREAMBLE_REGEX, '').trim();
+      if (next.length >= 3) {
+        cleaned = next;
+        changed = true;
+      }
+    }
+    if (DIRECTIVE_FILLERS_REGEX.test(cleaned)) {
+      const next = cleaned.replace(DIRECTIVE_FILLERS_REGEX, '').trim();
+      if (next.length >= 3) {
+        cleaned = next;
+        changed = true;
+      }
+    }
+  }
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  return cleaned;
+}
+
+/**
+ * Deduplicates repeated card metadata bullet lines (Contact, Location, Amount, Time, Date)
+ * inside a structured task summary so each metadata bullet appears at most once.
+ */
+export function deduplicateSummaryMetadata(summary: string): string {
+  if (!summary || typeof summary !== 'string') return summary;
+  const markerPatterns = [
+    /(?:•\s*)?👤\s*Contact:/i,
+    /(?:•\s*)?📍\s*Location:/i,
+    /(?:•\s*)?💰\s*Amount:/i,
+    /(?:•\s*)?⏰\s*Time:/i,
+    /(?:•\s*)?📅\s*Date:/i,
+  ];
+  const seen = new Set<number>();
+  const lines = summary.split('\n');
+  const filtered: string[] = [];
+
+  for (const line of lines) {
+    const markerIdx = markerPatterns.findIndex((p) => p.test(line));
+    if (markerIdx !== -1) {
+      if (seen.has(markerIdx)) {
+        continue;
+      }
+      seen.add(markerIdx);
+    }
+    filtered.push(line);
+  }
+
+  return filtered.join('\n');
+}
+
 /**
  * DeterministicFallbackExtractor provides rule-based structured extraction
  * for user memos when upstream AI providers fail, timeout, or hit rate limits.
@@ -125,20 +193,15 @@ export class DeterministicFallbackExtractor {
       .trim();
 
     // Strip conversational preambles and directive fillers
-    const preambleRegex =
-      /^(?:hey|hi|hello|cześć|hej|hallo|bonjour|dear|szanowny|szanowna|panie|pani)(?:\s+[\p{L}]+)*[,\s:]+/iu;
-    const directiveFillers =
-      /^(?:please\s+remind\s+me\s+to|remind\s+me\s+to|don't\s+forget\s+to|remember\s+to|i\s+need\s+to|we\s+need\s+to|i\s+must|we\s+must|pamiętaj\s+żeby\s+zaplanować|pamiętaj\s+żeby|przypomnij\s+mi\s+o|muszę|musimy|zaplanuj|erinnere\s+mich\s+an\s+das|erinnere\s+mich\s+an|vergiss\s+nicht\s+zu|n'oublie\s+pas\s+de|pense\s+à|memo\s*:?|notes?\s*:?)(?:\s+|$)/iu;
-
     let changed = true;
     while (changed) {
       changed = false;
-      if (preambleRegex.test(cleaned)) {
-        cleaned = cleaned.replace(preambleRegex, '').trim();
+      if (PREAMBLE_REGEX.test(cleaned)) {
+        cleaned = cleaned.replace(PREAMBLE_REGEX, '').trim();
         changed = true;
       }
-      if (directiveFillers.test(cleaned)) {
-        cleaned = cleaned.replace(directiveFillers, '').trim();
+      if (DIRECTIVE_FILLERS_REGEX.test(cleaned)) {
+        cleaned = cleaned.replace(DIRECTIVE_FILLERS_REGEX, '').trim();
         changed = true;
       }
     }
@@ -259,7 +322,7 @@ export class DeterministicFallbackExtractor {
       contactPerson = personTokenMatch[0];
     } else {
       const personMatch = memoText.match(
-        /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|dr|mec\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)|(?:(?<=\b(?:with|z|ze|mit|avec)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)*)/u,
+        /(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|dr|mec\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+(?:-\p{Lu}\p{Ll}+)*)?)|(?:(?<=\b(?:with|z|ze|mit|avec)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+(?:-\p{Lu}\p{Ll}+)*)*)/u,
       );
       if (personMatch) {
         const words = personMatch[0].split(/\s+/);
@@ -381,9 +444,11 @@ export class DeterministicFallbackExtractor {
       }
       if (noteMatch && trimmedClause.toLowerCase().includes(noteMatch[1].trim().toLowerCase()))
         continue;
+      if (contactPerson && trimmedClause.toLowerCase() === contactPerson.toLowerCase()) continue;
       if (location && trimmedClause.toLowerCase() === location.toLowerCase()) continue;
       if (amount && trimmedClause.toLowerCase() === amount.toLowerCase()) continue;
       if (scheduledTime && trimmedClause.toLowerCase() === scheduledTime.toLowerCase()) continue;
+      if (scheduledDate && trimmedClause.toLowerCase() === scheduledDate.toLowerCase()) continue;
       if (!noteItems.some((n) => n.includes(trimmedClause))) {
         noteItems.push(trimmedClause);
       }

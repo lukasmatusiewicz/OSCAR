@@ -6,7 +6,11 @@ import {
   validateContract,
 } from '../types/contracts.js';
 import { RateLimiter } from '../gateway/RateLimiter.js';
-import { DeterministicFallbackExtractor } from './DeterministicFallbackExtractor.js';
+import {
+  DeterministicFallbackExtractor,
+  stripCommandPrefixes,
+  deduplicateSummaryMetadata,
+} from './DeterministicFallbackExtractor.js';
 
 export const GEMINI_TASK_SCHEMA = {
   type: 'OBJECT',
@@ -49,7 +53,7 @@ export const GEMINI_TASK_SCHEMA = {
 };
 
 export const SYSTEM_INSTRUCTION =
-  "You are OSCAR's AI Task Orchestrator. Your role is to analyze the sanitized user memo enclosed within <user_memo> tags and extract structured task information conforming strictly to the requested schema. Decompose the memo into an action-oriented title, concise summary, appropriate category, priority, optional ISO 8601 scheduled date, contextual tags, actionable checklist subtasks, and smart metadata fields (location, contactPerson, amount, scheduledTime). You must preserve all synthetic PII tokens (such as [PERSON_1], [EMAIL_1], [PHONE_1], [AMOUNT_MONEY_1], [IBAN_1], [SECRET_KEY_1], [NATIONAL_ID_1], [HEALTH_DATA_1], [ADDRESS_1]) exactly as they appear without alteration or omission.";
+  "You are OSCAR's AI Task Orchestrator. Your role is to analyze the sanitized user memo enclosed within <user_memo> tags and extract structured task information conforming strictly to the requested schema. Decompose the memo into a concise, action-oriented title (stripping conversational command prefixes like 'Dodaj mi do listy', 'Dodaj do listy', 'Przypomnij mi', 'Add to my list', 'Remind me to'), concise summary (without duplicating amount, contactPerson, scheduledTime, or scheduledDate across repeated summary bullet points when they are already in dedicated fields), appropriate category, priority, optional ISO 8601 scheduled date, contextual tags, actionable checklist subtasks, and smart metadata fields (location, contactPerson, amount, scheduledTime). You must preserve all synthetic PII tokens (such as [PERSON_1], [EMAIL_1], [PHONE_1], [AMOUNT_MONEY_1], [IBAN_1], [SECRET_KEY_1], [NATIONAL_ID_1], [HEALTH_DATA_1], [ADDRESS_1]) exactly as they appear without alteration or omission.";
 
 /**
  * Escapes < and > characters and encloses text within structural boundary tags.
@@ -144,8 +148,14 @@ export class GeminiOrchestrator {
           );
         }
 
+        const sanitizedTask: ExtractedTask = {
+          ...validation.data,
+          title: stripCommandPrefixes(validation.data.title),
+          summary: deduplicateSummaryMetadata(validation.data.summary),
+        };
+
         return {
-          task: validation.data,
+          task: sanitizedTask,
           provenance: 'GEMINI_FLASH' as const,
           modelVersion: this.model,
         };
