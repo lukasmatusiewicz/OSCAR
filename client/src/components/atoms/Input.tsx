@@ -42,7 +42,6 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
       padding: '0.5rem 0.75rem',
       borderRadius: '6px',
       border: `1px solid ${error ? '#ef4444' : '#cbd5e1'}`,
-      outline: 'none',
       fontSize: '0.875rem',
       backgroundColor: disabled ? '#f8fafc' : '#ffffff',
       color: '#0f172a',
@@ -105,7 +104,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                color: '#94a3b8',
+                color: '#475569',
                 fontSize: '1rem',
                 padding: '0.2rem',
               }}
@@ -124,7 +123,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
             {error}
           </span>
         ) : helperText ? (
-          <span id={`${inputId}-helper`} style={{ fontSize: '0.75rem', color: '#64748b' }}>
+          <span id={`${inputId}-helper`} style={{ fontSize: '0.75rem', color: '#475569' }}>
             {helperText}
           </span>
         ) : null}

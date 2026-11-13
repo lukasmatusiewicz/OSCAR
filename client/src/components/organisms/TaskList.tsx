@@ -246,13 +246,13 @@ export const TaskList: React.FC<TaskListProps> = ({
             border: '2px dashed #e2e8f0',
             padding: '2.5rem 1rem',
             textAlign: 'center',
-            color: '#64748b',
+            color: '#475569',
           }}
         >
           <p style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 500 }}>
             No tasks found matching your criteria.
           </p>
-          <span style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>
+          <span style={{ fontSize: '0.8125rem', color: '#475569' }}>
             Compose a confidential memo above to extract actionable structured tasks.
           </span>
         </div>

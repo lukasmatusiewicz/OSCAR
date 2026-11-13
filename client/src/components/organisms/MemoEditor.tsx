@@ -1253,7 +1253,7 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
             width: '100%',
           }}
         >
-          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+          <span style={{ fontSize: '0.75rem', color: '#475569' }}>
             {content.length} characters • AES-256-GCM envelope
           </span>
           <Button type="submit" variant="primary" isLoading={isLoading} disabled={isLoading}>

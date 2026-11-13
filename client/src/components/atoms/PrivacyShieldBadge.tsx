@@ -52,7 +52,7 @@ export const PrivacyShieldBadge: React.FC<PrivacyShieldBadgeProps> = ({
         borderRadius: '9999px',
         backgroundColor: isSecured ? config.bg : '#f1f5f9',
         border: `1px solid ${isSecured ? config.border : '#cbd5e1'}`,
-        color: isSecured ? config.text : '#64748b',
+        color: isSecured ? config.text : '#475569',
         fontSize: '0.75rem',
         fontWeight: 600,
         cursor: onClick ? 'pointer' : 'default',
@@ -68,7 +68,7 @@ export const PrivacyShieldBadge: React.FC<PrivacyShieldBadgeProps> = ({
         <span
           data-testid="privacy-shield-token-count"
           style={{
-            backgroundColor: isSecured ? config.text : '#94a3b8',
+            backgroundColor: isSecured ? config.text : '#475569',
             color: '#ffffff',
             borderRadius: '9999px',
             padding: '0.05rem 0.35rem',

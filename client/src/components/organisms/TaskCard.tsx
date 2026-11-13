@@ -669,7 +669,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         alignItems: 'center',
                         gap: '0.5rem',
                         fontSize: '0.8125rem',
-                        color: subtask.completed ? '#94a3b8' : '#1e293b',
+                        color: subtask.completed ? '#475569' : '#1e293b',
                         textDecoration: subtask.completed ? 'line-through' : 'none',
                         minWidth: 0,
                         wordBreak: 'break-word',

@@ -37,7 +37,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
           left: '0.65rem',
           top: '50%',
           transform: 'translateY(-50%)',
-          color: '#94a3b8',
+          color: '#475569',
           fontSize: '0.875rem',
           pointerEvents: 'none',
         }}

@@ -13,6 +13,16 @@ export const App: React.FC = () => {
   const [simulateOffline, setSimulateOffline] = useState(false);
 
   const {
+    hasActiveKey,
+    totalTokensMasked,
+    tokensByType,
+    sessionRiskLevel,
+    recordMaskedTokens,
+    logoutAndZeroKey,
+    initializeKey,
+  } = usePrivacyShield();
+
+  const {
     tasks,
     decryptedPayloads,
     undecryptableIds,
@@ -30,28 +40,24 @@ export const App: React.FC = () => {
     decryptAllTasks,
     clearDecryptedPayloads,
     draftsCount,
-  } = useTasks();
-
-  const {
-    hasActiveKey,
-    totalTokensMasked,
-    tokensByType,
-    sessionRiskLevel,
-    recordMaskedTokens,
-    logoutAndZeroKey,
-    initializeKey,
-  } = usePrivacyShield();
+  } = useTasks([], hasActiveKey);
 
   useEffect(() => {
-    // Automatically initialize ephemeral session key on app launch
-    if (!ClientCryptoService.hasSessionKey()) {
-      initializeKey();
-    }
-  }, [initializeKey]);
-
-  useEffect(() => {
-    void fetchTasks();
-  }, [fetchTasks]);
+    let cancelled = false;
+    // Ensure ephemeral session key is initialized BEFORE fetching tasks on mount (F5 reload)
+    const initializeAndHydrate = async () => {
+      if (!ClientCryptoService.hasSessionKey()) {
+        await initializeKey();
+      }
+      if (!cancelled) {
+        await fetchTasks();
+      }
+    };
+    void initializeAndHydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [initializeKey, fetchTasks]);
 
   const handleLockAndZero = () => {
     logoutAndZeroKey();
@@ -120,14 +126,14 @@ export const App: React.FC = () => {
                 CLIENT ENCLAVE
               </span>
             </h1>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: '#475569' }}>
               Confidential AI Voice & Task Agent • Client-Side WebCrypto AES-256-GCM
             </p>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Primary Navigation */}
           <nav
-            role="tablist"
+            aria-label="Primary navigation"
             style={{
               display: 'flex',
               gap: '0.25rem',
@@ -138,13 +144,13 @@ export const App: React.FC = () => {
             }}
           >
             <button
-              role="tab"
-              aria-selected={activeTab === 'dashboard'}
+              type="button"
+              aria-current={activeTab === 'dashboard' ? 'page' : undefined}
               onClick={() => setActiveTab('dashboard')}
               style={{
                 border: 'none',
                 backgroundColor: activeTab === 'dashboard' ? '#ffffff' : 'transparent',
-                color: activeTab === 'dashboard' ? '#0f172a' : '#64748b',
+                color: activeTab === 'dashboard' ? '#0f172a' : '#334155',
                 fontWeight: activeTab === 'dashboard' ? 700 : 500,
                 padding: '0.35rem 0.85rem',
                 borderRadius: '6px',
@@ -156,13 +162,13 @@ export const App: React.FC = () => {
               Dashboard
             </button>
             <button
-              role="tab"
-              aria-selected={activeTab === 'board'}
+              type="button"
+              aria-current={activeTab === 'board' ? 'page' : undefined}
               onClick={() => setActiveTab('board')}
               style={{
                 border: 'none',
                 backgroundColor: activeTab === 'board' ? '#ffffff' : 'transparent',
-                color: activeTab === 'board' ? '#0f172a' : '#64748b',
+                color: activeTab === 'board' ? '#0f172a' : '#334155',
                 fontWeight: activeTab === 'board' ? 700 : 500,
                 padding: '0.35rem 0.85rem',
                 borderRadius: '6px',
@@ -291,7 +297,7 @@ export const App: React.FC = () => {
           padding: '0.75rem 1.5rem',
           textAlign: 'center',
           fontSize: '0.75rem',
-          color: '#94a3b8',
+          color: '#475569',
           width: '100%',
           maxWidth: '100%',
           boxSizing: 'border-box',

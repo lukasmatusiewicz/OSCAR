@@ -97,7 +97,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                   style={{
                     textAlign: 'center',
                     padding: '2rem 0.5rem',
-                    color: '#94a3b8',
+                    color: '#475569',
                     fontSize: '0.8125rem',
                   }}
                 >

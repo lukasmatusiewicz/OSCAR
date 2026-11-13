@@ -10,8 +10,9 @@ import { logger } from '../utils/logger';
  * per-task undecryptable state tracking, and surfaced fetch/sync errors.
  *
  * @param initialTasks Optional list of initial TaskEntity records.
+ * @param hasActiveKey Optional reactive flag indicating whether a session key is active.
  */
-export function useTasks(initialTasks: TaskEntity[] = []) {
+export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean) {
   const [tasks, setTasks] = useState<TaskEntity[]>(initialTasks);
   const [decryptedPayloads, setDecryptedPayloads] = useState<Record<string, DecryptedTaskPayload>>(
     {},
@@ -108,6 +109,16 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
   useEffect(() => {
     decryptAllTasks(tasks);
   }, [tasks, decryptAllTasks]);
+
+  // Re-attempt decryption whenever hasActiveKey transitions from false to true (e.g., F5 key init)
+  const prevHasActiveKeyRef = useRef<boolean>(hasActiveKey ?? ClientCryptoService.hasSessionKey());
+  useEffect(() => {
+    const currentHasKey = hasActiveKey ?? ClientCryptoService.hasSessionKey();
+    if (!prevHasActiveKeyRef.current && currentHasKey && tasks.length > 0) {
+      void decryptAllTasks(tasks);
+    }
+    prevHasActiveKeyRef.current = currentHasKey;
+  }, [hasActiveKey, tasks, decryptAllTasks]);
 
   /**
    * Fetches latest tasks from backend gateway, surfacing loading and error state.
