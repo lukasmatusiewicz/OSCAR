@@ -11,7 +11,7 @@ const TYPE_CONFIG: Record<PIIType, { icon: string; label: string; color: string;
   SECRET_KEY: { icon: '🔑', label: 'Secret Key', color: '#dc2626', bg: '#fef2f2' },
   IBAN: { icon: '🏦', label: 'IBAN', color: '#b45309', bg: '#fffbeb' },
   EMAIL: { icon: '📧', label: 'Email', color: '#2563eb', bg: '#eff6ff' },
-  PHONE: { icon: '📱', label: 'Phone', color: '#059669', bg: '#ecfdf5' },
+  PHONE: { icon: '📱', label: 'Phone', color: '#047857', bg: '#ecfdf5' },
   AMOUNT_MONEY: { icon: '💰', label: 'Amount', color: '#7c3aed', bg: '#f5f3ff' },
   PERSON: { icon: '👤', label: 'Person', color: '#d97706', bg: '#fffbeb' },
   ADDRESS: { icon: '📍', label: 'Address', color: '#0891b2', bg: '#ecfeff' },

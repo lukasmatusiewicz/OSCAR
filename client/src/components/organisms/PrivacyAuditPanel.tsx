@@ -147,7 +147,7 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
                   data-testid={`metric-${type.toLowerCase()}`}
                   style={{
                     fontWeight: 700,
-                    color: count > 0 ? '#2563eb' : '#94a3b8',
+                    color: count > 0 ? '#2563eb' : '#475569',
                   }}
                 >
                   {count}
@@ -212,7 +212,7 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
         >
           🧹 Zero Session Key & Logout
         </Button>
-        <span style={{ fontSize: '0.6875rem', color: '#94a3b8', textAlign: 'center' }}>
+        <span style={{ fontSize: '0.6875rem', color: '#475569', textAlign: 'center' }}>
           Guaranteed client memory zeroing (keyBuffer.fill(0))
         </span>
       </div>
