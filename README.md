@@ -4,13 +4,47 @@
 
 [![Release](https://img.shields.io/badge/Release-v1.0.0-blue.svg)](package.json)
 [![Architecture](https://img.shields.io/badge/Architecture-Zero--PII%20Enclave-0A66C2.svg)](docs/spec/architecture.md)
-[![Testing](https://img.shields.io/badge/Testing-562%2F562%20Passing%20(100%25)-brightgreen.svg)](#comprehensive-quality-metrics)
-[![Coverage](https://img.shields.io/badge/Coverage-Server%20%3E%3D95%25%20%7C%20Client%20%3E%3D90%25-brightgreen.svg)](#comprehensive-quality-metrics)
+[![Testing](https://img.shields.io/badge/Testing-608%2F608%20Passing%20(100%25)-brightgreen.svg)](#comprehensive-quality-metrics)
+[![Coverage](https://img.shields.io/badge/Coverage-Server%2095.27%25%20br.%20%7C%20Client%2090.87%25%20br.-brightgreen.svg)](#comprehensive-quality-metrics)
 [![Regulatory](https://img.shields.io/badge/Regulatory-EU%20AI%20Act%20Art.%2013%20Provenance%20Fields-purple.svg)](docs/spec/multi-agent-system.md)
 [![PWA](https://img.shields.io/badge/PWA-Installable%20Manifest-success.svg)](client/public/manifest.webmanifest)
 [![CI / Vitest Pipeline](https://github.com/lukasmatusiewicz/OSCAR/actions/workflows/ci.yml/badge.svg)](https://github.com/lukasmatusiewicz/OSCAR/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7%2B%20Strict-3178C6.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+---
+
+## 🏭 Dark Factory & Spec-Driven Workflow (60-Second Overview)
+
+OSCAR is engineered as a **Spec-Driven Dark Factory** where specifications precede code, ephemeral Maker subagents operate under strict Principle of Least Privilege (PoLP) boundaries, and independent Checkers verify every deliverable before a human Supervisor merges an atomic PR:
+
+```mermaid
+flowchart LR
+    SPEC["1. Spec\n(docs/spec/ & Zod)"] --> ORCH["2. Master Orchestrator\n(Zero-File-Touch)"]
+    ORCH --> MAKER["3. Ephemeral Maker Subagent\n(PoLP Scoped)"]
+    MAKER --> GATES["4. Deterministic Gates\n(Vitest + ESLint + tsc)"]
+    GATES --> CHECKER["5. Independent Checker /\nHolistic Audit"]
+    CHECKER --> PR["6. Atomic Git PR\n(Conventional Commits)"]
+    PR --> HUMAN["7. Human Supervisor Merge\n(Protected main)"]
+```
+
+### 4-Layer Repository Architecture
+1. **Specifications & Contracts (`docs/spec/`):** Authoritative OpenAPI 3.1, Zod schemas, Privacy Guard math, and system architecture.
+2. **Application Runtimes (`server/` & `client/`):** Express 5 Confidential Gateway + React 18 Vite PWA implementing the contracts.
+3. **Deterministic Verification (`server/tests/` & `client/tests/`):** 608 automated unit, integration, adversarial, and zero-PII DOM security tests.
+4. **Agent Governance (`docs/spec/multi-agent-system.md` & `docs/spec/release-audit-checklist.md`):** Maker-Checker-Critic topology, mandatory Pre-Edit Auditors, and 7-Area Holistic Release Audit gates.
+
+---
+
+## 📸 Visual Showcase
+
+> [!NOTE]
+> Drop screenshots into `docs/images/` (`oscar-dashboard.png` and `oscar-offline-fallback.png`) to render them below.
+
+| Main Confidential Intake & Encrypted Task Board | Simulate Offline / EU AI Act Art. 13 Transparency Banner |
+| :---: | :---: |
+| ![OSCAR Dashboard — Main confidential intake & encrypted task board](docs/images/oscar-dashboard.png) | ![OSCAR Offline Fallback — Simulate Offline & EU AI Act Art. 13 transparency banner](docs/images/oscar-offline-fallback.png) |
+| *High-contrast light slate UI with segmented pill nav switcher, live client PII shield (`clientPiiMasker.ts`), and consolidated `PrivacyAuditPanel`.* | *`Simulate Offline` switch activating `<5ms` deterministic local fallback with explicit EU AI Act Art. 13 provenance badge.* |
 
 ---
 
@@ -27,14 +61,14 @@ OSCAR (**Orchestrated Secure Confidential Agent Runtime**) bridges the gap betwe
 * **Runtime Zod Boundary Validation & Deterministic Failover:** Every LLM output and API payload is verified through authoritative Zod contracts. `DeterministicFallbackExtractor` executes in `< 5ms` when triggered; end-to-end failover on upstream network degradation, rate limiting (global 12-RPM token-bucket rate limiter on Gemini API calls), or timeout is bounded by the strict `8,000ms` `AbortSignal.timeout(8000)` SLA with zero data loss.
 
 ### 3. 🗄️ Queryable Metadata Separation & Google Cloud Firestore Persistence
-* **Encrypted-at-Rest Ciphertext Storage:** AES-256-GCM encrypted at rest; per-request session key supplied over TLS (single-user local/demo architecture; multi-tenant auth is on the v2.0 roadmap). Sensitive task fields (`title`, `summary`, `subtasks`) and raw memo contents are stored strictly as `AES-256-GCM` encrypted blobs (`EncryptedPayload`), while sanitized operational metadata (`category`, `priority`, `status`, `scheduledDate`, `provenance`, `tags`, `location`, `contactPerson`, `amount`, `scheduledTime`, and `sanitizedContentPreview` on `MemoEntity`) remains queryable for high-speed indexing.
-* **Atomic `writeBatch` Mutations & Full CRUD Lifecycle:** Uses Firestore atomic batch commits (`writeBatch`) with automatic in-memory repository fallback (`TaskStore`) for zero-config local development. Supports the complete Human-in-the-Loop (HITL) task lifecycle: **Draft $\rightarrow$ Confirm $\rightarrow$ Inline Edit $\rightarrow$ Complete $\rightarrow$ Delete**.
+* **Encrypted-at-Rest Ciphertext Storage:** AES-256-GCM encrypted at rest; per-request session key supplied over TLS (single-user local/demo architecture; multi-tenant auth is on the v2.0 roadmap). Sensitive task fields (`title`, `summary`, `subtasks`, `location`, `contactPerson`, `amount`, `scheduledTime`) and raw memo contents are stored strictly as `AES-256-GCM` encrypted blobs (`EncryptedPayload` — zero plaintext PII at rest, with `sanitizedContentPreview` omitted at rest on `MemoEntity`), while non-PII operational metadata (`category`, `priority`, `status`, `scheduledDate`, `provenance`, `tags`) remains queryable for high-speed indexing.
+* **Atomic `writeBatch` Mutations, `GoogleAuth` & Full CRUD Lifecycle:** `FirestoreTaskStore` uses `GoogleAuth` + startup `verifyConnection()` diagnostics and Firestore atomic batch commits (`writeBatch`), with automatic in-memory repository fallback (`TaskStore`) for zero-config local development. Supports the complete Human-in-the-Loop (HITL) task lifecycle: **Draft $\rightarrow$ Confirm $\rightarrow$ Inline Edit $\rightarrow$ Complete $\rightarrow$ Delete**.
 
 ### 4. 📊 Pillar 8 Structured Telemetry
 * **Zero-PII Multi-Level Observability:** Structured JSON and console telemetry across both client and server (`debug`, `info`, `warn`, `error`) featuring correlation IDs, latency instrumentation, and compile-time/runtime guarantees that raw PII or cryptographic material is never written to stdout or log sinks.
 
 ### 5. 📱 Responsive UI & Native PWA
-* **Mobile-First Atomic Design & Installable PWA:** Engineered down to `360px` viewports with a responsive CSS grid, glassmorphic dark UI, installable PWA manifest (`manifest.webmanifest`) + in-memory deterministic offline fallback (no Service Worker asset caching yet), native PWA install prompt (`InstallPrompt`), and 1-click **RFC 5545-style `.ics` iCalendar export** (without 75-octet line folding) for scheduled tasks.
+* **Mobile-First Atomic Design & Installable PWA:** Engineered down to `360px` viewports with a responsive CSS grid, **high-contrast light slate UI**, segmented pill nav switcher (`Intake` / `Task Board`), consolidated `PrivacyAuditPanel` (`Simulate Offline` switch + unified Lock/Init Key control), clear undecryptable/sync-error UX banners, installable PWA manifest (`manifest.webmanifest`) + in-memory deterministic offline fallback (no Service Worker asset caching yet), native PWA install prompt (`InstallPrompt`), and 1-click **RFC 5545-style `.ics` iCalendar export** (without 75-octet line folding) for scheduled tasks.
 
 ---
 
@@ -100,25 +134,22 @@ sequenceDiagram
          │  └── Ephemeral Vault Garbage-Collected & Best-Effort Key Buffer Zeroing (.fill(0))
          ▼
   [6. Google Cloud Firestore Atomic Batch Commit]
-         ├── Ciphertext Blob: { ciphertext, iv, authTag, keyId } (Zero Cleartext at Rest)
-         └── Queryable Metadata: { category, priority, status: "DRAFT", provenance, scheduledDate, location, contactPerson, amount, scheduledTime }
+         ├── Ciphertext Blob: { ciphertext, iv, authTag, keyId } (Zero Cleartext PII at Rest)
+         └── Queryable Metadata: { category, priority, status: "DRAFT", provenance, scheduledDate, tags }
 ```
 
 ---
 
 ## 🧪 Comprehensive Quality Metrics
 
-OSCAR v1.0.0 is verified by **562 automated tests passing across 43 test suites (100% pass rate)** with strict coverage thresholds (`>= 95%` on server with 95.75% branch coverage; `>= 90%` threshold on client with 91.23% branch and 97.87% lines/statements), zero ESLint warnings/errors, and strict TypeScript compilation (`noImplicitAny`, `strictNullChecks`).
+OSCAR v1.0.0 is verified by **608 automated tests passing across 46 test suites (100% pass rate)** with strict coverage thresholds (`server`: **376 tests / 19 suites** @ `95.27%` branch, `99.07%` lines/statements; `client`: **232 tests / 27 suites** @ `90.87%` branch, `97.61%` lines/statements), zero ESLint warnings/errors, and strict TypeScript compilation (`noImplicitAny`, `strictNullChecks`).
 
 | Verification Tier | Workspace | Test Suites | Passing Tests | Coverage Gate / Measured | Key Assurance Domains |
 | :--- | :--- | :---: | :---: | :---: | :--- |
-| **Backend Unit & Crypto** | `server` | 11 | 247 | `>= 95%` Gate | Deterministic NER `PrivacyGuard`, `LinguisticNormalizer` (PL/DE/EN), `TemporalResolver`, `EncryptionService` (AES-256-GCM & best-effort memory zeroing), `GeminiOrchestrator`, `DeterministicFallbackExtractor`, `RateLimiter`, `FirestoreTaskStore`, Structured `Logger` |
-| **Backend API & Integration** | `server` | 4 | 54 | `>= 95%` Gate | `/api/memos`, `/api/tasks`, `/api/health`, `/api/docs` (OpenAPI 3.1 + Scalar UI), CORS, Zod error boundaries |
-| **Adversarial & E2E Full-Stack** | `server` | 3 | 43 | `>= 95%` Gate | Multilingual chaotic inputs, prompt-injection resistance, GDPR Art. 9 taxonomy, Draft-to-Confirm HITL editing, full confidential roundtrip |
-| **Frontend Atomic UI & Hooks** | `client` | 24 | 207 | `>= 90%` Gate | Atomic Design hierarchy (`atoms`, `molecules`, `organisms`, `views`), `ClientCryptoService` (WebCrypto ephemeral 256-bit session key + AES-GCM), `GatewayClient`, RFC 5545-style `.ics` Calendar Export, PWA `InstallPrompt` |
-| **Frontend Security Audit** | `client` | 1 | 11 | `>= 90%` Gate | `zeroPiiLeakage.test.tsx` — verifies zero raw PII or session keys leak into DOM attributes, `localStorage`, or console sinks |
+| **Backend Unit, API & Adversarial** | `server` | 19 | 376 | `>= 95%` Gate (`95.27%` br., `99.07%` lines/stmts) | Deterministic NER `PrivacyGuard`, `LinguisticNormalizer` (PL/DE/EN), `TemporalResolver`, `EncryptionService` (AES-256-GCM & best-effort memory zeroing), `GeminiOrchestrator`, `DeterministicFallbackExtractor`, `RateLimiter`, `FirestoreTaskStore` (`GoogleAuth` + `verifyConnection()`), `/api/memos`, `/api/tasks`, `/api/health`, `/api/docs`, chaotic multilingual & E2E suites |
+| **Frontend Atomic UI, Hooks & Security** | `client` | 27 | 232 | `>= 90%` Gate (`90.87%` br., `97.61%` lines/stmts) | Atomic Design hierarchy (`atoms`, `molecules`, `organisms`, `views`), `ClientCryptoService` (WebCrypto ephemeral 256-bit session key + AES-GCM), `clientPiiMasker.ts`, `GatewayClient`, `PrivacyAuditPanel`, RFC 5545-style `.ics` Calendar Export, PWA `InstallPrompt`, `zeroPiiLeakage.test.tsx` |
 | **Static Analysis & Types** | `root` | — | **0 Errors / 0 Warnings** | **Strict TS** | ESLint (`@typescript-eslint`) + TypeScript 5.7 (`tsc --noEmit` & `vite build`) |
-| **TOTAL VERIFIED** | **All** | **43 Suites** | **562 / 562 (100%)** | **Server >= 95% (95.75% br.) \| Client >= 90% (91.23% br., 97.87% lines)** | **Production Release Gate (`v1.0.0`)** |
+| **TOTAL VERIFIED** | **All** | **46 Suites** | **608 / 608 (100%)** | **Server 95.27% br. / 99.07% lines \| Client 90.87% br. / 97.61% lines** | **Production Release Gate (`v1.0.0`)** |
 
 ---
 
@@ -127,15 +158,18 @@ OSCAR v1.0.0 is verified by **562 automated tests passing across 43 test suites 
 ```text
 oscar/
 ├── docs/
+│   ├── images/                        # UI screenshots for README Visual Showcase
 │   └── spec/                          # Authoritative Specifications (Single Source of Truth)
 │       ├── architecture.md            # System tiers, sequence flows, encryption, rate limits & Zero Trust
 │       ├── contracts.md               # Authoritative Zod runtime schemas & JSON Schemas
 │       ├── multi-agent-system.md      # Maker-Checker-Critic topology, PoLP matrix & 8 Engineering Pillars
 │       ├── openapi.yaml               # OpenAPI 3.1.0 Gateway specification (v1.0.0)
-│       └── privacy-guard-spec.md      # PII detection rules, RTL substitution & atomic re-hydration
-├── client/                            # React 18 + TypeScript + Vite PWA (25 suites, 218 tests)
+│       ├── privacy-guard-spec.md      # PII detection rules, RTL substitution & atomic re-hydration
+│       └── release-audit-checklist.md # 7-Area Holistic Release Audit Checklist
+├── client/                            # React 18 + TypeScript + Vite PWA (27 suites, 232 tests)
 │   ├── public/
 │   │   ├── manifest.webmanifest       # Native PWA Web App Manifest & icons
+│   │   ├── icon-192.png / icon-512.png
 │   │   └── icon-192.svg / icon-512.svg
 │   ├── src/
 │   │   ├── components/
@@ -144,18 +178,23 @@ oscar/
 │   │   │   └── organisms/             # MemoEditor, PrivacyAuditPanel, TaskCard, TaskList
 │   │   ├── hooks/                     # useTasks, useMemos, usePrivacyShield
 │   │   ├── services/                  # ClientCryptoService (WebCrypto), GatewayClient
-│   │   ├── utils/                     # calendarExport (.ics), linguisticNormalizer, temporalResolver, logger
+│   │   ├── types/
+│   │   │   └── contracts.ts           # Frontend domain & API type contracts
+│   │   ├── utils/                     # calendarExport (.ics), clientPiiMasker.ts, linguisticNormalizer, temporalResolver, logger
 │   │   └── views/                     # Dashboard, TaskBoard
 │   └── tests/                         # Vitest + React Testing Library + Zero-PII DOM Security Suite
-├── server/                            # Node.js + Express 5 + TypeScript Gateway (18 suites, 344 tests)
+├── server/                            # Node.js + Express 5 + TypeScript Gateway (19 suites, 376 tests)
 │   ├── src/
+│   │   ├── app.ts                     # Express 5 application factory & middleware wiring
 │   │   ├── agent/                     # GeminiOrchestrator (@google/genai), DeterministicFallbackExtractor, TemporalResolver
 │   │   ├── gateway/                   # Token-bucket RateLimiter (12 RPM)
 │   │   ├── middleware/                # Defensive errorHandler (zero stack-trace / PII leakage)
 │   │   ├── privacy/                   # PrivacyGuard (Deterministic Algorithmic + Regex NER), LinguisticNormalizer
 │   │   ├── routes/                    # memos, tasks, health, docs (OpenAPI / Scalar viewer)
 │   │   ├── security/                  # EncryptionService (AES-256-GCM), requestKey derivation
-│   │   ├── store/                     # ITaskRepository, FirestoreTaskStore (writeBatch), TaskStore (In-Memory)
+│   │   ├── store/                     # ITaskRepository, FirestoreTaskStore (GoogleAuth + verifyConnection + writeBatch), TaskStore (In-Memory)
+│   │   ├── types/
+│   │   │   └── contracts.ts           # Authoritative backend Zod runtime contracts
 │   │   └── utils/                     # Pillar 8 structured logger
 │   └── tests/                         # Unit, Route Integration, Chaotic Multilingual & E2E Test Suites
 ├── .env.example                       # Sanitized environment configuration template
@@ -190,7 +229,7 @@ npm --prefix client install
 cp .env.example server/.env
 ```
 
-Edit `server/.env` as needed (all fields have safe local defaults):
+Edit `server/.env` as needed (all fields have safe local defaults; `FIREBASE_*` and `FIRESTORE_EMULATOR_HOST` are optional when using the in-memory `TaskStore` fallback):
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
@@ -198,6 +237,14 @@ PORT=3000
 NODE_ENV=development
 CORS_ORIGIN=http://localhost:5173
 LOG_LEVEL=info
+# Optional Firestore / Emulator configuration:
+# FIREBASE_PROJECT_ID=your_project_id
+# FIRESTORE_EMULATOR_HOST=localhost:8080
+```
+
+Optionally configure client-side logging in `client/.env`:
+
+```env
 VITE_LOG_LEVEL=info
 ```
 
@@ -220,7 +267,7 @@ npm run dev
 ### 3. Running Tests, Linting & Production Builds
 
 ```bash
-# Run all 562 automated tests across server (344) and client (218)
+# Run all 608 automated tests across server (376) and client (232)
 npm test
 
 # Run server or client test suites individually
@@ -257,7 +304,8 @@ OSCAR follows **Spec-Driven Development (SDD)**—all architectural boundaries, 
 * 🔒 [**Privacy Guard Specification (`docs/spec/privacy-guard-spec.md`)**](docs/spec/privacy-guard-spec.md) — Deterministic algorithmic & regex NER PII detection, priority overlap resolution, Right-to-Left span substitution, atomic single-pass rehydration, and zero-leakage guarantees.
 * 📜 [**OpenAPI 3.1 Gateway Contract (`docs/spec/openapi.yaml`)**](docs/spec/openapi.yaml) — Authoritative REST API specification for `/api/memos`, `/api/tasks`, `/api/health`, and `/api/docs` (`v1.0.0`).
 * 🧬 [**Domain & Data Schema Contracts (`docs/spec/contracts.md`)**](docs/spec/contracts.md) — Authoritative Zod schemas, `EncryptedPayload`, `TaskEntity`, `MemoEntity`, and GDPR/EU AI Act provenance models.
-* 🤖 [**Multi-Agent System & 8 Pillars of Craftsmanship (`docs/spec/multi-agent-system.md`)**](docs/spec/multi-agent-system.md) — Maker-Checker-Critic governance topology, Principle of Least Privilege (PoLP) matrix, Human-in-the-Loop (HITL) checkpoints, and Pillar 8 Structured Telemetry standards.
+* 🤖 [**Multi-Agent System & 8 Pillars of Craftsmanship (`docs/spec/multi-agent-system.md`)**](docs/spec/multi-agent-system.md) — Maker-Checker-Critic governance topology, Principle of Least Privilege (PoLP) matrix, Human-in-the-Loop (HITL) checkpoints, mandatory Pre-Edit Auditors, and Pillar 8 Structured Telemetry standards.
+* ✅ [**Holistic Release Audit Checklist (`docs/spec/release-audit-checklist.md`)**](docs/spec/release-audit-checklist.md) — 7-Area Holistic Release Audit gate covering Crypto & Auth, Adversarial Privacy Probes, Spec Parity, Mutation Checks, Resilience, Offline UX, and CI Hygiene.
 
 ---
 
