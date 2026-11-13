@@ -3,9 +3,7 @@ import { Dashboard } from './views/Dashboard';
 import { TaskBoard } from './views/TaskBoard';
 import { useTasks } from './hooks/useTasks';
 import { usePrivacyShield } from './hooks/usePrivacyShield';
-import { PrivacyShieldBadge } from './components/atoms/PrivacyShieldBadge';
 import { InstallPrompt } from './components/atoms/InstallPrompt';
-import { Button } from './components/atoms/Button';
 import { ClientCryptoService } from './services/ClientCryptoService';
 
 export const App: React.FC = () => {
@@ -132,59 +130,9 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Security Status Header Bar */}
+        {/* Header Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={simulateOffline}
-            aria-label="Simulate Offline"
-            data-testid="simulate-offline-toggle"
-            onClick={() => setSimulateOffline((prev) => !prev)}
-            style={{
-              padding: '0.3rem 0.65rem',
-              borderRadius: '9999px',
-              border: `1px solid ${simulateOffline ? '#f59e0b' : '#cbd5e1'}`,
-              backgroundColor: simulateOffline ? '#fef3c7' : '#f8fafc',
-              color: simulateOffline ? '#92400e' : '#475569',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-            }}
-          >
-            <span aria-hidden="true">{simulateOffline ? '⚡' : '🌐'}</span>
-            <span>{simulateOffline ? 'Simulated Offline' : 'Simulate Offline'}</span>
-          </button>
           <InstallPrompt />
-          <PrivacyShieldBadge
-            riskLevel={sessionRiskLevel}
-            isSecured={hasActiveKey}
-            tokenCount={totalTokensMasked}
-          />
-
-          {hasActiveKey ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleLockAndZero}
-              aria-label="Logout and Zero Key"
-              style={{ fontSize: '0.75rem', color: '#dc2626' }}
-            >
-              🔒 Lock & Zero Key
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={handleInitKey}
-              style={{ fontSize: '0.75rem' }}
-            >
-              🔑 Init Session Key
-            </Button>
-          )}
         </div>
       </header>
 
@@ -236,6 +184,7 @@ export const App: React.FC = () => {
             sessionRiskLevel={sessionRiskLevel}
             recordMaskedTokens={recordMaskedTokens}
             onLogoutAndZeroKey={handleLockAndZero}
+            onInitializeKey={handleInitKey}
             draftsCount={draftsCount}
             undecryptableIds={undecryptableIds}
             unsyncedIds={unsyncedIds}
@@ -244,6 +193,7 @@ export const App: React.FC = () => {
             syncError={syncError}
             onRetryFetch={fetchTasks}
             simulateOffline={simulateOffline}
+            onToggleSimulateOffline={() => setSimulateOffline((prev) => !prev)}
           />
         ) : (
           <TaskBoard

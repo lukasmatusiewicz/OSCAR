@@ -108,7 +108,7 @@ describe('Dashboard View', () => {
     fireEvent.click(logoutBtn);
 
     expect(screen.getByText(/ephemeral key memory cleared/i)).toBeInTheDocument();
-    expect(screen.getByText(/init session key/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /init session key/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /generate session key/i })).not.toBeInTheDocument();
     expect(ClientCryptoService.hasSessionKey()).toBe(false);
   });

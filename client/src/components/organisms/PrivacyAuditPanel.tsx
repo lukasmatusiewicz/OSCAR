@@ -1,6 +1,7 @@
 import React from 'react';
 import { PIIType, RiskLevel } from '../../types/contracts';
 import { Button } from '../atoms/Button';
+import { PrivacyShieldBadge } from '../atoms/PrivacyShieldBadge';
 
 export interface PrivacyMetrics {
   totalTokensMasked: number;
@@ -13,12 +14,18 @@ export interface PrivacyMetrics {
 export interface PrivacyAuditPanelProps {
   metrics: PrivacyMetrics;
   onLogoutAndZeroKey: () => void;
+  onInitializeKey?: () => void;
+  simulateOffline?: boolean;
+  onToggleSimulateOffline?: () => void;
   className?: string;
 }
 
 export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
   metrics,
   onLogoutAndZeroKey,
+  onInitializeKey,
+  simulateOffline = false,
+  onToggleSimulateOffline,
   className = '',
 }) => {
   const piiTypes: PIIType[] = ['SECRET_KEY', 'IBAN', 'EMAIL', 'PHONE', 'AMOUNT_MONEY', 'PERSON'];
@@ -57,6 +64,11 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
             Privacy Shield & Audit
           </h3>
         </div>
+        <PrivacyShieldBadge
+          riskLevel={metrics.sessionRiskLevel}
+          isSecured={metrics.hasActiveKey}
+          tokenCount={metrics.totalTokensMasked}
+        />
       </div>
 
       {/* Security Status Box */}
@@ -90,7 +102,7 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
           >
             {metrics.hasActiveKey ? '🟢 WebCrypto AES-256-GCM Active' : '🔴 No Active Session Key'}
           </span>
-          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Ephemeral Session</span>
+          <span style={{ fontSize: '0.7rem', color: '#475569' }}>Ephemeral Session</span>
         </div>
         <p
           style={{
@@ -192,26 +204,81 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
         </div>
       )}
 
-      {/* Memory Zeroing Action */}
+      {/* Session & Demo Controls */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.5rem',
+          gap: '0.6rem',
           marginTop: 'auto',
-          paddingTop: '0.5rem',
-          borderTop: '1px solid #f1f5f9',
+          paddingTop: '0.65rem',
+          borderTop: '1px solid #e2e8f0',
         }}
       >
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={onLogoutAndZeroKey}
-          disabled={!metrics.hasActiveKey}
-          aria-label="Zero Session Key & Logout"
-        >
-          🧹 Zero Session Key & Logout
-        </Button>
+        {onToggleSimulateOffline && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '0.5rem',
+              padding: '0.45rem 0.6rem',
+              backgroundColor: '#f8fafc',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0',
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#334155' }}>
+              Network Mode
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={simulateOffline}
+              aria-label="Simulate Offline"
+              data-testid="simulate-offline-toggle"
+              onClick={onToggleSimulateOffline}
+              style={{
+                padding: '0.3rem 0.65rem',
+                borderRadius: '9999px',
+                border: `1px solid ${simulateOffline ? '#d97706' : '#cbd5e1'}`,
+                backgroundColor: simulateOffline ? '#fef3c7' : '#ffffff',
+                color: simulateOffline ? '#92400e' : '#334155',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+            >
+              <span aria-hidden="true">{simulateOffline ? '⚡' : '🌐'}</span>
+              <span>{simulateOffline ? 'Simulated Offline' : 'Simulate Offline'}</span>
+            </button>
+          </div>
+        )}
+
+        {metrics.hasActiveKey ? (
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={onLogoutAndZeroKey}
+            aria-label="Zero Session Key & Logout"
+          >
+            🧹 Zero Session Key & Logout
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onInitializeKey}
+            disabled={!onInitializeKey}
+            aria-label="Init Session Key"
+          >
+            🔑 Init Session Key
+          </Button>
+        )}
         <span style={{ fontSize: '0.6875rem', color: '#475569', textAlign: 'center' }}>
           Guaranteed client memory zeroing (keyBuffer.fill(0))
         </span>
