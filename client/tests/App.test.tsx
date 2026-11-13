@@ -24,13 +24,21 @@ describe('App Root Component', () => {
     });
 
     expect(screen.getByText(/🎙️ oscar/i)).toBeInTheDocument();
+    const header = screen.getByRole('banner');
+    const switcherBar = screen.getByTestId('view-switcher-bar');
     const nav = screen.getByRole('navigation', { name: /primary navigation/i });
     expect(nav).toBeInTheDocument();
+    expect(nav).toHaveClass('oscar-nav-switcher');
+    expect(switcherBar).toContainElement(nav);
+    expect(header).not.toContainElement(nav);
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
 
     const dashBtn = screen.getByRole('button', { name: /^dashboard$/i });
     const boardBtn = screen.getByRole('button', { name: /^task board$/i });
+    expect(dashBtn).toHaveClass('oscar-nav-pill', 'oscar-nav-pill--active');
+    expect(boardBtn).toHaveClass('oscar-nav-pill');
+    expect(boardBtn).not.toHaveClass('oscar-nav-pill--active');
     expect(dashBtn).toHaveAttribute('aria-current', 'page');
     expect(boardBtn).not.toHaveAttribute('aria-current');
 
@@ -39,7 +47,6 @@ describe('App Root Component', () => {
     expect(screen.getByRole('button', { name: /zero session key & logout/i })).toBeInTheDocument();
 
     // Verify top header is clean (privacy badge, offline toggle, and lock/key button moved to PrivacyAuditPanel)
-    const header = screen.getByRole('banner');
     expect(within(header).queryByTestId('simulate-offline-toggle')).not.toBeInTheDocument();
     expect(within(header).queryByText(/no pii detected/i)).not.toBeInTheDocument();
     expect(within(header).queryByRole('button', { name: /zero session key & logout/i })).not.toBeInTheDocument();
@@ -92,14 +99,18 @@ describe('App Root Component', () => {
     fireEvent.click(boardBtn);
 
     expect(boardBtn).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('button', { name: /^dashboard$/i })).not.toHaveAttribute('aria-current');
+    expect(boardBtn).toHaveClass('oscar-nav-pill--active');
+    const dashBtn = screen.getByRole('button', { name: /^dashboard$/i });
+    expect(dashBtn).not.toHaveAttribute('aria-current');
+    expect(dashBtn).not.toHaveClass('oscar-nav-pill--active');
     expect(screen.getByTestId('taskboard-column-draft')).toBeInTheDocument();
 
-    const dashBtn = screen.getByRole('button', { name: /^dashboard$/i });
     fireEvent.click(dashBtn);
 
     expect(dashBtn).toHaveAttribute('aria-current', 'page');
+    expect(dashBtn).toHaveClass('oscar-nav-pill--active');
     expect(boardBtn).not.toHaveAttribute('aria-current');
+    expect(boardBtn).not.toHaveClass('oscar-nav-pill--active');
     expect(screen.getByText(/new confidential voice\/text memo/i)).toBeInTheDocument();
   });
 
