@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { DecryptedTaskPayload, TaskEntity, TaskPriority, TaskStatus } from '../../types/contracts';
+import {
+  DecryptedTaskPayload,
+  TaskCategory,
+  TaskEntity,
+  TaskPriority,
+  TaskStatus,
+} from '../../types/contracts';
 import { Badge } from '../atoms/Badge';
 import { Button } from '../atoms/Button';
 import { Input } from '../atoms/Input';
@@ -16,10 +22,23 @@ export interface TaskCardProps {
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
-  onTaskUpdate?: (taskId: string, updatedPayload: DecryptedTaskPayload) => void;
+  onTaskUpdate?: (
+    taskId: string,
+    updatedPayload: DecryptedTaskPayload,
+    updates?: { category?: TaskCategory },
+  ) => void;
   onDelete?: (taskId: string) => void;
   className?: string;
 }
+
+const TASK_CATEGORY_OPTIONS: { value: TaskCategory; label: string }[] = [
+  { value: 'WORK', label: '💼 Work' },
+  { value: 'FINANCE', label: '💳 Finance' },
+  { value: 'HEALTH', label: '🩺 Health' },
+  { value: 'PERSONAL', label: '🏠 Personal' },
+  { value: 'INTERVIEW_PREP', label: '🎯 Interview Prep' },
+  { value: 'OTHER', label: '📌 Other' },
+];
 
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
@@ -41,6 +60,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(decryptedPayload?.title || '');
   const [editSummary, setEditSummary] = useState(decryptedPayload?.summary || '');
+  const [editCategory, setEditCategory] = useState<TaskCategory>(task.category);
   const [editLocation, setEditLocation] = useState(decryptedPayload?.location || '');
   const [editContactPerson, setEditContactPerson] = useState(decryptedPayload?.contactPerson || '');
   const [editAmount, setEditAmount] = useState(decryptedPayload?.amount || '');
@@ -58,6 +78,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   useEffect(() => {
     setEditTitle(decryptedPayload?.title || '');
     setEditSummary(decryptedPayload?.summary || '');
+    setEditCategory(task.category);
     setEditLocation(decryptedPayload?.location || '');
     setEditContactPerson(decryptedPayload?.contactPerson || '');
     setEditAmount(decryptedPayload?.amount || '');
@@ -83,7 +104,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       scheduledDate: editScheduledDate.trim() || null,
     };
 
-    onTaskUpdate?.(task.id, updatedPayload);
+    if (editCategory !== task.category) {
+      onTaskUpdate?.(task.id, updatedPayload, { category: editCategory });
+    } else {
+      onTaskUpdate?.(task.id, updatedPayload);
+    }
     if (isDraft) {
       onStatusChange?.(task.id, 'PENDING');
     }
@@ -93,6 +118,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const handleCancelEdit = () => {
     setEditTitle(decryptedPayload?.title || '');
     setEditSummary(decryptedPayload?.summary || '');
+    setEditCategory(task.category);
     setEditLocation(decryptedPayload?.location || '');
     setEditContactPerson(decryptedPayload?.contactPerson || '');
     setEditAmount(decryptedPayload?.amount || '');
@@ -320,6 +346,35 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onChange={(e) => setEditSummary(e.target.value)}
             placeholder="Detailed objective and context"
           />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <label
+              htmlFor={`edit-category-${task.id}`}
+              style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}
+            >
+              Category
+            </label>
+            <select
+              id={`edit-category-${task.id}`}
+              aria-label="Category"
+              value={editCategory}
+              onChange={(e) => setEditCategory(e.target.value as TaskCategory)}
+              style={{
+                padding: '0.45rem 0.6rem',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: '#ffffff',
+                fontSize: '0.8125rem',
+                color: '#0f172a',
+              }}
+            >
+              {TASK_CATEGORY_OPTIONS.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div
             data-testid="edit-mode-metadata-grid"

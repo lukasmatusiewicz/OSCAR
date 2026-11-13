@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { PIITokenMap, PIIType, RiskLevel } from '../../types/contracts';
 import { Button } from '../atoms/Button';
 import { Input } from '../atoms/Input';
-import { PrivacyShieldBadge } from '../atoms/PrivacyShieldBadge';
 import { TokenPreviewBadge } from '../molecules/TokenPreviewBadge';
 import {
   MOBILE_E_NAMES,
@@ -1138,7 +1137,7 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
   const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const { tokens, riskLevel } = useMemo(() => detectClientTokens(content), [content]);
+  const { tokens } = useMemo(() => detectClientTokens(content), [content]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1186,7 +1185,6 @@ export const MemoEditor: React.FC<MemoEditorProps> = ({
         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#0f172a' }}>
           📝 New Confidential Voice/Text Memo
         </h3>
-        <PrivacyShieldBadge riskLevel={riskLevel} isSecured={true} tokenCount={tokens.length} />
       </div>
 
       <form

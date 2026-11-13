@@ -1,5 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { DecryptedTaskPayload, TaskEntity, TaskPriority, TaskStatus } from '../types/contracts';
+import {
+  DecryptedTaskPayload,
+  TaskCategory,
+  TaskEntity,
+  TaskPriority,
+  TaskStatus,
+} from '../types/contracts';
 import { ClientCryptoService } from '../services/ClientCryptoService';
 import { gatewayClient } from '../services/GatewayClient';
 import { logger } from '../utils/logger';
@@ -23,9 +29,11 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
   const [error, setError] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [unsyncedIds, setUnsyncedIds] = useState<Record<string, boolean>>({});
+  const [localOnlyIds, setLocalOnlyIds] = useState<Record<string, boolean>>({});
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const decryptedPayloadsRef = useRef<Record<string, DecryptedTaskPayload>>({});
+  const localOnlyIdsRef = useRef<Record<string, boolean>>({});
   const isMountedRef = useRef<boolean>(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -144,8 +152,13 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
     }
   }, []);
 
-  const addTask = useCallback((task: TaskEntity, decrypted?: DecryptedTaskPayload) => {
-    logger.info('useTasks', `Added task ${task.id} (status: ${task.status}, priority: ${task.priority})`);
+  const addTask = useCallback(
+    (task: TaskEntity, decrypted?: DecryptedTaskPayload, meta?: { isLocalOnly?: boolean }) => {
+      logger.info('useTasks', `Added task ${task.id} (status: ${task.status}, priority: ${task.priority})`);
+      if (meta?.isLocalOnly) {
+        localOnlyIdsRef.current = { ...localOnlyIdsRef.current, [task.id]: true };
+        setLocalOnlyIds(localOnlyIdsRef.current);
+      }
     if (decrypted) {
       decryptedPayloadsRef.current = { ...decryptedPayloadsRef.current, [task.id]: decrypted };
       setDecryptedPayloads(decryptedPayloadsRef.current);
@@ -194,7 +207,11 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
         }),
       );
 
-      // Optimistic background sync with gateway
+      // Optimistic background sync with gateway (skipped for local-only offline tasks)
+      if (localOnlyIdsRef.current[taskId]) {
+        return;
+      }
+
       gatewayClient
         .updateTask(taskId, { status: newStatus })
         .then(() => clearUnsynced(taskId))
@@ -219,7 +236,11 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
         }),
       );
 
-      // Optimistic background sync with gateway
+      // Optimistic background sync with gateway (skipped for local-only offline tasks)
+      if (localOnlyIdsRef.current[taskId]) {
+        return;
+      }
+
       gatewayClient
         .updateTask(taskId, { priority: newPriority })
         .then(() => clearUnsynced(taskId))
@@ -248,6 +269,14 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
       delete next[taskId];
       return next;
     });
+
+    if (localOnlyIdsRef.current[taskId]) {
+      const nextLocal = { ...localOnlyIdsRef.current };
+      delete nextLocal[taskId];
+      localOnlyIdsRef.current = nextLocal;
+      setLocalOnlyIds(nextLocal);
+      return;
+    }
 
     gatewayClient.deleteTask(taskId).catch((err: unknown) => {
       if (isMountedRef.current) {
@@ -280,7 +309,11 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
   }, []);
 
   const updateTaskPayload = useCallback(
-    (taskId: string, updatedPayload: DecryptedTaskPayload) => {
+    (
+      taskId: string,
+      updatedPayload: DecryptedTaskPayload,
+      updates?: { category?: TaskCategory },
+    ) => {
       logger.info('useTasks', `Updating task payload for ${taskId}`);
       decryptedPayloadsRef.current = {
         ...decryptedPayloadsRef.current,
@@ -292,6 +325,7 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
           if (t.id === taskId) {
             return {
               ...t,
+              category: updates?.category ?? t.category,
               scheduledTime: updatedPayload.scheduledTime ?? t.scheduledTime,
               scheduledDate:
                 updatedPayload.scheduledDate !== undefined
@@ -303,6 +337,8 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
           return t;
         }),
       );
+
+      const isLocalOnly = Boolean(localOnlyIdsRef.current[taskId]);
 
       // Re-encrypt updated payload with session key and dispatch to gateway
       (async () => {
@@ -321,6 +357,10 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
           }
         }
 
+        if (isLocalOnly) {
+          return;
+        }
+
         gatewayClient
           .patchTask(taskId, {
             title: updatedPayload.title,
@@ -331,6 +371,7 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
             amount: updatedPayload.amount,
             scheduledTime: updatedPayload.scheduledTime,
             scheduledDate: updatedPayload.scheduledDate,
+            ...(updates?.category ? { category: updates.category } : {}),
           })
           .then(() => clearUnsynced(taskId))
           .catch((err: unknown) => markUnsynced(taskId, err, 'Failed to sync task update'));
@@ -360,6 +401,7 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
     error,
     fetchError,
     unsyncedIds,
+    localOnlyIds,
     syncError,
     addTask,
     updateTaskStatus,

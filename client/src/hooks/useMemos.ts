@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   EncryptedPayload,
   MaskedTokenSummary,
@@ -20,7 +20,11 @@ import { TEMPORAL_STOP_WORDS } from '../components/organisms/MemoEditor';
 
 export interface UseMemosOptions {
   simulateOffline?: boolean;
-  onTaskCreated?: (task: TaskEntity, decrypted: DecryptedTaskPayload) => void;
+  onTaskCreated?: (
+    task: TaskEntity,
+    decrypted: DecryptedTaskPayload,
+    meta?: { isLocalOnly?: boolean },
+  ) => void;
   onTokensDetected?: (tokens: MaskedTokenSummary[]) => void;
 }
 
@@ -35,6 +39,16 @@ export function useMemos(options?: UseMemosOptions) {
   const [warning, setWarning] = useState<string | null>(null);
   const [isOfflineFallback, setIsOfflineFallback] = useState(false);
   const [memos, setMemos] = useState<MemoEntity[]>([]);
+  const prevSimulateOfflineRef = useRef<boolean>(Boolean(options?.simulateOffline));
+
+  useEffect(() => {
+    const currentSimulateOffline = Boolean(options?.simulateOffline);
+    if (prevSimulateOfflineRef.current && !currentSimulateOffline) {
+      setIsOfflineFallback(false);
+      setWarning(null);
+    }
+    prevSimulateOfflineRef.current = currentSimulateOffline;
+  }, [options?.simulateOffline]);
 
   const submitMemo = useCallback(
     async (rawContent: string, tokens: PIITokenMap[] = []): Promise<MemoEntity> => {
@@ -273,7 +287,7 @@ export function useMemos(options?: UseMemosOptions) {
             scheduledTime,
           };
 
-          options?.onTaskCreated?.(taskEntity, decryptedTaskPayload);
+          options?.onTaskCreated?.(taskEntity, decryptedTaskPayload, { isLocalOnly: true });
           logger.info('useMemos', `Offline fallback state active: generated local task (task ID: ${taskId})`);
 
           return memoEntity;
@@ -299,7 +313,7 @@ export function useMemos(options?: UseMemosOptions) {
           setWarning(null);
           setMemos((prev) => [gatewayResponse.memo, ...prev]);
           options?.onTokensDetected?.(gatewayResponse.piiStats.maskedTokens);
-          options?.onTaskCreated?.(gatewayResponse.task, decryptedTask);
+          options?.onTaskCreated?.(gatewayResponse.task, decryptedTask, { isLocalOnly: false });
           logger.info('useMemos', `Memo submitted successfully via gateway (task ID: ${gatewayResponse.task.id})`);
 
           return gatewayResponse.memo;

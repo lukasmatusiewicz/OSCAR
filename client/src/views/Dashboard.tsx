@@ -6,6 +6,7 @@ import { useTasks } from '../hooks/useTasks';
 import { usePrivacyShield } from '../hooks/usePrivacyShield';
 import { useMemos } from '../hooks/useMemos';
 import {
+  TaskCategory,
   TaskEntity,
   DecryptedTaskPayload,
   TaskPriority,
@@ -20,11 +21,19 @@ export interface DashboardProps {
   className?: string;
   tasks?: TaskEntity[];
   decryptedPayloads?: Record<string, DecryptedTaskPayload>;
-  onTaskCreated?: (task: TaskEntity, decrypted?: DecryptedTaskPayload) => void;
+  onTaskCreated?: (
+    task: TaskEntity,
+    decrypted?: DecryptedTaskPayload,
+    meta?: { isLocalOnly?: boolean },
+  ) => void;
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
-  onTaskUpdate?: (taskId: string, updatedPayload: DecryptedTaskPayload) => void;
+  onTaskUpdate?: (
+    taskId: string,
+    updatedPayload: DecryptedTaskPayload,
+    updates?: { category?: TaskCategory },
+  ) => void;
   onDelete?: (taskId: string) => void;
   hasActiveKey?: boolean;
   totalTokensMasked?: number;
@@ -143,8 +152,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     submitMemo,
   } = useMemos({
     simulateOffline,
-    onTaskCreated: (task, decrypted) => {
-      handleTaskCreated(task, decrypted);
+    onTaskCreated: (task, decrypted, meta) => {
+      handleTaskCreated(task, decrypted, meta);
     },
     onTokensDetected: (tokens) => {
       recordMaskedTokens(tokens);
