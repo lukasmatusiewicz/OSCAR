@@ -358,13 +358,22 @@ export const MemoInputSchema = z.object({
 
 export type MemoInput = z.infer<typeof MemoInputSchema>;
 
+export const MaskedTokenSummarySchema = z.object({
+  token: z.string().regex(/^\[[A-Z_]+_\d+\]$/, 'Token must match bracketed format: [TYPE_INDEX]'),
+  type: PIITypeSchema,
+});
+
+export type MaskedTokenSummary = z.infer<typeof MaskedTokenSummarySchema>;
+
 export const MemoPIIStatsSchema = z.object({
   detectedEntityCount: z
     .number()
     .int()
     .nonnegative()
     .describe('Total number of sensitive PII tokens identified and masked'),
-  maskedTokens: z.array(PIITokenMapSchema).describe('List of ephemeral token replacement records'),
+  maskedTokens: z
+    .array(MaskedTokenSummarySchema)
+    .describe('List of redacted token replacement summaries (cleartext originalValue omitted)'),
   riskLevel: RiskLevelSchema.describe('Calculated privacy risk level'),
 });
 

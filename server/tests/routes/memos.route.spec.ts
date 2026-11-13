@@ -56,13 +56,25 @@ describe('Memos Route Integration', () => {
       expect(createdTask).toHaveProperty('amount');
       expect(createdTask).toHaveProperty('scheduledTime');
 
-      // Verify PII telemetry
+      // Verify PII telemetry (R-11: no cleartext originalValue in HTTP response)
       const piiStats = res.body.piiStats;
       expect(piiStats.detectedEntityCount).toBeGreaterThanOrEqual(2);
       expect(piiStats.maskedTokens.length).toBe(piiStats.detectedEntityCount);
       expect(Array.isArray(piiStats.maskedTokens)).toBe(true);
+      for (const maskedToken of piiStats.maskedTokens) {
+        expect(maskedToken).toHaveProperty('token');
+        expect(maskedToken).toHaveProperty('type');
+        expect(maskedToken).not.toHaveProperty('originalValue');
+      }
 
-      // Verify the task can be decrypted locally with the session key
+      // Verify the memo encryptedPayload can be decrypted locally with the session key (R-24)
+      const decryptedMemo = await EncryptionService.decrypt<{ rawContent: string; timestamp: string }>(
+        res.body.memo.encryptedPayload,
+        testKey,
+      );
+      expect(decryptedMemo.rawContent).toBe(memoContent);
+
+      // Verify the task can be decrypted locally with the session key (R-24)
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
         createdTask.encryptedPayload,
         testKey,
@@ -480,6 +492,20 @@ describe('Memos Route Integration', () => {
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Invalid encryption key');
       expect(res.body.code).toBe('INVALID_ENCRYPTION_KEY');
+    });
+
+    it('zeros key buffer in finally on happy path', async () => {
+      const zeroKeySpy = vi.spyOn(EncryptionService, 'zeroKey');
+
+      const res = await inProcessApp(app)
+        .post('/api/memos')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({ content: 'Valid memo content for zeroKey happy path test' });
+
+      expect(res.status).toBe(201);
+      expect(zeroKeySpy).toHaveBeenCalledTimes(1);
+
+      zeroKeySpy.mockRestore();
     });
 
     it('zeros key buffer in finally even when EncryptionService.encrypt throws', async () => {

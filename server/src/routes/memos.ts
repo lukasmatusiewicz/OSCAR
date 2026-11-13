@@ -224,14 +224,14 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         durationMs: Date.now() - requestStart,
       });
 
-      // 10. Return structured response with created tasks and PII telemetry
+      // 10. Return structured response with created tasks and redacted PII telemetry (no cleartext originalValue)
       const response: CreateMemoResponse = {
         task: taskEntity,
         tasks: [taskEntity],
         memo: memoEntity,
         piiStats: {
           detectedEntityCount: sanitization.tokenCount,
-          maskedTokens: sanitization.tokens,
+          maskedTokens: sanitization.tokens.map(({ token, type }) => ({ token, type })),
           riskLevel: sanitization.riskLevel,
         },
       };
