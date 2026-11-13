@@ -338,6 +338,8 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
         }),
       );
 
+      const isLocalOnly = Boolean(localOnlyIdsRef.current[taskId]);
+
       // Re-encrypt updated payload with session key and dispatch to gateway
       (async () => {
         if (ClientCryptoService.hasSessionKey()) {
@@ -355,7 +357,7 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
           }
         }
 
-        if (localOnlyIdsRef.current[taskId]) {
+        if (isLocalOnly) {
           return;
         }
 
