@@ -24,8 +24,15 @@ describe('App Root Component', () => {
     });
 
     expect(screen.getByText(/🎙️ oscar/i)).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /dashboard/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /task board/i })).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: /primary navigation/i });
+    expect(nav).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+
+    const dashBtn = screen.getByRole('button', { name: /^dashboard$/i });
+    const boardBtn = screen.getByRole('button', { name: /^task board$/i });
+    expect(dashBtn).toHaveAttribute('aria-current', 'page');
+    expect(boardBtn).not.toHaveAttribute('aria-current');
 
     // Verify session key initialized automatically and initial task hydration triggered
     expect(ClientCryptoService.hasSessionKey()).toBe(true);
@@ -74,14 +81,18 @@ describe('App Root Component', () => {
       expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
     });
 
-    const boardTab = screen.getByRole('tab', { name: /task board/i });
-    fireEvent.click(boardTab);
+    const boardBtn = screen.getByRole('button', { name: /^task board$/i });
+    fireEvent.click(boardBtn);
 
+    expect(boardBtn).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: /^dashboard$/i })).not.toHaveAttribute('aria-current');
     expect(screen.getByTestId('taskboard-column-draft')).toBeInTheDocument();
 
-    const dashTab = screen.getByRole('tab', { name: /dashboard/i });
-    fireEvent.click(dashTab);
+    const dashBtn = screen.getByRole('button', { name: /^dashboard$/i });
+    fireEvent.click(dashBtn);
 
+    expect(dashBtn).toHaveAttribute('aria-current', 'page');
+    expect(boardBtn).not.toHaveAttribute('aria-current');
     expect(screen.getByText(/new confidential voice\/text memo/i)).toBeInTheDocument();
   });
 
@@ -121,9 +132,9 @@ describe('App Root Component', () => {
       expect(screen.getByText('#voice-memo')).toBeInTheDocument();
     });
 
-    // Switch to Task Board tab
-    const boardTab = screen.getByRole('tab', { name: /task board/i });
-    fireEvent.click(boardTab);
+    // Switch to Task Board view
+    const boardBtn = screen.getByRole('button', { name: /^task board$/i });
+    fireEvent.click(boardBtn);
 
     // Verify task is present on the Task Board immediately without re-fetching
     expect(screen.getAllByText('Launch project kickoff meeting with team').length).toBeGreaterThanOrEqual(1);
@@ -164,5 +175,60 @@ describe('App Root Component', () => {
 
     const installBtn = screen.getByRole('button', { name: /install oscar app/i });
     expect(installBtn).toBeInTheDocument();
+  });
+
+  it('initializes session key before fetchTasks on F5 reload so stale tasks enter undecryptable state', async () => {
+    // Simulate a task encrypted with a previous session's key (lost on F5 reload)
+    ClientCryptoService.initializeSessionKey();
+    const staleEncryptedPayload = await ClientCryptoService.encrypt({
+      title: 'Previous Session Secret Task',
+      summary: 'Encrypted before F5 reload',
+      subtasks: [{ title: 'Should not decrypt with new key', completed: false }],
+    });
+    ClientCryptoService.logout();
+
+    const staleTask: TaskEntity = {
+      id: 'task_stale_f5_001',
+      memoId: 'memo_stale_f5_001',
+      userId: 'usr_default_session_01',
+      encryptedPayload: staleEncryptedPayload,
+      category: 'WORK',
+      priority: 'MEDIUM',
+      status: 'PENDING',
+      scheduledDate: null,
+      tags: ['stale-key'],
+      provenance: 'GEMINI_FLASH',
+      modelVersion: 'gemini-2.5-flash-001',
+      createdAt: '2026-11-13T10:00:00.000Z',
+      updatedAt: '2026-11-13T10:00:00.000Z',
+    };
+
+    const callOrder: string[] = [];
+    const origInit = ClientCryptoService.initializeSessionKey.bind(ClientCryptoService);
+    vi.spyOn(ClientCryptoService, 'initializeSessionKey').mockImplementation((key) => {
+      callOrder.push('initializeSessionKey');
+      return origInit(key);
+    });
+
+    vi.spyOn(gatewayClient, 'fetchTasks').mockImplementation(async () => {
+      callOrder.push('fetchTasks');
+      expect(ClientCryptoService.hasSessionKey()).toBe(true);
+      return [staleTask];
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/cannot decrypt: encrypted with a previous session key \(lost on page reload\)\./i),
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByText(/active session key required to view cleartext/i),
+    ).not.toBeInTheDocument();
+    expect(callOrder.indexOf('initializeSessionKey')).toBeLessThan(
+      callOrder.indexOf('fetchTasks'),
+    );
   });
 });
