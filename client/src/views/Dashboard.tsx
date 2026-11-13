@@ -6,6 +6,7 @@ import { useTasks } from '../hooks/useTasks';
 import { usePrivacyShield } from '../hooks/usePrivacyShield';
 import { useMemos } from '../hooks/useMemos';
 import {
+  TaskCategory,
   TaskEntity,
   DecryptedTaskPayload,
   TaskPriority,
@@ -28,7 +29,11 @@ export interface DashboardProps {
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
   onPriorityChange?: (taskId: string, newPriority: TaskPriority) => void;
   onSubtaskToggle?: (taskId: string, subtaskIndex: number, completed: boolean) => void;
-  onTaskUpdate?: (taskId: string, updatedPayload: DecryptedTaskPayload) => void;
+  onTaskUpdate?: (
+    taskId: string,
+    updatedPayload: DecryptedTaskPayload,
+    updates?: { category?: TaskCategory },
+  ) => void;
   onDelete?: (taskId: string) => void;
   hasActiveKey?: boolean;
   totalTokensMasked?: number;

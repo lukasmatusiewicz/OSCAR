@@ -1,5 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { DecryptedTaskPayload, TaskEntity, TaskPriority, TaskStatus } from '../types/contracts';
+import {
+  DecryptedTaskPayload,
+  TaskCategory,
+  TaskEntity,
+  TaskPriority,
+  TaskStatus,
+} from '../types/contracts';
 import { ClientCryptoService } from '../services/ClientCryptoService';
 import { gatewayClient } from '../services/GatewayClient';
 import { logger } from '../utils/logger';
@@ -303,7 +309,11 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
   }, []);
 
   const updateTaskPayload = useCallback(
-    (taskId: string, updatedPayload: DecryptedTaskPayload) => {
+    (
+      taskId: string,
+      updatedPayload: DecryptedTaskPayload,
+      updates?: { category?: TaskCategory },
+    ) => {
       logger.info('useTasks', `Updating task payload for ${taskId}`);
       decryptedPayloadsRef.current = {
         ...decryptedPayloadsRef.current,
@@ -315,6 +325,7 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
           if (t.id === taskId) {
             return {
               ...t,
+              category: updates?.category ?? t.category,
               scheduledTime: updatedPayload.scheduledTime ?? t.scheduledTime,
               scheduledDate:
                 updatedPayload.scheduledDate !== undefined
@@ -358,6 +369,7 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
             amount: updatedPayload.amount,
             scheduledTime: updatedPayload.scheduledTime,
             scheduledDate: updatedPayload.scheduledDate,
+            ...(updates?.category ? { category: updates.category } : {}),
           })
           .then(() => clearUnsynced(taskId))
           .catch((err: unknown) => markUnsynced(taskId, err, 'Failed to sync task update'));
