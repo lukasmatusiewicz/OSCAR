@@ -399,3 +399,8 @@ The test suite located at `server/tests/privacy/PrivacyGuard.spec.ts` must execu
     Trailing periods, commas, and parentheses must not be swallowed into tokens.
 15. **Coverage Guarantee:**
     Statements, branches, functions, and lines in `server/src/privacy/` must meet or exceed **95% coverage** as reported by `@vitest/coverage-v8`.
+
+### Test Hygiene & GitHub Push Protection Rule:
+
+- **Never commit static secret-pattern literals** (even synthetic ones) anywhere in unit tests, integration tests, fixtures, or documentation. Patterns such as AWS access keys (`AKIA...` / `ASIA...`), Slack tokens (`xox[baprs]-...`), GitHub PATs (`ghp_...` / `github_pat_...`), OpenAI keys (`sk-...`), Google API keys (`AIza...`), JWTs (`eyJ...`), or PEM private key headers will trigger GitHub Push Protection and block pushes.
+- **Always construct synthetic test tokens via runtime string concatenation** (e.g., `'AKIA' + 'IOSFODNN7EXAMPLE'`, `'xox' + 'b-...'`, `'ghp_' + '...'`, `'sk-' + '...'`, `'eyJ' + '...'`) so the full token is assembled only in memory during test execution.

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import {
   EncryptedPayload,
+  MaskedTokenSummary,
   MemoEntity,
   PIITokenMap,
   TaskEntity,
@@ -18,7 +19,7 @@ import { TEMPORAL_STOP_WORDS } from '../components/organisms/MemoEditor';
 
 export interface UseMemosOptions {
   onTaskCreated?: (task: TaskEntity, decrypted: DecryptedTaskPayload) => void;
-  onTokensDetected?: (tokens: PIITokenMap[]) => void;
+  onTokensDetected?: (tokens: MaskedTokenSummary[]) => void;
 }
 
 /**
