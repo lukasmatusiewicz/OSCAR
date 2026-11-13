@@ -130,11 +130,13 @@ Prior to **major releases** (e.g., `v1.0.0`, `v2.0.0`) or **architectural shifts
 * **Runtime Behavior Alignment:** Validate quickstart steps, startup diagnostics, and error-handling behavior against actual runtime execution rather than stale documentation.
 * **Gate Enforcement:** Any discrepancy between documentation claims and `src/` or runtime behavior is logged as a blocking finding for remediation before release sign-off.
 
-### 4.5 Mandatory Pre-Edit Verification Gate (README & Spec Auditors)
-To prevent documentation drift, hallucinated metrics, or stale architectural claims from entering `README.md` or `docs/spec/*`, a strict **Pre-Edit Verification Gate** applies to all documentation tasks:
-* **README Pre-Edit Gate:** Before ANY task that edits `README.md`, an independent, critical **README Auditor** MUST run first in **read-only** mode against `src/`, `tests/`, `package.json`, `.github/workflows/ci.yml`, and `manifest.webmanifest`. The README Auditor produces a verified baseline report (exact test counts, coverage percentages, routes, UI components, and environment variables) that the Maker must treat as authoritative.
-* **Spec Pre-Edit Gate:** Before ANY task that edits `docs/spec/*`, an independent, critical **Spec Auditor** MUST run first in **read-only** mode against `src/` and governance files (`docs/spec/`). The Spec Auditor identifies all schema, route, error-code, and algorithm deltas between runtime code and specifications prior to any edits.
-* **Zero-Bypass Rule:** No Maker agent may author or update `README.md` or `docs/spec/*` without a completed Pre-Edit Verification Gate audit report from the corresponding Auditor.
+### 4.5 Pre-Edit Verification Gate (README & Spec Auditors)
+To prevent documentation drift, hallucinated metrics, or stale architectural claims from entering `README.md` or `docs/spec/*` while keeping routine maintenance pragmatic, a scoped **Pre-Edit Verification Gate** applies to documentation tasks:
+* **Mandatory (Major Edits & Milestones):** An independent, critical **README Auditor** or **Spec Auditor** MUST run first in **read-only** mode before **major restructures, new architectural/security claims, or release milestones**:
+  * **README Auditor:** Runs against `src/`, `tests/`, `package.json`, `.github/workflows/ci.yml`, and `manifest.webmanifest` to produce a verified baseline report (exact test counts, coverage percentages, routes, UI components, and environment variables) that the Maker must treat as authoritative.
+  * **Spec Auditor:** Runs against `src/` and governance files (`docs/spec/`) to identify all schema, route, error-code, and algorithm deltas between runtime code and specifications prior to any edits.
+* **Not Required (Trivial Fixes):** Skip the pre-edit auditor for trivial fixes—such as typos, updating a single test count, or adding screenshot links—that do not introduce new architectural or security claims.
+* **Gate Enforcement:** For any task meeting the mandatory criteria above, no Maker agent may author or update `README.md` or `docs/spec/*` without a completed Pre-Edit Verification Gate audit report from the corresponding Auditor.
 
 ---
 
