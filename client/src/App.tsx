@@ -13,6 +13,16 @@ export const App: React.FC = () => {
   const [simulateOffline, setSimulateOffline] = useState(false);
 
   const {
+    hasActiveKey,
+    totalTokensMasked,
+    tokensByType,
+    sessionRiskLevel,
+    recordMaskedTokens,
+    logoutAndZeroKey,
+    initializeKey,
+  } = usePrivacyShield();
+
+  const {
     tasks,
     decryptedPayloads,
     undecryptableIds,
@@ -30,28 +40,24 @@ export const App: React.FC = () => {
     decryptAllTasks,
     clearDecryptedPayloads,
     draftsCount,
-  } = useTasks();
-
-  const {
-    hasActiveKey,
-    totalTokensMasked,
-    tokensByType,
-    sessionRiskLevel,
-    recordMaskedTokens,
-    logoutAndZeroKey,
-    initializeKey,
-  } = usePrivacyShield();
+  } = useTasks([], hasActiveKey);
 
   useEffect(() => {
-    // Automatically initialize ephemeral session key on app launch
-    if (!ClientCryptoService.hasSessionKey()) {
-      initializeKey();
-    }
-  }, [initializeKey]);
-
-  useEffect(() => {
-    void fetchTasks();
-  }, [fetchTasks]);
+    let cancelled = false;
+    // Ensure ephemeral session key is initialized BEFORE fetching tasks on mount (F5 reload)
+    const initializeAndHydrate = async () => {
+      if (!ClientCryptoService.hasSessionKey()) {
+        await initializeKey();
+      }
+      if (!cancelled) {
+        await fetchTasks();
+      }
+    };
+    void initializeAndHydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [initializeKey, fetchTasks]);
 
   const handleLockAndZero = () => {
     logoutAndZeroKey();
