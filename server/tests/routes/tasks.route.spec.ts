@@ -30,10 +30,14 @@ describe('Tasks Route Integration', () => {
 
     it('returns all persisted tasks in descending creation order', async () => {
       // Create two memos to populate store
-      await inProcessApp(app).post('/api/memos').send({ content: 'Task number one for team standup' });
+      await inProcessApp(app)
+        .post('/api/memos')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({ content: 'Task number one for team standup' });
 
       await inProcessApp(app)
         .post('/api/memos')
+        .set('x-oscar-encryption-key', testKeyBase64)
         .send({ content: 'Task number two for client delivery' });
 
       const res = await inProcessApp(app).get('/api/tasks');
@@ -128,15 +132,19 @@ describe('Tasks Route Integration', () => {
 
   describe('PATCH /api/tasks/:id', () => {
     it('updates status and metadata of an existing task and returns 200', async () => {
-      const createRes = await inProcessApp(app).post('/api/tasks').send({
-        title: 'Deploy Production Hotfix',
-        summary: 'Review and promote hotfix release safely',
-      });
+      const createRes = await inProcessApp(app)
+        .post('/api/tasks')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Deploy Production Hotfix',
+          summary: 'Review and promote hotfix release safely',
+        });
 
       const taskId = createRes.body.id;
 
       const patchRes = await inProcessApp(app)
         .patch(`/api/tasks/${taskId}`)
+        .set('x-oscar-encryption-key', testKeyBase64)
         .send({
           status: 'COMPLETED',
           priority: 'URGENT',
@@ -278,18 +286,48 @@ describe('Tasks Route Integration', () => {
           title: 'Attempted Title Update with Wrong Key',
         });
 
-      expect(patchRes.status).toBe(500);
-      expect(patchRes.body.error).toBe('Internal server error');
+      expect(patchRes.status).toBe(422);
+      expect(patchRes.body.error).toBe('Decryption failed');
+      expect(patchRes.body.code).toBe('DECRYPTION_FAILED');
+    });
+
+    it('zeros key buffer in finally when decrypt throws during PATCH /api/tasks/:id', async () => {
+      const createRes = await inProcessApp(app)
+        .post('/api/tasks')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Task for ZeroKey Cleanup Test',
+          summary: 'Summary for ZeroKey Cleanup Test',
+        });
+
+      const taskId = createRes.body.id;
+      const mismatchedKey = EncryptionService.generateKey();
+      const mismatchedKeyBase64 = Buffer.from(mismatchedKey).toString('base64');
+      const zeroKeySpy = vi.spyOn(EncryptionService, 'zeroKey');
+
+      const patchRes = await inProcessApp(app)
+        .patch(`/api/tasks/${taskId}`)
+        .set('x-oscar-encryption-key', mismatchedKeyBase64)
+        .send({
+          title: 'Trigger Decrypt Error',
+        });
+
+      expect(patchRes.status).toBe(422);
+      expect(zeroKeySpy).toHaveBeenCalledTimes(1);
+      zeroKeySpy.mockRestore();
     });
   });
 
   describe('DELETE /api/tasks/:id', () => {
     it('deletes an existing task and returns 200 with confirmation and structured logging', async () => {
       const loggerSpy = vi.spyOn(logger, 'info');
-      const createRes = await inProcessApp(app).post('/api/tasks').send({
-        title: 'Temporary Task to Delete',
-        summary: 'This task will be removed shortly',
-      });
+      const createRes = await inProcessApp(app)
+        .post('/api/tasks')
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          title: 'Temporary Task to Delete',
+          summary: 'This task will be removed shortly',
+        });
 
       const taskId = createRes.body.id;
 

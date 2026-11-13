@@ -50,8 +50,9 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
       // 2. Resolve per-request encryption key
       const keyBuffer = getEncryptionKeyFromRequest(req);
 
-      // 3. Mask PII using ECMAScript Priority Overlap Resolution
-      const sanitization = PrivacyGuard.mask(input.content);
+      try {
+        // 3. Mask PII using ECMAScript Priority Overlap Resolution
+        const sanitization = PrivacyGuard.mask(input.content);
       logger.info('Memos', `Sanitized inbound memo: ${sanitization.tokenCount} token(s) detected`, {
         tokenCount: sanitization.tokenCount,
         tokenTypes: Array.from(new Set(sanitization.tokens.map((t) => t.type))),
@@ -168,9 +169,6 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         keyBuffer,
       );
 
-      // Securely zero out the key buffer in memory
-      EncryptionService.zeroKey(keyBuffer);
-
       // 8. Construct TaskEntity and MemoEntity conformant with authoritative schemas
       const memoId = `memo_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
       const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
@@ -238,7 +236,10 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         },
       };
 
-      res.status(200).json(response);
+        res.status(200).json(response);
+      } finally {
+        EncryptionService.zeroKey(keyBuffer);
+      }
     } catch (err: unknown) {
       next(err);
     }
