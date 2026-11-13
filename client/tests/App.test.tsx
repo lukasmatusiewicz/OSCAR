@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { App } from '../src/App';
 import { ClientCryptoService } from '../src/services/ClientCryptoService';
 import { gatewayClient } from '../src/services/GatewayClient';
@@ -36,7 +36,14 @@ describe('App Root Component', () => {
 
     // Verify session key initialized automatically and initial task hydration triggered
     expect(ClientCryptoService.hasSessionKey()).toBe(true);
-    expect(screen.getByRole('button', { name: /logout and zero key/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /zero session key & logout/i })).toBeInTheDocument();
+
+    // Verify top header is clean (privacy badge, offline toggle, and lock/key button moved to PrivacyAuditPanel)
+    const header = screen.getByRole('banner');
+    expect(within(header).queryByTestId('simulate-offline-toggle')).not.toBeInTheDocument();
+    expect(within(header).queryByText(/no pii detected/i)).not.toBeInTheDocument();
+    expect(within(header).queryByRole('button', { name: /zero session key & logout/i })).not.toBeInTheDocument();
+    expect(within(header).queryByRole('button', { name: /init session key/i })).not.toBeInTheDocument();
   });
 
   it('automatically hydrates and decrypts existing persisted tasks from backend on mount', async () => {
@@ -96,17 +103,22 @@ describe('App Root Component', () => {
     expect(screen.getByText(/new confidential voice\/text memo/i)).toBeInTheDocument();
   });
 
-  it('locks session and zeroes key when lock button is clicked in header', async () => {
+  it('locks session and zeroes key when lock button is clicked in PrivacyAuditPanel', async () => {
     render(<App />);
     await waitFor(() => {
       expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
     });
 
-    const lockBtn = screen.getByRole('button', { name: /logout and zero key/i });
+    const auditPanel = screen.getByRole('complementary', {
+      name: /privacy and security audit panel/i,
+    });
+    const lockBtn = within(auditPanel).getByRole('button', {
+      name: /zero session key & logout/i,
+    });
     fireEvent.click(lockBtn);
 
     expect(ClientCryptoService.hasSessionKey()).toBe(false);
-    const initBtn = screen.getByRole('button', { name: /init session key/i });
+    const initBtn = within(auditPanel).getByRole('button', { name: /init session key/i });
     expect(initBtn).toBeInTheDocument();
     fireEvent.click(initBtn);
     expect(ClientCryptoService.hasSessionKey()).toBe(true);
@@ -140,9 +152,14 @@ describe('App Root Component', () => {
     expect(screen.getAllByText('Launch project kickoff meeting with team').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('#voice-memo')).toBeInTheDocument();
 
-    // Now lock & zero key
-    const lockBtn = screen.getByRole('button', { name: /logout and zero key/i });
+    // Switch back to Dashboard to lock & zero key via PrivacyAuditPanel, then return to Task Board
+    const dashBtn = screen.getByRole('button', { name: /^dashboard$/i });
+    fireEvent.click(dashBtn);
+
+    const lockBtn = screen.getByRole('button', { name: /zero session key & logout/i });
     fireEvent.click(lockBtn);
+
+    fireEvent.click(screen.getByRole('button', { name: /^task board$/i }));
 
     // Once locked and zeroed, cleartext payload is cleared
     expect(ClientCryptoService.hasSessionKey()).toBe(false);

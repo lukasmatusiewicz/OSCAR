@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MemoEditor } from '../components/organisms/MemoEditor';
 import { TaskList } from '../components/organisms/TaskList';
 import { PrivacyAuditPanel } from '../components/organisms/PrivacyAuditPanel';
@@ -32,6 +32,7 @@ export interface DashboardProps {
   sessionRiskLevel?: RiskLevel;
   recordMaskedTokens?: (tokens: { type: PIIType }[]) => void;
   onLogoutAndZeroKey?: () => void;
+  onInitializeKey?: () => void;
   draftsCount?: number;
   undecryptableIds?: Record<string, boolean>;
   unsyncedIds?: Record<string, boolean>;
@@ -40,6 +41,7 @@ export interface DashboardProps {
   syncError?: string | null;
   onRetryFetch?: () => void;
   simulateOffline?: boolean;
+  onToggleSimulateOffline?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -60,6 +62,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   sessionRiskLevel: propSessionRiskLevel,
   recordMaskedTokens: propRecordMaskedTokens,
   onLogoutAndZeroKey,
+  onInitializeKey,
   draftsCount: propDraftsCount,
   undecryptableIds: propUndecryptableIds,
   unsyncedIds: propUnsyncedIds,
@@ -67,8 +70,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   fetchError: propFetchError,
   syncError: propSyncError,
   onRetryFetch,
-  simulateOffline = false,
+  simulateOffline: propSimulateOffline,
+  onToggleSimulateOffline,
 }) => {
+  const [internalSimulateOffline, setInternalSimulateOffline] = useState(false);
+  const simulateOffline =
+    propSimulateOffline !== undefined ? propSimulateOffline : internalSimulateOffline;
+  const handleToggleSimulateOffline =
+    onToggleSimulateOffline || (() => setInternalSimulateOffline((prev) => !prev));
   // Always call fallback hooks unconditionally to satisfy React Rules of Hooks
   const fallbackTasks = useTasks(initialTasks);
   const fallbackShield = usePrivacyShield();
@@ -116,6 +125,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     } else {
       fallbackShield.logoutAndZeroKey();
       fallbackTasks.clearDecryptedPayloads();
+    }
+  };
+
+  const handleInitKey = () => {
+    if (onInitializeKey) {
+      onInitializeKey();
+    } else {
+      fallbackShield.initializeKey();
+      void fallbackTasks.decryptAllTasks(tasks);
     }
   };
 
@@ -172,8 +190,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 Ephemeral Key Memory Cleared
               </strong>
               <span style={{ fontSize: '0.8125rem', color: '#b91c1c' }}>
-                Key buffer zeroed. Use the header &ldquo;Init Session Key&rdquo; control to
-                initialize a fresh session key to encrypt memos and decrypt sensitive tasks.
+                Key buffer zeroed. Use the &ldquo;Init Session Key&rdquo; control in the Privacy
+                Shield &amp; Audit panel to initialize a fresh session key to encrypt memos and
+                decrypt sensitive tasks.
               </span>
             </div>
           </div>
@@ -322,6 +341,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               draftsAwaitingReviewCount: draftsCount,
             }}
             onLogoutAndZeroKey={handleLogout}
+            onInitializeKey={handleInitKey}
+            simulateOffline={simulateOffline}
+            onToggleSimulateOffline={handleToggleSimulateOffline}
           />
         </div>
       </aside>
