@@ -574,7 +574,7 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
         .set('X-Oscar-Encryption-Key', rawKeyBase64)
         .send({ content: memoContent });
 
-      expect(memoRes.status).toBe(200);
+      expect(memoRes.status).toBe(201);
       const { task, memo, piiStats } = memoRes.body;
 
       expect(task.id).toBeDefined();

@@ -22,7 +22,7 @@ describe('Memos Route Integration', () => {
   });
 
   describe('POST /api/memos', () => {
-    it('processes valid memo, sanitizes PII, extracts task, encrypts payload, and returns 200 with metrics', async () => {
+    it('processes valid memo, sanitizes PII, extracts task, encrypts payload, and returns 201 with metrics', async () => {
       const memoContent =
         'Schedule strategy review with Alice Newman (alice@example.com, +49 170 1234567) to approve 15000 EUR project budget tomorrow.';
 
@@ -35,7 +35,7 @@ describe('Memos Route Integration', () => {
           title: 'Review Project Budget',
         });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       expect(res.body).toHaveProperty('task');
       expect(res.body).toHaveProperty('tasks');
       expect(res.body).toHaveProperty('memo');
@@ -93,7 +93,7 @@ describe('Memos Route Integration', () => {
           content: 'spotkanie z beatą kozidrak. hamburgerstr. 123',
         });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const createdTask = res.body.task;
       expect(createdTask.contactPerson).toBe('Beata Kozidrak');
       expect(createdTask.location).toBe('Hamburgerstr. 123');
@@ -121,7 +121,7 @@ describe('Memos Route Integration', () => {
             'Spotkanie z Beatą Kozidrak\n• 👤 Contact: Beata Kozidrak\n• 👤 Contact: Beata Kozidrak\n• 📍 Location: Hamburgerstr. 123',
         });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const createdTask = res.body.task;
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
         createdTask.encryptedPayload,
@@ -177,7 +177,7 @@ describe('Memos Route Integration', () => {
           content: 'Plan memo with Alice in Berlin',
         });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const createdTask = res.body.task;
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
         createdTask.encryptedPayload,
@@ -223,7 +223,7 @@ describe('Memos Route Integration', () => {
           content: 'Book meeting room in Kassel Office',
         });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const createdTask = res.body.task;
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
         createdTask.encryptedPayload,
@@ -272,7 +272,7 @@ describe('Memos Route Integration', () => {
           content: 'Visit Hamburg Center for site inspection',
         });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
         res.body.task.encryptedPayload,
         testKey,
@@ -316,7 +316,7 @@ describe('Memos Route Integration', () => {
           content: 'Long memo requiring bounds checking',
         });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
         res.body.task.encryptedPayload,
         testKey,
@@ -335,7 +335,7 @@ describe('Memos Route Integration', () => {
           title: '   ',
         });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
         res.body.task.encryptedPayload,
         testKey,
@@ -379,7 +379,7 @@ describe('Memos Route Integration', () => {
           content: 'Short memo with Dr. Smith tomorrow at 10:00',
         });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
         res.body.task.encryptedPayload,
         testKey,

@@ -236,7 +236,7 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         },
       };
 
-        res.status(200).json(response);
+        res.status(201).json(response);
       } finally {
         EncryptionService.zeroKey(keyBuffer);
       }

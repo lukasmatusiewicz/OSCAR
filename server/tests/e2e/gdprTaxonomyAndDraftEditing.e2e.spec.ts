@@ -17,6 +17,7 @@ import {
 
 // Architectural Named Constants (Eliminating Magic Numbers per Section 7.3 Pillar 6)
 const HTTP_STATUS_OK = 200;
+const HTTP_STATUS_CREATED = 201;
 const HEADER_KEY_NAME = 'x-oscar-encryption-key';
 
 // Multi-Jurisdictional Synthetic Test Entities (RFC 2606 & Section 6 Compliant)
@@ -357,7 +358,7 @@ describe('OSCAR E2E Suite: 9-Category GDPR Taxonomy, Smart Metadata & Interactiv
           title: 'Initial Draft Review',
         });
 
-      expect(createRes.status).toBe(HTTP_STATUS_OK);
+      expect(createRes.status).toBe(HTTP_STATUS_CREATED);
       const createdTask = createRes.body.task;
       expect(createdTask.status).toBe('DRAFT');
 
@@ -434,7 +435,7 @@ describe('OSCAR E2E Suite: 9-Category GDPR Taxonomy, Smart Metadata & Interactiv
           content: complexConfidentialMemo,
         });
 
-      expect(res.status).toBe(HTTP_STATUS_OK);
+      expect(res.status).toBe(HTTP_STATUS_CREATED);
 
       // Verify sanitized preview in MemoEntity contains NO raw PII
       const memoEntity = res.body.memo;

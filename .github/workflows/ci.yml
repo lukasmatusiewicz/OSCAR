@@ -6,10 +6,18 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-and-typecheck:
     name: Static Analysis & Lint Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -30,8 +38,9 @@ jobs:
         run: cd client && npm ci && npx tsc --noEmit && npm run lint
 
   test-server:
-    name: Server Vitest Suite (108 Tests)
+    name: Server Vitest Suite (344+ Tests)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -47,8 +56,9 @@ jobs:
         run: cd server && npm ci && npx vitest run --coverage
 
   test-client:
-    name: Client Vitest Suite (66 Tests)
+    name: Client Vitest Suite (218+ Tests)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -66,6 +76,7 @@ jobs:
   build-verification:
     name: Client Production Build Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
