@@ -178,7 +178,6 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         id: memoId,
         userId: 'usr_session_default_01',
         encryptedPayload: encryptedMemoPayload,
-        sanitizedContentPreview: sanitization.sanitizedText.substring(0, 150),
         hasPII: sanitization.tokenCount > 0,
         maskedFieldsCount: sanitization.tokenCount,
         createdAt: nowIso,
@@ -199,9 +198,6 @@ export function createMemoRouter(deps: MemoRouterDependencies): Router {
         modelVersion: orchestratorResult.modelVersion,
         createdAt: nowIso,
         updatedAt: nowIso,
-        location,
-        contactPerson,
-        amount,
         scheduledTime,
       };
 
