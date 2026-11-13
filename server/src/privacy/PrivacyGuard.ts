@@ -734,13 +734,121 @@ export function isValidSingleName(word: string): boolean {
   return false;
 }
 
+export const NAME_PARTICLES = new Set([
+  'de',
+  'la',
+  'le',
+  'du',
+  'des',
+  'da',
+  'das',
+  'do',
+  'dos',
+  'di',
+  'del',
+  'della',
+  'los',
+  'las',
+  'van',
+  'von',
+  'der',
+  'den',
+  'ten',
+  'ter',
+  'zu',
+  'zum',
+  'zur',
+]);
+
+/**
+ * Folds any Unicode decimal digit (\p{Nd}) to ASCII '0'-'9'.
+ */
+function foldUnicodeDigit(ch: string): string {
+  const cp = ch.codePointAt(0);
+  if (cp === undefined || (cp >= 0x30 && cp <= 0x39)) return ch;
+  if (!/\p{Nd}/u.test(ch)) return ch;
+  let offset = 0;
+  while (offset < 9 && /\p{Nd}/u.test(String.fromCodePoint(cp - offset - 1))) {
+    offset++;
+  }
+  return String(offset);
+}
+
+/**
+ * Normalizes text for deterministic matching:
+ * - Strips zero-width / format characters (\p{Cf}, e.g., \u200B)
+ * - Applies NFKC normalization (e.g., fullwidth digits, NBSP -> space)
+ * - Folds remaining Unicode decimal digits (\p{Nd}) to ASCII '0'-'9'
+ * Maintains exact character offset maps back to the original NFC string.
+ */
+function normalizeForMatching(text: string): {
+  normalized: string;
+  mapStart: number[];
+  mapEnd: number[];
+} {
+  const normChars: string[] = [];
+  const mapStart: number[] = [];
+  const mapEnd: number[] = [];
+
+  for (let i = 0; i < text.length; ) {
+    const cp = text.codePointAt(i)!;
+    const ch = String.fromCodePoint(cp);
+    const charLen = ch.length;
+
+    if (!/^\p{Cf}$/u.test(ch)) {
+      const nfkc = ch.normalize('NFKC');
+      for (const sub of nfkc) {
+        const folded = foldUnicodeDigit(sub);
+        for (let k = 0; k < folded.length; k++) {
+          normChars.push(folded[k]);
+          mapStart.push(i);
+          mapEnd.push(i + charLen);
+        }
+      }
+    }
+
+    i += charLen;
+  }
+
+  return {
+    normalized: normChars.join(''),
+    mapStart,
+    mapEnd,
+  };
+}
+
+/**
+ * Validates IBAN using ISO 13616 MOD-97 checksum after stripping spaces/hyphens.
+ */
+export function isValidIban(iban: string): boolean {
+  const clean = iban.replace(/[\s-]+/g, '').toUpperCase();
+  if (clean.length < 15 || clean.length > 34) return false;
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]+$/.test(clean)) return false;
+
+  const rearranged = clean.slice(4) + clean.slice(0, 4);
+  let remainder = 0;
+  for (let i = 0; i < rearranged.length; i++) {
+    const code = rearranged.charCodeAt(i);
+    if (code >= 48 && code <= 57) {
+      remainder = (remainder * 10 + (code - 48)) % 97;
+    } else if (code >= 65 && code <= 90) {
+      remainder = (remainder * 100 + (code - 55)) % 97;
+    } else {
+      return false;
+    }
+  }
+  return remainder === 1;
+}
+
 /**
  * Validates Polish PESEL checksum using statutory weights [1, 3, 7, 9, 1, 3, 7, 9, 1, 3].
+ * Supports optional spaces between digit groups.
  */
 export function isValidPesel(pesel: string): boolean {
-  if (!/^\d{11}$/.test(pesel)) return false;
+  const clean = pesel.replace(/\s+/g, '');
+  if (!/^\d{11}$/.test(clean)) return false;
   const weights = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3];
-  const digits = pesel.split('').map(Number);
+  const digits = clean.split('').map(Number);
   let sum = 0;
   for (let i = 0; i < 10; i++) {
     sum += weights[i] * digits[i];
@@ -799,12 +907,15 @@ export function isValidSsn(ssn: string): boolean {
 function titleCasePersonToken(value: string): string {
   return value
     .split(' ')
-    .map((word) =>
-      word
+    .map((word, index) => {
+      if (index > 0 && NAME_PARTICLES.has(word.toLowerCase()) && word === word.toLowerCase()) {
+        return word;
+      }
+      return word
         .split('-')
         .map((part) => (part.length > 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
-        .join('-'),
-    )
+        .join('-');
+    })
     .join(' ');
 }
 
@@ -1028,7 +1139,8 @@ export class PrivacyGuard {
     const matchesInOrder = [...nonOverlapping].sort((a, b) => a.startIndex - b.startIndex);
 
     for (const match of matchesInOrder) {
-      const normalizedKey = `${match.type}:${match.value.trim().toLowerCase()}`;
+      const normalizedValue = normalizeForMatching(match.value).normalized.trim().toLowerCase();
+      const normalizedKey = `${match.type}:${normalizedValue}`;
       let assignedToken = entityToToken.get(normalizedKey);
 
       if (!assignedToken) {
@@ -1125,128 +1237,120 @@ export class PrivacyGuard {
    */
   private static collectAllMatches(text: string): RawMatch[] {
     const matches: RawMatch[] = [];
+    const { normalized, mapStart, mapEnd } = normalizeForMatching(text);
+    const U_LEFT = '(?<![\\p{L}\\p{N}])';
+    const U_RIGHT = '(?![\\p{L}\\p{N}])';
+
+    const toOrigSpan = (mStart: number, mEnd: number): { startIndex: number; endIndex: number; value: string } | null => {
+      if (mEnd <= mStart || mStart < 0 || mEnd > normalized.length) return null;
+      const startIndex = mapStart[mStart];
+      const endIndex = mapEnd[mEnd - 1];
+      return {
+        startIndex,
+        endIndex,
+        value: text.slice(startIndex, endIndex),
+      };
+    };
+
+    const pushMappedMatch = (type: PIIType, mStart: number, mEnd: number): void => {
+      const span = toOrigSpan(mStart, mEnd);
+      if (span) {
+        matches.push({ type, ...span });
+      }
+    };
 
     // 1. SECRET_KEY (Priority 1)
     const secretKeyRegex =
-      /\b(?:bearer\s+[a-z0-9_.-]{20,}|ghp_[a-z0-9]{36}|ai[a-z0-9_-]{30,}|sk-[a-z0-9]{32,})\b/giu;
-    for (const m of text.matchAll(secretKeyRegex)) {
+      /(?<![\p{L}\p{N}])(?:bearer\s+[a-z0-9_.-]{20,}|ghp_[a-z0-9]{36}|ai[a-z0-9_-]{30,}|sk-[a-z0-9]{32,}|(?:AKIA|ASIA)[A-Z0-9]{16,}|xox[baprs]-[a-z0-9-]{10,}|eyJ[a-z0-9_-]+\.eyJ[a-z0-9_-]+\.[a-z0-9_-]+)(?![\p{L}\p{N}])/giu;
+    for (const m of normalized.matchAll(secretKeyRegex)) {
       if (m.index !== undefined) {
-        matches.push({
-          type: 'SECRET_KEY',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('SECRET_KEY', m.index, m.index + m[0].length);
       }
     }
 
-    // 2. IBAN (Priority 2, case-insensitive giu)
-    const ibanRegex = /\b[a-z]{2}[0-9]{2}(?:[ ]?[0-9]{4}){4,7}(?:[ ]?[0-9]{1,4})?\b/giu;
-    for (const m of text.matchAll(ibanRegex)) {
-      if (m.index !== undefined) {
-        matches.push({
-          type: 'IBAN',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+    const secretAssignmentRegex =
+      /(?<![\p{L}\p{N}])(?:password|passwd|secret|api[_-]?key)\s*[:=]\s*("[^"\r\n]+"|'[^'\r\n]+'|[^\s,;]+(?<!\.))/giu;
+    for (const m of normalized.matchAll(secretAssignmentRegex)) {
+      if (m.index !== undefined && m[1]) {
+        const valOffset = m[0].lastIndexOf(m[1]);
+        const valStart = m.index + valOffset;
+        pushMappedMatch('SECRET_KEY', valStart, valStart + m[1].length);
+      }
+    }
+
+    // 2. IBAN (Priority 2, case-insensitive giu, MOD-97 validated, alphanumeric BBANs & hyphen/space separators)
+    const ibanRegex =
+      /(?<![\p{L}\p{N}])[a-z]{2}[0-9]{2}(?:[ -]?[a-z0-9]{4}){2,7}(?:[ -]?[a-z0-9]{1,4})?(?![\p{L}\p{N}])/giu;
+    for (const m of normalized.matchAll(ibanRegex)) {
+      if (m.index !== undefined && isValidIban(m[0])) {
+        pushMappedMatch('IBAN', m.index, m.index + m[0].length);
       }
     }
 
     // 3. NATIONAL_ID (Priority 3)
-    // 3a. Polish PESEL (11 digits with checksum)
-    const peselRegex = /\b\d{11}\b/gu;
-    for (const m of text.matchAll(peselRegex)) {
+    // 3a. Polish PESEL (11 digits or space-separated "44 05 14 01 359" with statutory checksum)
+    const peselRegex =
+      /(?<![+\d(\p{L}])(?:\d{11}|\d{2}\s\d{2}\s\d{2}\s\d{2}\s\d{3})(?![\p{L}\p{N}])/gu;
+    for (const m of normalized.matchAll(peselRegex)) {
       if (m.index !== undefined && isValidPesel(m[0])) {
-        matches.push({
-          type: 'NATIONAL_ID',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('NATIONAL_ID', m.index, m.index + m[0].length);
       }
     }
 
     // 3b. German Steuer-ID (formatted 03 245 678 912 or unformatted near tax context)
-    const steuerFormattedRegex = /\b\d{2}\s\d{3}\s\d{3}\s\d{3}\b/gu;
-    for (const m of text.matchAll(steuerFormattedRegex)) {
+    const steuerFormattedRegex = /(?<![+\d(\p{L}])\d{2}\s\d{3}\s\d{3}\s\d{3}(?![\p{L}\p{N}])/gu;
+    for (const m of normalized.matchAll(steuerFormattedRegex)) {
       if (m.index !== undefined) {
-        matches.push({
-          type: 'NATIONAL_ID',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('NATIONAL_ID', m.index, m.index + m[0].length);
       }
     }
 
-    for (const m of text.matchAll(peselRegex)) {
+    const steuerUnformattedRegex = /(?<![+\d(\p{L}])\d{11}(?![\p{L}\p{N}])/gu;
+    for (const m of normalized.matchAll(steuerUnformattedRegex)) {
       if (m.index !== undefined) {
+        const span = toOrigSpan(m.index, m.index + m[0].length);
+        if (!span) continue;
         const alreadyMatched = matches.some(
-          (existing) => m.index! < existing.endIndex && m.index! + m[0].length > existing.startIndex,
+          (existing) => span.startIndex < existing.endIndex && span.endIndex > existing.startIndex,
         );
-        if (!alreadyMatched && isGermanSteuerId(m[0], text, m.index)) {
-          matches.push({
-            type: 'NATIONAL_ID',
-            value: m[0],
-            startIndex: m.index,
-            endIndex: m.index + m[0].length,
-          });
+        if (!alreadyMatched && isGermanSteuerId(m[0], normalized, m.index)) {
+          matches.push({ type: 'NATIONAL_ID', ...span });
         }
       }
     }
 
-    // 3c. US SSN (\b\d{3}-\d{2}-\d{4}\b)
-    const ssnRegex = /\b\d{3}-\d{2}-\d{4}\b/gu;
-    for (const m of text.matchAll(ssnRegex)) {
+    // 3c. US SSN (\d{3}-\d{2}-\d{4})
+    const ssnRegex = /(?<![+\d(\p{L}])\d{3}-\d{2}-\d{4}(?![\p{L}\p{N}])/gu;
+    for (const m of normalized.matchAll(ssnRegex)) {
       if (m.index !== undefined && isValidSsn(m[0])) {
-        matches.push({
-          type: 'NATIONAL_ID',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('NATIONAL_ID', m.index, m.index + m[0].length);
       }
     }
 
     // 4. HEALTH_DATA (Priority 4)
     // 4a. German KVNR ([A-Z]\d{9})
-    const kvnrRegex = /\b[A-Z]\d{9}\b/gu;
-    for (const m of text.matchAll(kvnrRegex)) {
+    const kvnrRegex = /(?<![\p{L}\p{N}])[A-Z]\d{9}(?![\p{L}\p{N}])/gu;
+    for (const m of normalized.matchAll(kvnrRegex)) {
       if (m.index !== undefined) {
-        matches.push({
-          type: 'HEALTH_DATA',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('HEALTH_DATA', m.index, m.index + m[0].length);
       }
     }
 
     // 4b. Medical terms, diagnoses, and prescriptions in context across PL, DE, EN, FR
     const medicalRegex =
-      /\b(?:diagnoza|rozpoznanie|recepta|skierowanie|leki|Diagnose|Rezept|ordonnance|diagnosis|prescription)\b(?:\s*[:-]\s*|\s+(?:na|dla|für|pour|for)\s+)[a-zA-Z0-9\p{L}\-+]+(?:\s+[a-zA-Z0-9\p{L}\-+]+){0,4}/giu;
-    for (const m of text.matchAll(medicalRegex)) {
+      /(?<![\p{L}\p{N}])(?:diagnoza|rozpoznanie|recepta|skierowanie|leki|Diagnose|Rezept|ordonnance|diagnosis|prescription)(?![\p{L}\p{N}])(?:\s*[:-]\s*|\s+(?:na|dla|für|pour|for)\s+)[a-zA-Z0-9\p{L}\-+]+(?:\s+[a-zA-Z0-9\p{L}\-+]+){0,4}/giu;
+    for (const m of normalized.matchAll(medicalRegex)) {
       if (m.index !== undefined) {
-        matches.push({
-          type: 'HEALTH_DATA',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('HEALTH_DATA', m.index, m.index + m[0].length);
       }
     }
 
-    // 5. EMAIL (Priority 5)
-    const emailRegex = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/giu;
-    for (const m of text.matchAll(emailRegex)) {
+    // 5. EMAIL (Priority 5, Unicode-aware)
+    const emailRegex =
+      /(?<![\p{L}\p{N}])[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.\p{L}{2,}(?![\p{L}\p{N}])/giu;
+    for (const m of normalized.matchAll(emailRegex)) {
       if (m.index !== undefined) {
-        matches.push({
-          type: 'EMAIL',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('EMAIL', m.index, m.index + m[0].length);
       }
     }
 
@@ -1266,21 +1370,16 @@ export class PrivacyGuard {
         '\\(\\d{2,4}\\)[\\s.-]?\\d{3,4}[\\s.-]?\\d{3,4}' +
         '|' +
         // 3. Delimited 10-digit US/CAN: 555-123-4567 or 555.123.4567
-        '\\b\\d{3}[.-]\\d{3}[.-]\\d{4}' +
+        U_LEFT + '\\d{3}[.-]\\d{3}[.-]\\d{4}' +
         '|' +
         // 4. 9-digit PL/EU (delimited or continuous): 601 234 567 or 123412412
-        '\\b\\d{3}[\\s.-]?\\d{3}[\\s.-]?\\d{3}' +
-      ')\\b',
+        U_LEFT + '\\d{3}[\\s.-]?\\d{3}[\\s.-]?\\d{3}' +
+      ')' + U_RIGHT,
       'gu',
     );
-    for (const m of text.matchAll(phoneRegex)) {
+    for (const m of normalized.matchAll(phoneRegex)) {
       if (m.index !== undefined) {
-        matches.push({
-          type: 'PHONE',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('PHONE', m.index, m.index + m[0].length);
       }
     }
 
@@ -1314,14 +1413,9 @@ export class PrivacyGuard {
       'giu',
     );
 
-    for (const m of text.matchAll(moneyRegex)) {
+    for (const m of normalized.matchAll(moneyRegex)) {
       if (m.index !== undefined) {
-        matches.push({
-          type: 'AMOUNT_MONEY',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('AMOUNT_MONEY', m.index, m.index + m[0].length);
       }
     }
 
@@ -1393,32 +1487,61 @@ export class PrivacyGuard {
       .join('|');
 
     const honPattern = honorificsList.join('|');
-    const nameWord = '\\p{Lu}[\\p{Ll}\'-]+';
+    const namePart = "(?:\\p{Lu}['’]\\p{Lu}[\\p{Ll}]+|\\p{Lu}[\\p{Ll}]+)";
+    const nameWord = `${namePart}(?:-${namePart})*`;
+    const nameParticle =
+      '(?:de|la|le|du|des|da|das|do|dos|di|del|della|los|las|van|von|der|den|ten|ter|zu|zum|zur)';
+    const multiName = `${nameWord}(?:\\s+(?:${nameParticle}\\s+){0,2}${nameWord}){0,2}`;
+    const pairName = `${nameWord}(?:\\s+(?:${nameParticle}\\s+){0,2}${nameWord}){1,2}`;
 
-    const personPrepRegex = new RegExp(
-      `\\b(?:${prepPattern})\\s+(${nameWord}(?:\\s+${nameWord}){0,2})`,
+    const personHonRegex = new RegExp(
+      `${U_LEFT}(?:(?:${honPattern})\\s+)+${multiName}${U_RIGHT}`,
       'gu',
     );
 
-    const personHonRegex = new RegExp(
-      `\\b(?:(?:${honPattern})\\s+)+${nameWord}(?:\\s+${nameWord}){0,2}`,
+    const pairRegex = new RegExp(`${U_LEFT}(${pairName})${U_RIGHT}`, 'gu');
+
+    const personPrepRegex = new RegExp(
+      `${U_LEFT}(?:${prepPattern})\\s+(${multiName})${U_RIGHT}`,
       'gu',
     );
 
     const initialPersonMatches: RawMatch[] = [];
 
-    for (const m of text.matchAll(personHonRegex)) {
+    for (const m of normalized.matchAll(personHonRegex)) {
       if (m.index !== undefined) {
-        initialPersonMatches.push({
-          type: 'PERSON',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        const span = toOrigSpan(m.index, m.index + m[0].length);
+        if (span) {
+          initialPersonMatches.push({ type: 'PERSON', ...span });
+        }
       }
     }
 
-    for (const m of text.matchAll(personPrepRegex)) {
+    for (const m of normalized.matchAll(pairRegex)) {
+      if (m.index !== undefined) {
+        const candidateWords = m[0].split(/\s+/);
+        const lowerVal = m[0].toLowerCase();
+        const nonParticleWords = candidateWords
+          .map((w) => w.toLowerCase().replace(/[.,]/g, ''))
+          .filter((w) => !NAME_PARTICLES.has(w));
+        const isExcluded =
+          INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
+          nonParticleWords.some((w) => EXCLUDED_NAME_WORDS.has(w) || TEMPORAL_STOP_WORDS.has(w));
+        if (!isExcluded) {
+          const span = toOrigSpan(m.index, m.index + m[0].length);
+          if (span) {
+            const alreadyMatched = initialPersonMatches.some(
+              (existing) => span.startIndex < existing.endIndex && span.endIndex > existing.startIndex,
+            );
+            if (!alreadyMatched) {
+              initialPersonMatches.push({ type: 'PERSON', ...span });
+            }
+          }
+        }
+      }
+    }
+
+    for (const m of normalized.matchAll(personPrepRegex)) {
       if (m.index !== undefined && m[1]) {
         const candidateWords = m[1].split(/\s+/);
         while (candidateWords.length > 1) {
@@ -1434,11 +1557,12 @@ export class PrivacyGuard {
         const candidateVal = candidateWords.join(' ');
         const lowerVal = candidateVal.toLowerCase();
         const words = candidateWords.map((w) => w.toLowerCase().replace(/[.,]/g, ''));
+        const nonParticleWords = words.length > 1 ? words.filter((w) => !NAME_PARTICLES.has(w)) : words;
         const isCityOrExcluded =
           INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
           EXCLUDED_NAME_WORDS.has(lowerVal) ||
           TEMPORAL_STOP_WORDS.has(lowerVal) ||
-          words.some((w) => EXCLUDED_NAME_WORDS.has(w) || TEMPORAL_STOP_WORDS.has(w));
+          nonParticleWords.some((w) => EXCLUDED_NAME_WORDS.has(w) || TEMPORAL_STOP_WORDS.has(w));
         if (isCityOrExcluded) continue;
 
         if (words.length === 1 && !isValidSingleName(words[0])) {
@@ -1446,31 +1570,28 @@ export class PrivacyGuard {
         }
 
         const offset = m[0].lastIndexOf(m[1]);
-        const s = m.index + offset;
-        const e = s + candidateVal.length;
+        const nStart = m.index + offset;
+        const nEnd = nStart + candidateVal.length;
+        const span = toOrigSpan(nStart, nEnd);
+        if (!span) continue;
         const alreadyMatched = initialPersonMatches.some(
-          (existing) => s < existing.endIndex && e > existing.startIndex,
+          (existing) => span.startIndex < existing.endIndex && span.endIndex > existing.startIndex,
         );
         if (!alreadyMatched) {
-          initialPersonMatches.push({
-            type: 'PERSON',
-            value: candidateVal,
-            startIndex: s,
-            endIndex: e,
-          });
+          initialPersonMatches.push({ type: 'PERSON', ...span });
         }
       }
     }
 
     const lowercasePrepositionPatterns = [
-      /\b(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]{2,}(?:\s+[a-ząćęłńóśźż]{2,}){0,2})(?!\p{L})/gu,
-      /\b(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]{2,}(?:\s+[a-zäöüß]{2,}){0,2})(?!\p{L})/gu,
-      /\b(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]{2,}(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]{2,}){0,2})(?!\p{L})/gu,
-      /\b(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]{2,}(?:\s+[a-z]{2,}){0,2})(?!\p{L})/gu,
+      /(?<![\p{L}\p{N}])(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]{2,}(?:\s+[a-ząćęłńóśźż]{2,}){0,2})(?!\p{L})/gu,
+      /(?<![\p{L}\p{N}])(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]{2,}(?:\s+[a-zäöüß]{2,}){0,2})(?!\p{L})/gu,
+      /(?<![\p{L}\p{N}])(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]{2,}(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]{2,}){0,2})(?!\p{L})/gu,
+      /(?<![\p{L}\p{N}])(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]{2,}(?:\s+[a-z]{2,}){0,2})(?!\p{L})/gu,
     ];
 
     for (const pattern of lowercasePrepositionPatterns) {
-      for (const m of text.matchAll(pattern)) {
+      for (const m of normalized.matchAll(pattern)) {
         if (m.index !== undefined && m[1]) {
           const candidateWords = m[1].split(/\s+/);
           while (candidateWords.length > 1) {
@@ -1498,46 +1619,15 @@ export class PrivacyGuard {
           }
 
           const offset = m[0].lastIndexOf(m[1]);
-          const s = m.index + offset;
-          const e = s + candidateVal.length;
+          const nStart = m.index + offset;
+          const nEnd = nStart + candidateVal.length;
+          const span = toOrigSpan(nStart, nEnd);
+          if (!span) continue;
           const alreadyMatched = initialPersonMatches.some(
-            (existing) => s < existing.endIndex && e > existing.startIndex,
+            (existing) => span.startIndex < existing.endIndex && span.endIndex > existing.startIndex,
           );
           if (!alreadyMatched) {
-            initialPersonMatches.push({
-              type: 'PERSON',
-              value: candidateVal,
-              startIndex: s,
-              endIndex: e,
-            });
-          }
-        }
-      }
-    }
-
-    const pairRegex = /\b(\p{Lu}[\p{Ll}'-]+)\s+(\p{Lu}[\p{Ll}'-]+)\b/gu;
-    for (const m of text.matchAll(pairRegex)) {
-      if (m.index !== undefined) {
-        const w1 = m[1].toLowerCase();
-        const w2 = m[2].toLowerCase();
-        if (
-          !EXCLUDED_NAME_WORDS.has(w1) &&
-          !EXCLUDED_NAME_WORDS.has(w2) &&
-          !TEMPORAL_STOP_WORDS.has(w1) &&
-          !TEMPORAL_STOP_WORDS.has(w2)
-        ) {
-          const s = m.index;
-          const e = s + m[0].length;
-          const alreadyMatched = initialPersonMatches.some(
-            (existing) => s < existing.endIndex && e > existing.startIndex,
-          );
-          if (!alreadyMatched) {
-            initialPersonMatches.push({
-              type: 'PERSON',
-              value: m[0],
-              startIndex: s,
-              endIndex: e,
-            });
+            initialPersonMatches.push({ type: 'PERSON', ...span });
           }
         }
       }
@@ -1547,8 +1637,9 @@ export class PrivacyGuard {
 
     const discoveredNames = new Set<string>();
     for (const pm of initialPersonMatches) {
-      discoveredNames.add(pm.value);
-      const bareName = pm.value
+      const normVal = normalizeForMatching(pm.value).normalized;
+      discoveredNames.add(normVal);
+      const bareName = normVal
         .replace(
           /^(?:(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Pan|Pani|Pana|Panią|dr|dr\.|mec\.|mec|Herr|Herrn|Frau|M\.|Mme\.|Mme)\s+)+/i,
           '',
@@ -1561,21 +1652,16 @@ export class PrivacyGuard {
 
     for (const name of discoveredNames) {
       const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const nameRegex = new RegExp(`\\b${escaped}\\b`, 'giu');
-      for (const nm of text.matchAll(nameRegex)) {
+      const nameRegex = new RegExp(`${U_LEFT}${escaped}${U_RIGHT}`, 'giu');
+      for (const nm of normalized.matchAll(nameRegex)) {
         if (nm.index !== undefined) {
-          const s = nm.index;
-          const e = s + nm[0].length;
+          const span = toOrigSpan(nm.index, nm.index + nm[0].length);
+          if (!span) continue;
           const alreadyMatched = matches.some(
-            (existing) => s < existing.endIndex && e > existing.startIndex,
+            (existing) => span.startIndex < existing.endIndex && span.endIndex > existing.startIndex,
           );
           if (!alreadyMatched) {
-            matches.push({
-              type: 'PERSON',
-              value: nm[0],
-              startIndex: s,
-              endIndex: e,
-            });
+            matches.push({ type: 'PERSON', ...span });
           }
         }
       }
@@ -1635,66 +1721,54 @@ export class PrivacyGuard {
     ];
     const streetPostfixes = streetPostfixWords.join('|');
 
-    const germanCompoundStreetPattern = `\\b[a-zA-ZäöüÄÖÜß]+(?:straße|strasse|str\\.)\\s+\\d+[a-zA-Z]?(?:[/-]\\d+)?\\b`;
-    const streetPattern1 = `\\b(?:\\d+[a-zA-Z]?[\\s,]+)?(?:${streetPrefixes})\\s+(?:(?:de|d'|du|des|von|van|der|am)\\s+)?\\p{Lu}[\\p{L}'-]+(?:\\s+(?:(?:de|d'|du|des|von|van|der|am)\\s+)?\\p{Lu}[\\p{L}'-]+){0,2}(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
-    const streetPattern2 = `\\b\\p{Lu}[\\p{L}'-]*(?:straße|strasse)\\b(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
-    const streetPattern3 = `\\b\\p{Lu}[\\p{L}'-]+(?:\\s+\\p{Lu}[\\p{L}'-]+)?\\s+(?:${streetPostfixes})(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?\\b`;
-    const streetPattern4 = `\\b\\d+\\s+\\p{Lu}[\\p{L}'-]+\\s+(?:${streetPostfixes})\\b`;
+    const germanCompoundStreetPattern = `${U_LEFT}[a-zA-ZäöüÄÖÜß]+(?:straße|strasse|str\\.)\\s+\\d+[a-zA-Z]?(?:[/-]\\d+)?${U_RIGHT}`;
+    const streetPattern1 = `${U_LEFT}(?:\\d+[a-zA-Z]?[\\s,]+)?(?:${streetPrefixes})\\s+(?:(?:de|d'|du|des|von|van|der|am)\\s+)?\\p{Lu}[\\p{L}'-]+(?:\\s+(?:(?:de|d'|du|des|von|van|der|am)\\s+)?\\p{Lu}[\\p{L}'-]+){0,2}(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
+    const streetPattern2 = `${U_LEFT}\\p{Lu}[\\p{L}'-]*(?:straße|strasse)${U_RIGHT}(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?`;
+    const streetPattern3 = `${U_LEFT}\\p{Lu}[\\p{L}'-]+(?:\\s+\\p{Lu}[\\p{L}'-]+)?\\s+(?:${streetPostfixes})(?:\\s+\\d+[a-zA-Z]?(?:[/-]\\d+[a-zA-Z]?)?)?${U_RIGHT}`;
+    const streetPattern4 = `${U_LEFT}\\d+\\s+\\p{Lu}[\\p{L}'-]+\\s+(?:${streetPostfixes})${U_RIGHT}`;
 
     const addressRegex = new RegExp(
       `(?:${germanCompoundStreetPattern}|${streetPattern1}|${streetPattern2}|${streetPattern4}|${streetPattern3}|${cityPattern})`,
       'gu',
     );
 
-    for (const m of text.matchAll(addressRegex)) {
+    for (const m of normalized.matchAll(addressRegex)) {
       if (m.index !== undefined) {
-        matches.push({
-          type: 'ADDRESS',
-          value: m[0],
-          startIndex: m.index,
-          endIndex: m.index + m[0].length,
-        });
+        pushMappedMatch('ADDRESS', m.index, m.index + m[0].length);
       }
     }
 
     // Tier 3: Context-Aware Generic Matcher
     // Scan candidate 6-16 character alphanumeric tokens within +-30 chars of trigger keywords
-    const candidateIdRegex = /\b[A-Za-z0-9\-_]{6,16}\b/gu;
+    const candidateIdRegex = /(?<![\p{L}\p{N}])[A-Za-z0-9\-_]{6,16}(?![\p{L}\p{N}])/gu;
     const healthContextKeywords =
       /\b(?:polisa|ubezpieczenie|ubezpieczenia|ubezpieczeniowa|ubezpieczeniowej|versichert|versicherung|polizze|krankenkasse|insurance|policy|health\s+card|recepta)\b/i;
     const nationalContextKeywords =
       /\b(?:dowód|dowodu|ausweis|personalausweis|reisepass|paszport|national\s+id|citizen\s+id|id\s+card|identity\s+card|steuer)\b/i;
 
-    for (const m of text.matchAll(candidateIdRegex)) {
+    for (const m of normalized.matchAll(candidateIdRegex)) {
       if (m.index !== undefined) {
         const val = m[0];
         // Candidate must contain at least one digit
         if (!/\d/.test(val)) continue;
 
+        const span = toOrigSpan(m.index, m.index + val.length);
+        if (!span) continue;
+
         // Skip if already matched
         const alreadyMatched = matches.some(
-          (existing) => m.index! < existing.endIndex && m.index! + val.length > existing.startIndex,
+          (existing) => span.startIndex < existing.endIndex && span.endIndex > existing.startIndex,
         );
         if (alreadyMatched) continue;
 
         const windowStart = Math.max(0, m.index - 30);
-        const windowEnd = Math.min(text.length, m.index + val.length + 30);
-        const windowText = text.substring(windowStart, windowEnd);
+        const windowEnd = Math.min(normalized.length, m.index + val.length + 30);
+        const windowText = normalized.substring(windowStart, windowEnd);
 
         if (healthContextKeywords.test(windowText)) {
-          matches.push({
-            type: 'HEALTH_DATA',
-            value: val,
-            startIndex: m.index,
-            endIndex: m.index + val.length,
-          });
+          matches.push({ type: 'HEALTH_DATA', ...span });
         } else if (nationalContextKeywords.test(windowText)) {
-          matches.push({
-            type: 'NATIONAL_ID',
-            value: val,
-            startIndex: m.index,
-            endIndex: m.index + val.length,
-          });
+          matches.push({ type: 'NATIONAL_ID', ...span });
         }
       }
     }
