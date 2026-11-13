@@ -87,10 +87,10 @@ export type PIIType = z.infer<typeof PIITypeSchema>;
 | `PERSON` | `[PERSON_N]` | Multilingual natural person names (nominative and inflected/declined forms across EN, PL, DE, FR). Core personal identity marker. | 20 |
 | `ADDRESS` | `[ADDRESS_N]` | Physical geographic locations, street addresses, avenues, and international cities/urban centers. Location data under GDPR Art. 4(1) and Recital 26/30. | 15 |
 
-#### 3.1.1 3-Tier Hybrid Architecture Overview
-Privacy Guard executes a multi-layered detection strategy before any text leaves the local machine:
+#### 3.1.1 Deterministic 3-Tier Architecture Overview
+Privacy Guard executes a deterministic algorithmic + regex NER pipeline before any text leaves the local machine:
 - **Tier 1: High-Entropy Mathematical & Checksum Regexes:** Deterministic matching for structured tokens (`SECRET_KEY`, `IBAN` with mod-97 verification, `NATIONAL_ID` with PESEL checksum $\sum w_i d_i \pmod{10}$, German Steuer-ID, US SSN, `HEALTH_DATA` German KVNR `[A-Z]\d{9}`, `EMAIL` RFC 5322, `PHONE` E.164).
-- **Tier 2: Local In-Memory Semantic NER:** Transformers.js / ONNX runtime running quantized multilingual NER locally with zero network calls for grammatically complex names (`PERSON`), declined forms, and locations (`ADDRESS`). In the event of latency (>100ms) or initialization failure, the system falls back gracefully to Tier 1 regexes with zero data leakage.
+- **Tier 2: Deterministic Linguistic & Morphological NER:** Algorithmic + regex NER with multilingual (PL/DE/EN) morphological lemmatization (`LinguisticNormalizer`), contextual action anchors, honorifics, and address/city lexicons for `PERSON`, `ADDRESS`, and `AMOUNT_MONEY`. An optional Tier-2 ML extension point (`maskAsync`, currently unused in production routes) falls back gracefully to the deterministic engine if unavailable.
 - **Tier 3: Context-Aware Generic Matcher:** Scans for 6–16 alphanumeric candidate characters in proximity ($\pm 30$ characters) to multilingual trigger words (*karta*, *numer*, *polisa*, *ubezpieczenie*, *versichert*, *card*, *policy*) to mask unformatted insurance and policy IDs under `HEALTH_DATA` or `NATIONAL_ID`.
 
 #### 3.1.2 NATIONAL_ID Category Specification
@@ -106,7 +106,7 @@ Privacy Guard executes a multi-layered detection strategy before any text leaves
 - **Scope & Compliance:**
   - Governed under **GDPR Article 9 ("Processing of special categories of personal data")** which strictly prohibits unauthorized processing and third-party transmission.
   - German Krankenversichertennummer (KVNR): Format `[A-Z]\d{9}` (1 uppercase letter followed by 9 digits with checksum validation).
-  - Medical diagnoses, treatments, therapy protocols, and clinician references identified via Tier 2 semantic NER or Tier 3 contextual trigger matching.
+  - Medical diagnoses, treatments, therapy protocols, and clinician references identified via Tier 2 deterministic linguistic NER or Tier 3 contextual trigger matching.
 
 #### 3.1.4 ADDRESS Category Specification & Synthetic Token Format
 - **Synthetic Token Identifier:** `[ADDRESS_INDEX]` where `INDEX` is a 1-based sequential integer (e.g., `[ADDRESS_1]`, `[ADDRESS_2]`), conforming strictly to the bracketed token regular expression `^\[[A-Z_]+_\d+\]$`.
@@ -367,7 +367,7 @@ export type DecryptedTaskPayload = z.infer<typeof DecryptedTaskPayloadSchema>;
 ```
 
 #### B. Persisted Task Document (`TaskEntitySchema`)
-Stored in the `tasks` collection. Sensitive fields (`title`, `summary`, `subtasks`) are envelope-encrypted in `encryptedPayload`, while non-PII queryable metadata remains unencrypted for database indexing and real-time reactive filtering:
+Stored in the `tasks` collection. Sensitive fields (`title`, `summary`, `subtasks`) are envelope-encrypted in `encryptedPayload`, while operational/queryable metadata (`category`, `priority`, `status`, `scheduledDate`, `tags`, `provenance`, `modelVersion`, `location`, `contactPerson`, `amount`, `scheduledTime`, `createdAt`, `updatedAt`) remains unencrypted for database indexing and filtering:
 ```typescript
 export const TaskEntitySchema = z.object({
   id: EntityIdSchema.describe('Unique document identifier (UUIDv4 or Firestore ID)'),
