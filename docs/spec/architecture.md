@@ -9,7 +9,7 @@ The foundational principle of OSCAR is **Confidentiality by Design**: no sensiti
 
 ## 2. High-Level System Architecture
 
-OSCAR follows a multi-tiered, decoupled client-server architecture designed for high security, end-to-end type safety, and real-time synchronization.
+OSCAR follows a multi-tiered, decoupled client-server architecture designed for high security, end-to-end type safety, and an installable PWA manifest + in-memory deterministic offline fallback (no Service Worker asset caching yet).
 
 ```mermaid
 flowchart TD
@@ -17,8 +17,8 @@ flowchart TD
         UI["React + Vite UI (Atomic Design)"]
         HOOKS["Domain Hooks (useMemos, useTasks)"]
         CRYPTO["WebCrypto AES-256-GCM (Encryption / Decryption)"]
-        KEY_STORE[("Client Key Storage (PBKDF2 / WebCrypto)")]
-        RT["Firestore Real-Time Listener (onSnapshot)"]
+        KEY_STORE[("Ephemeral In-Memory Session Key\n(crypto.getRandomValues)")]
+        REST_CLIENT["Gateway REST Client & Offline Fallback"]
     end
 
     subgraph ServerGateway ["Backend Gateway & Orchestrator (Node.js / TypeScript)"]
@@ -53,11 +53,12 @@ flowchart TD
     PG -->|"10. Re-hydrated task payload"| API
     API -->|"11. Encrypt PII with AES-256-GCM"| API
     API -->|"12. Atomic writeBatch (Memo + Task + Audit)"| FS
-    FS -->|"13. Real-time document push (encrypted)"| RT
-    RT -->|"14. Decrypt in client memory"| CRYPTO
-    CRYPTO <-->|"15. Read user encryption key"| KEY_STORE
-    CRYPTO -->|"16. Decrypted domain state"| HOOKS
-    HOOKS -->|"17. Atomic re-render (Initial status: DRAFT)"| UI
+    FS -->|"13. Persisted document confirmation"| API
+    API -->|"14. Encrypted response payload (HTTP 201)"| REST_CLIENT
+    REST_CLIENT -->|"15. Decrypt in client memory"| CRYPTO
+    CRYPTO <-->|"16. Read ephemeral session key"| KEY_STORE
+    CRYPTO -->|"17. Decrypted domain state"| HOOKS
+    HOOKS -->|"18. Atomic re-render (Initial status: DRAFT)"| UI
 ```
 
 ---
@@ -71,17 +72,17 @@ flowchart TD
   * `molecules/`: Assemblies of atoms functioning as cohesive UI units (e.g., `PrivacyIndicator`, `PriorityBadge`, `SearchBar`, `DateDisplay`).
   * `organisms/`: Self-contained functional widgets bound to domain behavior (e.g., `MemoInputForm`, `TaskList`, `TaskCard`, `PrivacyAuditTable`).
   * `views/`: Page-level route targets (e.g., `DashboardView`, `TaskBoardView`, `SettingsView`).
-* **Client-Side Cryptographic Boundary (WebCrypto API):** All incoming task titles, summaries, and subtasks stored in Firestore `encryptedPayload` fields are decrypted locally in client memory using WebCrypto AES-256-GCM. Unencrypted PII is never stored in persistent browser databases (IndexedDB or LocalStorage).
-* **Real-time Reactive Sync:** Client initializes direct Firestore subscriptions (`onSnapshot`) scoped to the active user context. When new tasks are created or status changes, UI reflects updates instantaneously without manual polling.
+* **Client-Side Cryptographic Boundary (WebCrypto API):** AES-256-GCM encrypted at rest; per-request session key supplied over TLS (single-user local/demo architecture; multi-tenant auth is on the v2.0 roadmap). The client generates an ephemeral in-memory 256-bit random session key (`crypto.getRandomValues`) — tasks encrypted in a prior session cannot be decrypted after a page reload (`F5`) until passphrase-derived keys / auth are added in v2.0. All incoming task titles, summaries, and subtasks stored in `encryptedPayload` fields are decrypted locally in client memory using WebCrypto AES-256-GCM. Unencrypted PII is never stored in persistent browser databases (IndexedDB or LocalStorage).
+* **Installable PWA & Offline Fallback:** Installable PWA manifest + in-memory deterministic offline fallback (no Service Worker asset caching yet). The client communicates with the Backend Gateway via REST/HTTP rather than direct Firestore `onSnapshot` subscriptions.
 * **Security Posture:** Zero third-party API keys or service account credentials exist in the client bundle. All sensitive AI operations are routed through the backend gateway.
 
 ### 3.2 Backend Gateway & Orchestrator
-* **Core Technology:** Node.js (v20+ LTS) running TypeScript with compiler configuration set to `strict: true`.
+* **Core Technology:** Node.js (`>= 20.6.0` LTS) running TypeScript with compiler configuration set to `strict: true`.
 * **Primary Responsibilities:**
-  1. **Confidentiality Guarding:** Intercepts every inbound prompt, extracts PII tokens using the Privacy Guard engine, and holds the replacement dictionary in request-scoped ephemeral memory.
+  1. **Confidentiality Guarding:** Intercepts every inbound prompt, extracts PII tokens using the deterministic algorithmic + regex NER `PrivacyGuard` engine (with multilingual PL/DE/EN morphological lemmatization and an optional Tier-2 ML extension point `maskAsync`, currently unused in production routes), and holds the replacement dictionary in request-scoped ephemeral memory.
   2. **AI Orchestration:** Communicates with the official `@google/genai` SDK using `generateContent` configured with native `systemInstruction` and `responseSchema` (structured outputs derived from Zod contracts).
   3. **Atomic Re-hydration & Sanitization:** Traverses the returned structured JSON hierarchy, substituting synthetic tokens with original values using atomic single-pass regex replacement.
-  4. **AES-256-GCM Envelope Encryption at Rest:** Encrypts sensitive fields prior to persisting documents to Cloud Firestore. The per-user / per-session Data Encryption Key (DEK) is generated or derived client-side via WebCrypto (PBKDF2/HKDF) and passed to the gateway in an ephemeral, strictly non-logged HTTP header `X-Oscar-Encryption-Key` over TLS/HTTPS (or configured via local environment variable `OSCAR_MASTER_KEY` in single-tenant self-hosted mode). The gateway uses it strictly within request scope for envelope encryption before persisting to Firestore, zeroing the key buffer immediately upon response completion.
+  4. **AES-256-GCM Envelope Encryption at Rest:** AES-256-GCM encrypted at rest; per-request session key supplied over TLS (single-user local/demo architecture; multi-tenant auth is on the v2.0 roadmap). The client generates an ephemeral in-memory 256-bit random session key (`crypto.getRandomValues`) and passes it to the gateway in an ephemeral, strictly non-logged HTTP header `X-Oscar-Encryption-Key` over TLS/HTTPS (or configured via local environment variable `OSCAR_MASTER_KEY` in single-tenant self-hosted mode). The gateway uses it strictly within request scope for envelope encryption before persisting to Firestore, applying best-effort defense-in-depth memory zeroing (`fill(0)`, subject to JS runtime/GC semantics) on key buffers after cryptographic operations.
   5. **Auditability:** Writes anonymized performance and detection metrics (number of tokens masked, types detected, latency in ms) into the audit collection without logging any raw user PII.
   6. **Quota Optimization & Atomic Batches:** Uses Firestore `writeBatch` to bundle memo, task, and audit log into a single commit (3 writes per memo).
 
@@ -98,13 +99,13 @@ flowchart TD
   2. `tasks/{taskId}`: Operational metadata + `encryptedPayload` (Status: `'DRAFT'`)
   3. `privacy_audit_logs/{auditId}`: Non-PII telemetry log
   This strict 3-write transaction guarantees that the 20,000 daily write quota comfortably supports over 6,600 processed memos per day.
-* **Real-time Engine:** Bi-directional document streaming over WebSockets/gRPC pushes database mutations immediately to listening clients.
+* **Gateway-Mediated Persistence:** All Firestore reads and writes are mediated by the Express Gateway (with an automatic in-memory `TaskStore` fallback for zero-config local/offline development).
 
 ---
 
 ## 4. End-to-End Data Flow Sequence
 
-The complete lifecycle of a user prompt—from raw input to masked AI analysis, unmasking, client-side/envelope encryption, database write, and real-time reactive rendering—is depicted below:
+The complete lifecycle of a user prompt—from raw input to masked AI analysis, unmasking, envelope encryption, database write, and client-side decryption & rendering—is depicted below:
 
 ```mermaid
 sequenceDiagram
@@ -144,7 +145,6 @@ sequenceDiagram
 
     GW->>GW: Encrypt sensitive fields with AES-256-GCM (title, summary, subtasks)
     GW->>FS: writeBatch.commit([MemoEntity, TaskEntity (status: DRAFT), PrivacyAuditLog])
-    FS-->>UI: Real-time update snapshot via onSnapshot()
     GW-->>UI: HTTP 201 Created { memoId, taskId, privacySummary }
     UI->>UI: Decrypt AES-256-GCM payload in memory
     UI-->>User: Renders re-hydrated task card in 'DRAFT' status with Human Confirmation button
@@ -166,14 +166,14 @@ To satisfy Zero Trust and GDPR Article 25 (Privacy by Design), no unencrypted cl
      keyId: "v1"
    }
    ```
-3. **Queryable Metadata Separation:** Only non-PII operational fields (`id`, `memoId`, `userId`, `category`, `priority`, `status`, `scheduledDate`, `tags`, `provenance`, `modelVersion`, `createdAt`, `updatedAt`) remain unencrypted to permit efficient Firestore index queries and client-side filtering.
-4. **Session Key Transport & Lifecycle:** The AES-256-GCM symmetric Data Encryption Key (DEK) is generated or derived client-side via WebCrypto (PBKDF2/HKDF) and transmitted to the gateway via an ephemeral, strictly non-logged HTTP header `X-Oscar-Encryption-Key` over TLS/HTTPS (or configured via local environment variable `OSCAR_MASTER_KEY` in single-tenant self-hosted deployments). The gateway processes this key strictly in-memory within the request execution scope to encrypt document payloads before Firestore persistence, zeroing the key buffer immediately upon response completion. The key is never logged, cached to disk, or transmitted to any external service.
+3. **Queryable Metadata Separation:** Only operational/queryable fields (`id`, `memoId`, `userId`, `category`, `priority`, `status`, `scheduledDate`, `tags`, `provenance`, `modelVersion`, `location`, `contactPerson`, `amount`, `scheduledTime`, `createdAt`, `updatedAt`, plus `sanitizedContentPreview` on `MemoEntity`) remain unencrypted to permit efficient Firestore index queries and client-side filtering.
+4. **Session Key Transport & Lifecycle:** AES-256-GCM encrypted at rest; per-request session key supplied over TLS (single-user local/demo architecture; multi-tenant auth is on the v2.0 roadmap). The client generates an ephemeral in-memory 256-bit random session key (`crypto.getRandomValues`) — tasks encrypted in a prior session cannot be decrypted after a page reload (`F5`) until passphrase-derived keys / auth are added in v2.0. The key is transmitted to the gateway via an ephemeral, strictly non-logged HTTP header `X-Oscar-Encryption-Key` over TLS/HTTPS (or configured via local environment variable `OSCAR_MASTER_KEY` in single-tenant self-hosted deployments). The gateway processes this key strictly in-memory within the request execution scope to encrypt document payloads before Firestore persistence, applying best-effort defense-in-depth memory zeroing (`fill(0)`, subject to JS runtime/GC semantics) on key buffers after cryptographic operations. The key is never logged, cached to disk, or transmitted to any external service.
 
 ### 5.2 Rate Limiting, Timeouts & Graceful Degradation
 To protect against upstream provider outages, quota exhaustion, and Denial of Service:
 1. **Token-Bucket Rate Limiter:** The gateway enforces a strict **12 requests per minute (RPM)** cap per instance, safely remaining below the Google AI Studio Free Tier ceiling of 15 RPM. Requests exceeding the rate limit are held in an in-memory queue with jittered exponential backoff (initial delay: 1,000ms, multiplier: 2.0, max 2 retries).
-2. **Strict Request Timeouts:** External calls to Gemini API are wrapped with `AbortSignal.timeout(8000)`. If Google Gemini fails to respond within 8,000ms, the request is aborted immediately and fails over to local processing.
-3. **Deterministic Fallback Extractor (`DeterministicFallbackExtractor`):** If Gemini is unreachable, times out, or returns HTTP 429/503, the orchestrator triggers the local deterministic rule engine without dropping the user memo:
+2. **Strict Request Timeouts:** External calls to Gemini API are wrapped with `AbortSignal.timeout(8000)`. End-to-end failover is bounded by this `8000ms` AbortSignal timeout (plus the global 12-RPM token-bucket rate limiter on Gemini API calls).
+3. **Deterministic Fallback Extractor (`DeterministicFallbackExtractor`):** If Gemini is unreachable, times out, or returns HTTP 429/503, the orchestrator triggers the local deterministic rule engine (`< 5ms` execution) without dropping the user memo:
 
 ```typescript
 export class DeterministicFallbackExtractor {
@@ -261,7 +261,7 @@ OSCAR is engineered to meet rigorous international standards for software integr
 
 | Maturity Level | Engineering Standard | OSCAR Operational Implementation |
 | :--- | :--- | :--- |
-| **Level 4: Quantitatively Managed** | System behavior is bounded, predictable, and validated through quantitative metrics and structural schemas. | • **Contract-First Engineering:** No implementation is introduced without pre-defined Zod schemas (`contracts.md`) and authoritative interface specifications.<br/>• **Dual-Layer Schema Assurance:** AI outputs are constrained at inference time via OpenAPI-compliant JSON Schemas (`responseSchema`) and re-validated at runtime on the gateway.<br/>• **Automated Quality Thresholds:** Vitest suites mandate $\ge 95\%$ line, branch, and function coverage with deterministic test isolation. |
+| **Level 4: Quantitatively Managed** | System behavior is bounded, predictable, and validated through quantitative metrics and structural schemas. | • **Contract-First Engineering:** No implementation is introduced without pre-defined Zod schemas (`contracts.md`) and authoritative interface specifications.<br/>• **Dual-Layer Schema Assurance:** AI outputs are constrained at inference time via OpenAPI-compliant JSON Schemas (`responseSchema`) and re-validated at runtime on the gateway.<br/>• **Automated Quality Thresholds:** Vitest suites enforce $\ge 95\%$ coverage on `server` (95.75% branch) and $\ge 90\%$ threshold on `client` (91.23% branch, 97.87% lines/statements) with deterministic test isolation. |
 | **Level 5: Optimizing Governance** | Continuous self-verification, independent quality auditing, and self-enforcing constitutional constraints. | • **Maker-Checker Topology:** Structural separation of concerns between implementation subagents (Makers) and independent auditing agents (Checkers).<br/>• **Constitutional Guardrails & Anti-Sycophancy:** Autonomous agents possess an explicit architectural mandate to reject non-compliant directives or specification violations.<br/>• **Automated Circuit Breakers:** Critique and review loops are capped at 2 iterations before mandatory human escalation, preventing unbounded conversational drift. |
 
 ### 6.2 Contract-First Runtime Assurance & Deterministic Traceability
@@ -285,15 +285,15 @@ flowchart LR
     PRIVACY --> GDPR["GDPR\n(Article 25: Privacy by Design)"]
 ```
 
-#### A. EU AI Act Compliance (Regulation (EU) 2024/1689)
-OSCAR's architecture directly incorporates the compliance safeguards mandated for trustworthy AI systems:
+#### A. EU AI Act Architectural Alignment (Regulation (EU) 2024/1689)
+OSCAR's architecture incorporates technical safeguards aligned with trustworthy AI design principles (note: architectural provenance/transparency fields are implemented, not formal legal certification):
 * **Human Oversight (Article 14):** Ensured via strict **Human-in-the-Loop (HITL)** subagent instantiation protocols, **Draft State Task Review** (`status: 'DRAFT'` as the default state for all newly parsed tasks awaiting user confirmation), and **Protected Main Branch Governance** (autonomous agents operate exclusively on task branches; merge execution is reserved solely for the human Supervisor).
 * **Technical Robustness & Cybersecurity (Article 15):** Dual-layer schema validation prevents malformed output injection; prompt demarcation boundaries guard against prompt injection vulnerabilities; in-memory isolation protects against data contamination; AES-256-GCM envelope encryption prevents database-layer data breaches.
-* **Transparency & Traceability (Article 13):** Every inference request corresponds to documented domain schemas; the origin of tasks is explicitly tracked via `provenance: 'GEMINI_FLASH' | 'DETERMINISTIC_FALLBACK'` and `modelVersion`; and deterministic fallback pathways (`DeterministicFallbackExtractor`) ensure transparent, explainable behavior during upstream provider anomalies.
+* **Transparency & Traceability (Article 13):** Every inference request corresponds to documented domain schemas; `EU AI Act Art. 13` provenance & transparency fields (`provenance: 'GEMINI_FLASH' | 'DETERMINISTIC_FALLBACK'` and `modelVersion`) are implemented, and deterministic fallback pathways (`DeterministicFallbackExtractor`) ensure transparent, explainable behavior during upstream provider anomalies.
 * **Data Governance & Minimization (Article 10):** Sensitive data is sanitized locally prior to external transmission, enforcing Zero Data Retention (ZDR) and data minimization across third-party cloud boundaries.
 
 #### B. EU Product Liability Directive (Revised PLD)
 The revised EU Product Liability Directive establishes strict liability for software and AI components, holding manufacturers liable for damages caused by defective or unverified code generation:
 * **Defect Prevention over Ad-Hoc Generation:** Autonomous agents generate code strictly within pre-authorized specifications and contracts, systematically eliminating undocumented side-effects and hallucinations.
-* **Exculpatory Evidence Trail:** By establishing an immutable Git history where specifications precede code, test suites prove $\ge 95\%$ coverage, and human approvals are recorded at every merge, the system provides conclusive proof that software conformed to the state-of-the-art and was defect-free at deployment.
+* **Exculpatory Evidence Trail:** By establishing an immutable Git history where specifications precede code, test suites enforce $\ge 95\%$ server and $\ge 90\%$ client coverage thresholds, and human approvals are recorded at every merge, the system provides a verifiable audit trail at deployment.
 * **Strict Fault Containment:** The Principle of Least Privilege (PoLP) confines subagents to isolated directory boundaries and toolsets, guaranteeing that any logic fault is quarantined within the subagent's sandbox and cannot compromise the core repository or production branch.

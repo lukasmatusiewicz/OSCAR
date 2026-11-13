@@ -7,13 +7,13 @@ The engine executes locally on the server gateway as a pure, deterministic, zero
 
 ---
 
-## 2. 3-Tier Hybrid Multilingual Privacy Architecture
+## 2. Deterministic Algorithmic + Regex Multilingual Privacy Architecture
 
-The Privacy Guard utilizes a **3-Tier Hybrid Multilingual Privacy Architecture** combining high-entropy mathematical verification, local in-memory semantic token classification, and context-anchored proximity matchers:
+The Privacy Guard is a **deterministic algorithmic + regex NER engine** with multilingual (PL/DE/EN) morphological lemmatization, high-entropy checksum verification, and context-anchored proximity matchers, plus an optional Tier-2 ML extension point (`maskAsync`, currently unused in production routes):
 
 ```mermaid
 flowchart TD
-    Input["Confidential Text Input"] --> Split{"3-Tier Hybrid Detection Pipeline"}
+    Input["Confidential Text Input"] --> Split{"Deterministic 3-Tier Detection Pipeline"}
     
     subgraph Tier1["Tier 1: High-Entropy Deterministic & Checksum Regexes"]
         TK["SECRET_KEY (Weight: 60)<br/>API Keys, JWTs, Bearer, Cloud PATs"]
@@ -24,10 +24,10 @@ flowchart TD
         TP["PHONE (Weight: 30)<br/>E.164 & National Phone Numbers"]
     end
 
-    subgraph Tier2["Tier 2: Local In-Memory Semantic NER (Transformers.js / ONNX)"]
-        TR["PERSON (Weight: 20)<br/>Multilingual Names (Nominative & Declined across EN, PL, DE, FR)"]
+    subgraph Tier2["Tier 2: Deterministic Linguistic & Morphological NER (PL/DE/EN)"]
+        TR["PERSON (Weight: 20)<br/>Multilingual Names (Morphological Lemmatization across EN, PL, DE, FR)"]
         TA["ADDRESS (Weight: 15)<br/>Street Prefixes (ul., al., pl., rue, St., Straße) & International Cities"]
-        Fallback["Graceful Fallback Circuit Breaker<br/>(Falls back to Tier 1 heuristics on timeout >100ms or failure)"]
+        Ext["Optional Tier-2 ML Extension Point (maskAsync)<br/>(Currently unused in production routes; falls back to deterministic engine)"]
     end
 
     subgraph Tier3["Tier 3: Context-Aware Generic Matcher"]
@@ -64,8 +64,8 @@ Tier 1 matches structured credentials and government-issued or banking identifie
 - **Email Addresses (`EMAIL`, Priority Weight: 35):** Comprehensive RFC 5322 standard matching for personal and enterprise mailboxes.
 - **Phone Numbers (`PHONE`, Priority Weight: 30):** International E.164 formats (`+49...`, `0048...`) and national telephone variants with area code parentheses, hyphens, and whitespace separators.
 
-#### Tier 2: Local In-Memory Semantic NER (Transformers.js / ONNX Runtime)
-Tier 2 runs entirely in-memory within the Node.js / client process using `@xenova/transformers` with an ONNX Runtime quantized multilingual token classification model. **Zero network calls are made**:
+#### Tier 2: Deterministic Linguistic & Morphological NER (with Optional `maskAsync` ML Extension Point)
+Tier 2 runs synchronously and deterministically in-memory within the Node.js process using **algorithmic + regex NER** and **multilingual (PL/DE/EN) morphological lemmatization** (`LinguisticNormalizer`), with **zero network calls**. An optional Tier-2 ML extension point (`maskAsync`) is exposed for future local NER model integration (currently unused in production routes):
 - **Multilingual Person Names (`PERSON`, Priority Weight: 20):**
   - *Grammatical Inflection & Declined Cases:* Recognizes both nominative and inflected/declined case forms in inflected languages (e.g., Polish genitive/accusative/instrumental: *Jana Kowalskiego*, *Annie Nowak*, *Piotrem Wiśniewskim*; German dative/genitive; French accented names).
   - *Contextual Action Anchors:* Identifies names following relational prepositions and action verbs across English (`with`, `meeting`, `call`, `for`, `from`, `by`, `to`, `contact`, `assigned to`), Polish (`z`, `ze`, `spotkanie z`, `dla`, `od`), German (`mit`, `treffen mit`, `für`, `von`), and French (`avec`, `réunion avec`, `pour`, `de`).
@@ -78,8 +78,8 @@ Tier 2 runs entirely in-memory within the Node.js / client process using `@xenov
   - *Multipliers & Magnitudes:* Captures shorthand numeric multipliers: `k`, `tys`, `tys.`, `mln`, `milionów`, `mld` (e.g., `50k`, `100 tys.`, `2.5 mln`, `10 milionów`).
   - *Currencies & Symbols:* Covers international currency ISO codes and symbols: `EUR`, `PLN`, `USD`, `CHF`, `zł`, `€`, `$`, `£`.
   - *Typo & Format Resilience:* Supports variations in whitespace, alternate thousand separators (dots, commas, non-breaking spaces), and flexible ordering (`50k zł`, `zł 50 000`, `1.5 mln EUR`, `100k USD`, `$450.00`).
-- **Graceful Fallback Circuit Breaker:**
-  - If the ONNX runtime fails to initialize, encounters an environment memory constraint, or takes longer than 100ms, the system seamlessly and transparently falls back to Tier 1 regexes and deterministic lexicons. Zero cleartext data is leaked.
+- **Optional Tier-2 ML Extension Point (`maskAsync`):**
+  - If an optional external/local ML NER provider is registered via `maskAsync` and fails to initialize, encounters a memory constraint, or exceeds its timeout budget, the system seamlessly falls back to the deterministic algorithmic + regex NER engine. Zero cleartext data is leaked.
 
 #### Tier 3: Context-Aware Generic Matcher
 Tier 3 serves as an adaptive safety net for unstandardized identifiers, policy numbers, and member IDs:
@@ -386,8 +386,8 @@ The test suite located at `server/tests/privacy/PrivacyGuard.spec.ts` must execu
    German health insurance numbers matching `\b[A-Z]\d{9}\b` must be classified and masked under `[HEALTH_DATA_N]` with high-risk designation.
 9. **Tier 3 Context-Aware Generic Matcher:**
    Alphanumeric card or policy IDs of 6–16 characters within proximity (±30 characters) of keywords (*polisa*, *karta*, *ubezpieczenie*, *versichert*, *insurance*, *card*) must be masked under `[HEALTH_DATA_N]` or `[NATIONAL_ID_N]`.
-10. **Tier 2 Graceful Fallback Circuit Breaker:**
-    When local in-memory Transformers.js / ONNX runtime is unavailable or times out (>100ms), Privacy Guard falls back to Tier 1 regexes and heuristic lexicons with 0% data leakage.
+10. **Optional Tier-2 ML Extension (`maskAsync`) Fallback:**
+    When an optional Tier-2 ML provider registered via `maskAsync` is unavailable or times out, Privacy Guard falls back to the deterministic algorithmic + regex NER engine with 0% data leakage.
 11. **Smart Task Metadata Re-hydration:**
     Synthetic tokens placed within `location`, `contactPerson`, `amount`, and `scheduledTime` must be cleanly and atomically re-hydrated to their original cleartext values.
 12. **Entity Deduplication Invariance:**
