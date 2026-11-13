@@ -81,9 +81,6 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
           modelVersion: 'manual-entry-v1',
           createdAt: nowIso,
           updatedAt: nowIso,
-          location: input.location ?? null,
-          contactPerson: input.contactPerson ?? null,
-          amount: input.amount ?? null,
           scheduledTime: input.scheduledTime ?? null,
         };
 
@@ -122,9 +119,6 @@ export function createTaskRouter(deps: TaskRouterDependencies): Router {
       if (input.category !== undefined) updates.category = input.category;
       if (input.scheduledDate !== undefined) updates.scheduledDate = input.scheduledDate;
       if (input.tags !== undefined) updates.tags = input.tags;
-      if (input.location !== undefined) updates.location = input.location;
-      if (input.contactPerson !== undefined) updates.contactPerson = input.contactPerson;
-      if (input.amount !== undefined) updates.amount = input.amount;
       if (input.scheduledTime !== undefined) updates.scheduledTime = input.scheduledTime;
 
       // If sensitive fields or smart metadata are modified, decrypt existing, merge, and re-encrypt

@@ -437,13 +437,12 @@ describe('OSCAR E2E Suite: 9-Category GDPR Taxonomy, Smart Metadata & Interactiv
 
       expect(res.status).toBe(HTTP_STATUS_CREATED);
 
-      // Verify sanitized preview in MemoEntity contains NO raw PII
+      // Verify zero plaintext preview in MemoEntity and zero outer PII fields on TaskEntity (R-10)
       const memoEntity = res.body.memo;
-      expect(memoEntity.sanitizedContentPreview).not.toContain(GERMAN_KVNR_VALID_1);
-      expect(memoEntity.sanitizedContentPreview).not.toContain(POLISH_PESEL_VALID_1);
-      expect(memoEntity.sanitizedContentPreview).not.toContain('cukrzyca');
-      expect(memoEntity.sanitizedContentPreview).not.toContain('metforminę');
-      expect(memoEntity.sanitizedContentPreview).not.toContain(POLICY_ID_PL);
+      expect(memoEntity).not.toHaveProperty('sanitizedContentPreview');
+      expect(res.body.task).not.toHaveProperty('location');
+      expect(res.body.task).not.toHaveProperty('contactPerson');
+      expect(res.body.task).not.toHaveProperty('amount');
 
       // Verify raw ciphertext contains NO readable sensitive strings
       const taskEntity = res.body.task;

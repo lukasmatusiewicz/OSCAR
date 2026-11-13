@@ -41,13 +41,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(decryptedPayload?.title || '');
   const [editSummary, setEditSummary] = useState(decryptedPayload?.summary || '');
-  const [editLocation, setEditLocation] = useState(
-    decryptedPayload?.location || task.location || '',
-  );
-  const [editContactPerson, setEditContactPerson] = useState(
-    decryptedPayload?.contactPerson || task.contactPerson || '',
-  );
-  const [editAmount, setEditAmount] = useState(decryptedPayload?.amount || task.amount || '');
+  const [editLocation, setEditLocation] = useState(decryptedPayload?.location || '');
+  const [editContactPerson, setEditContactPerson] = useState(decryptedPayload?.contactPerson || '');
+  const [editAmount, setEditAmount] = useState(decryptedPayload?.amount || '');
   const [editScheduledTime, setEditScheduledTime] = useState(
     decryptedPayload?.scheduledTime || task.scheduledTime || '',
   );
@@ -62,9 +58,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   useEffect(() => {
     setEditTitle(decryptedPayload?.title || '');
     setEditSummary(decryptedPayload?.summary || '');
-    setEditLocation(decryptedPayload?.location || task.location || '');
-    setEditContactPerson(decryptedPayload?.contactPerson || task.contactPerson || '');
-    setEditAmount(decryptedPayload?.amount || task.amount || '');
+    setEditLocation(decryptedPayload?.location || '');
+    setEditContactPerson(decryptedPayload?.contactPerson || '');
+    setEditAmount(decryptedPayload?.amount || '');
     setEditScheduledTime(decryptedPayload?.scheduledTime || task.scheduledTime || '');
     setEditScheduledDate(decryptedPayload?.scheduledDate || task.scheduledDate || '');
     setEditSubtasks(decryptedPayload?.subtasks ? [...decryptedPayload.subtasks] : []);
@@ -97,9 +93,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const handleCancelEdit = () => {
     setEditTitle(decryptedPayload?.title || '');
     setEditSummary(decryptedPayload?.summary || '');
-    setEditLocation(decryptedPayload?.location || task.location || '');
-    setEditContactPerson(decryptedPayload?.contactPerson || task.contactPerson || '');
-    setEditAmount(decryptedPayload?.amount || task.amount || '');
+    setEditLocation(decryptedPayload?.location || '');
+    setEditContactPerson(decryptedPayload?.contactPerson || '');
+    setEditAmount(decryptedPayload?.amount || '');
     setEditScheduledTime(decryptedPayload?.scheduledTime || task.scheduledTime || '');
     setEditScheduledDate(decryptedPayload?.scheduledDate || task.scheduledDate || '');
     setEditSubtasks(decryptedPayload?.subtasks ? [...decryptedPayload.subtasks] : []);
@@ -108,9 +104,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const scheduledDate = task.scheduledDate || decryptedPayload?.scheduledDate;
   const scheduledTime = decryptedPayload?.scheduledTime || task.scheduledTime;
-  const location = decryptedPayload?.location || task.location;
-  const contactPerson = decryptedPayload?.contactPerson || task.contactPerson;
-  const amount = decryptedPayload?.amount || task.amount;
+  const location = decryptedPayload?.location;
+  const contactPerson = decryptedPayload?.contactPerson;
+  const amount = decryptedPayload?.amount;
   const hasMetadata = Boolean(
     scheduledDate || scheduledTime || location || contactPerson || amount,
   );

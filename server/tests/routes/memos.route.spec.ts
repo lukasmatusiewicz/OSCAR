@@ -50,11 +50,12 @@ describe('Memos Route Integration', () => {
       expect(createdTask.encryptedPayload.iv).toBeDefined();
       expect(createdTask.encryptedPayload.authTag).toBeDefined();
 
-      // Verify smart metadata threading
-      expect(createdTask).toHaveProperty('location');
-      expect(createdTask).toHaveProperty('contactPerson');
-      expect(createdTask).toHaveProperty('amount');
+      // Verify zero plaintext PII on outer TaskEntity and MemoEntity at rest (R-10)
+      expect(createdTask).not.toHaveProperty('location');
+      expect(createdTask).not.toHaveProperty('contactPerson');
+      expect(createdTask).not.toHaveProperty('amount');
       expect(createdTask).toHaveProperty('scheduledTime');
+      expect(res.body.memo).not.toHaveProperty('sanitizedContentPreview');
 
       // Verify PII telemetry (R-11: no cleartext originalValue in HTTP response)
       const piiStats = res.body.piiStats;
@@ -89,11 +90,13 @@ describe('Memos Route Integration', () => {
       expect(decrypted).toHaveProperty('amount');
       expect(decrypted).toHaveProperty('scheduledTime');
 
-      // Verify task was saved in the store
+      // Verify task was saved in the store without outer plaintext PII
       const allTasks = taskStore.getTasks();
       expect(allTasks.length).toBe(1);
       expect(allTasks[0].id).toBe(createdTask.id);
-      expect(allTasks[0].amount).toBe(createdTask.amount);
+      expect(allTasks[0]).not.toHaveProperty('location');
+      expect(allTasks[0]).not.toHaveProperty('contactPerson');
+      expect(allTasks[0]).not.toHaveProperty('amount');
     });
 
     it('correctly normalizes nominative contact name, title-cases address, and formats summary with bullets for beatą kozidrak', async () => {
@@ -107,8 +110,9 @@ describe('Memos Route Integration', () => {
 
       expect(res.status).toBe(201);
       const createdTask = res.body.task;
-      expect(createdTask.contactPerson).toBe('Beata Kozidrak');
-      expect(createdTask.location).toBe('Hamburgerstr. 123');
+      expect(createdTask).not.toHaveProperty('contactPerson');
+      expect(createdTask).not.toHaveProperty('location');
+      expect(createdTask).not.toHaveProperty('amount');
 
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
         createdTask.encryptedPayload,

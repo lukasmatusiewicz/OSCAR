@@ -28,9 +28,6 @@ describe('calendarExport utility suite', () => {
     modelVersion: 'gemini-2.5-flash-001',
     createdAt: '2026-11-08T00:00:00.000Z',
     updatedAt: '2026-11-08T00:00:00.000Z',
-    location: 'Berlin Office, Room 4',
-    contactPerson: 'Alice Newman',
-    amount: '1500 EUR',
     scheduledTime: '14:00',
   };
 
@@ -262,9 +259,6 @@ describe('calendarExport utility suite', () => {
     it('handles tasks without decryptedPayload or location safely', () => {
       const minimalTask: TaskEntity = {
         ...baseTask,
-        location: null,
-        contactPerson: null,
-        amount: null,
         scheduledTime: null,
         scheduledDate: null,
       };
@@ -307,8 +301,6 @@ describe('calendarExport utility suite', () => {
     it('normalizes inflected contact person and address casing in exported iCalendar', () => {
       const task: TaskEntity = {
         ...baseTask,
-        contactPerson: 'z Anną Nowak',
-        location: 'ul. marszałkowska 10',
       };
       const payload: DecryptedTaskPayload = {
         ...basePayload,

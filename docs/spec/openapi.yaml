@@ -610,27 +610,12 @@ components:
           type: string
           format: date-time
           description: Last update timestamp
-        location:
-          type:
-            - string
-            - 'null'
-          description: Extracted physical location, meeting venue, or city
-        contactPerson:
-          type:
-            - string
-            - 'null'
-          description: Primary person of contact or counterparty
-        amount:
-          type:
-            - string
-            - 'null'
-          description: Associated financial budget or invoice amount
         scheduledTime:
           type:
             - string
             - 'null'
           description: Colloquial or explicit time specification
-      description: Stored task entity with envelope-encrypted payload and plaintext metadata
+      description: Stored task entity with envelope-encrypted payload and non-PII metadata
 
     MemoEntity:
       type: object
@@ -638,7 +623,6 @@ components:
         - id
         - userId
         - encryptedPayload
-        - sanitizedContentPreview
         - hasPII
         - maskedFieldsCount
         - createdAt
@@ -656,7 +640,7 @@ components:
           $ref: '#/components/schemas/EncryptedPayload'
         sanitizedContentPreview:
           type: string
-          description: Redacted preview safe for client-side listing (contains only synthetic tokens)
+          description: Optional redacted preview (omitted at rest for zero plaintext PII)
         hasPII:
           type: boolean
           description: Flag indicating if any sensitive tokens were detected and masked
@@ -672,7 +656,7 @@ components:
           type: string
           format: date-time
           description: Last update timestamp
-      description: Stored memo entity with encrypted raw content and public sanitized preview
+      description: Stored memo entity with encrypted raw content and PII telemetry (no plaintext preview at rest)
 
     MemoInput:
       type: object

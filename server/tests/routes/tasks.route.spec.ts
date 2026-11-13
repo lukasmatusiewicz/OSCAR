@@ -81,9 +81,9 @@ describe('Tasks Route Integration', () => {
       expect(res.body.category).toBe('WORK');
       expect(res.body.priority).toBe('HIGH');
       expect(res.body.status).toBe('DRAFT');
-      expect(res.body.location).toBe('Berlin Tech Center');
-      expect(res.body.contactPerson).toBe('Dr. Klaus Schmidt');
-      expect(res.body.amount).toBe('5000 EUR');
+      expect(res.body).not.toHaveProperty('location');
+      expect(res.body).not.toHaveProperty('contactPerson');
+      expect(res.body).not.toHaveProperty('amount');
       expect(res.body.scheduledTime).toBe('14:30');
 
       const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
@@ -163,19 +163,27 @@ describe('Tasks Route Integration', () => {
       expect(patchRes.body.category).toBe('FINANCE');
       expect(patchRes.body.scheduledDate).toBe('2026-12-01T10:00:00.000Z');
       expect(patchRes.body.tags).toContain('updated-tag');
-      expect(patchRes.body.location).toBe('Munich Hub');
-      expect(patchRes.body.contactPerson).toBe('Maria Fischer');
-      expect(patchRes.body.amount).toBe('7500 EUR');
+      expect(patchRes.body).not.toHaveProperty('location');
+      expect(patchRes.body).not.toHaveProperty('contactPerson');
+      expect(patchRes.body).not.toHaveProperty('amount');
       expect(patchRes.body.scheduledTime).toBe('16:00');
 
-      // Verify in store
+      const decryptedPatched = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        patchRes.body.encryptedPayload,
+        testKey,
+      );
+      expect(decryptedPatched.location).toBe('Munich Hub');
+      expect(decryptedPatched.contactPerson).toBe('Maria Fischer');
+      expect(decryptedPatched.amount).toBe('7500 EUR');
+
+      // Verify in store (zero outer plaintext PII)
       const updated = taskStore.getTaskById(taskId);
       expect(updated?.status).toBe('COMPLETED');
       expect(updated?.priority).toBe('URGENT');
       expect(updated?.category).toBe('FINANCE');
-      expect(updated?.location).toBe('Munich Hub');
-      expect(updated?.contactPerson).toBe('Maria Fischer');
-      expect(updated?.amount).toBe('7500 EUR');
+      expect(updated).not.toHaveProperty('location');
+      expect(updated).not.toHaveProperty('contactPerson');
+      expect(updated).not.toHaveProperty('amount');
       expect(updated?.scheduledTime).toBe('16:00');
     });
 

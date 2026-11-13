@@ -14,6 +14,20 @@ export const COLLECTION_MEMOS = 'memos';
 export const COLLECTION_TASKS = 'tasks';
 export const COLLECTION_PRIVACY_AUDIT_LOGS = 'privacy_audit_logs';
 
+function omitOuterTaskPii(task: TaskEntity): TaskEntity {
+  const safe: Record<string, unknown> = { ...task };
+  delete safe.location;
+  delete safe.contactPerson;
+  delete safe.amount;
+  return safe as TaskEntity;
+}
+
+function omitOuterMemoPii(memo: MemoEntity): MemoEntity {
+  const safe: Record<string, unknown> = { ...memo };
+  delete safe.sanitizedContentPreview;
+  return safe as MemoEntity;
+}
+
 export interface FirestoreTaskStoreOptions {
   firestore?: Firestore;
   projectId?: string;
@@ -159,7 +173,7 @@ export class FirestoreTaskStore implements ITaskRepository {
    * @param task Encrypted task entity.
    */
   public async addTask(task: TaskEntity): Promise<void> {
-    await this.db.collection(COLLECTION_TASKS).doc(task.id).set(task);
+    await this.db.collection(COLLECTION_TASKS).doc(task.id).set(omitOuterTaskPii(task));
   }
 
   /**
@@ -179,11 +193,11 @@ export class FirestoreTaskStore implements ITaskRepository {
       return undefined;
     }
     const existing = doc.data() as TaskEntity;
-    const updated: TaskEntity = {
+    const updated = omitOuterTaskPii({
       ...existing,
       ...updates,
       updatedAt: new Date().toISOString(),
-    };
+    });
     await docRef.set(updated);
     return updated;
   }
@@ -210,7 +224,7 @@ export class FirestoreTaskStore implements ITaskRepository {
    * @param memo Encrypted memo entity.
    */
   public async addMemo(memo: MemoEntity): Promise<void> {
-    await this.db.collection(COLLECTION_MEMOS).doc(memo.id).set(memo);
+    await this.db.collection(COLLECTION_MEMOS).doc(memo.id).set(omitOuterMemoPii(memo));
   }
 
   /**
@@ -242,8 +256,8 @@ export class FirestoreTaskStore implements ITaskRepository {
     auditLog?: PrivacyAuditLog,
   ): Promise<void> {
     const batch = this.db.batch();
-    batch.set(this.db.collection(COLLECTION_MEMOS).doc(memo.id), memo);
-    batch.set(this.db.collection(COLLECTION_TASKS).doc(task.id), task);
+    batch.set(this.db.collection(COLLECTION_MEMOS).doc(memo.id), omitOuterMemoPii(memo));
+    batch.set(this.db.collection(COLLECTION_TASKS).doc(task.id), omitOuterTaskPii(task));
     if (auditLog) {
       batch.set(this.db.collection(COLLECTION_PRIVACY_AUDIT_LOGS).doc(auditLog.id), auditLog);
     }

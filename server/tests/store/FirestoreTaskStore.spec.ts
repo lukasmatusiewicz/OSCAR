@@ -695,4 +695,66 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
       await expect(probeStore.verifyConnection()).rejects.not.toThrow('secret-token-xyz');
     });
   });
+
+  describe('Zero Plaintext PII at Rest Enforcement (R-10)', () => {
+    it('strips outer location, contactPerson, amount from TaskEntity and sanitizedContentPreview from MemoEntity on persistence', async () => {
+      const mockFs = createMockFirestore();
+      const piiStore = new FirestoreTaskStore({ firestore: mockFs as unknown as Firestore });
+
+      const memoWithPreview = {
+        id: 'memo_pii_strip_0001',
+        userId: 'usr_session_default_01',
+        encryptedPayload: { ciphertext: 'ct', iv: 'iv', authTag: 'tag', keyId: 'v1' },
+        sanitizedContentPreview: 'Plaintext preview should be stripped',
+        hasPII: true,
+        maskedFieldsCount: 1,
+        createdAt: '2026-11-13T10:00:00.000Z',
+        updatedAt: '2026-11-13T10:00:00.000Z',
+      } as unknown as MemoEntity;
+
+      const taskWithOuterPii = {
+        id: 'task_pii_strip_0001',
+        memoId: 'memo_pii_strip_0001',
+        userId: 'usr_session_default_01',
+        encryptedPayload: { ciphertext: 'ct', iv: 'iv', authTag: 'tag', keyId: 'v1' },
+        category: 'WORK',
+        priority: 'MEDIUM',
+        status: 'DRAFT',
+        scheduledDate: null,
+        tags: [],
+        provenance: 'DETERMINISTIC_FALLBACK',
+        modelVersion: 'fallback-v1',
+        createdAt: '2026-11-13T10:00:00.000Z',
+        updatedAt: '2026-11-13T10:00:00.000Z',
+        location: 'Berlin Tech Center',
+        contactPerson: 'Alice Example',
+        amount: '5000 EUR',
+      } as unknown as TaskEntity;
+
+      await piiStore.commitBatch(memoWithPreview, taskWithOuterPii);
+
+      const storedMemo = (await piiStore.getMemos()).find((m) => m.id === 'memo_pii_strip_0001');
+      const storedTask = await piiStore.getTaskById('task_pii_strip_0001');
+
+      expect(storedMemo).toBeDefined();
+      expect(storedMemo).not.toHaveProperty('sanitizedContentPreview');
+
+      expect(storedTask).toBeDefined();
+      expect(storedTask).not.toHaveProperty('location');
+      expect(storedTask).not.toHaveProperty('contactPerson');
+      expect(storedTask).not.toHaveProperty('amount');
+
+      await piiStore.addMemo(memoWithPreview);
+      await piiStore.addTask(taskWithOuterPii);
+      const updated = await piiStore.updateTask('task_pii_strip_0001', {
+        status: 'PENDING',
+        location: 'Munich Hub',
+      } as Partial<TaskEntity>);
+
+      expect(updated).toBeDefined();
+      expect(updated).not.toHaveProperty('location');
+      expect(updated).not.toHaveProperty('contactPerson');
+      expect(updated).not.toHaveProperty('amount');
+    });
+  });
 });

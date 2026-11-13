@@ -259,5 +259,59 @@ describe('PR 5: Key-Loss UX, Timeouts/Errors, Offline Simulation & F-12', () => 
       });
       expect(submitSpy).not.toHaveBeenCalled();
     });
+
+    it('masks raw PII in offline fallback sanitizedContentPreview and sets hasPII accurately when tokens are omitted', async () => {
+      const onTaskCreated = vi.fn();
+      const { result } = renderHook(() =>
+        useMemos({
+          simulateOffline: true,
+          onTaskCreated,
+        }),
+      );
+
+      let memoEntity: Awaited<ReturnType<typeof result.current.submitMemo>> | undefined;
+      await act(async () => {
+        memoEntity = await result.current.submitMemo(
+          'Pay 5000 EUR to alice@corp.com, phone +48 501 234 567, IBAN DE89370400440532013000, PESEL 90010112345, key sk-proj-abc1234567890, with Anna Nowak',
+        );
+      });
+
+      expect(memoEntity).toBeDefined();
+      expect(memoEntity!.hasPII).toBe(true);
+      expect(memoEntity!.maskedFieldsCount).toBeGreaterThanOrEqual(6);
+      expect(memoEntity!.sanitizedContentPreview).not.toContain('alice@corp.com');
+      expect(memoEntity!.sanitizedContentPreview).not.toContain('5000 EUR');
+      expect(memoEntity!.sanitizedContentPreview).not.toContain('+48 501 234 567');
+      expect(memoEntity!.sanitizedContentPreview).not.toContain('DE89370400440532013000');
+      expect(memoEntity!.sanitizedContentPreview).not.toContain('90010112345');
+      expect(memoEntity!.sanitizedContentPreview).not.toContain('sk-proj-abc1234567890');
+      expect(memoEntity!.sanitizedContentPreview).not.toContain('Anna Nowak');
+
+      const [createdTask] = onTaskCreated.mock.calls[0];
+      expect(createdTask).not.toHaveProperty('location');
+      expect(createdTask).not.toHaveProperty('contactPerson');
+      expect(createdTask).not.toHaveProperty('amount');
+    });
+
+    it('TaskCard renders location, contactPerson, and amount from decryptedPayload without outer TaskEntity fields', () => {
+      const task = makeTask('task_dec_meta_1');
+      render(
+        <TaskCard
+          task={task}
+          decryptedPayload={{
+            title: 'Client Audit',
+            summary: 'Audit details',
+            subtasks: [{ title: 'Verify', completed: false }],
+            location: 'Berlin Tech Hub',
+            contactPerson: 'Dr. Klaus Schmidt',
+            amount: '5000 EUR',
+          }}
+        />,
+      );
+
+      expect(screen.getByTestId('metadata-chip-location')).toHaveTextContent('Berlin Tech Hub');
+      expect(screen.getByText(/Dr\. Klaus Schmidt/)).toBeInTheDocument();
+      expect(screen.getByTestId('metadata-chip-amount')).toHaveTextContent('5000 EUR');
+    });
   });
 });

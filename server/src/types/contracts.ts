@@ -242,7 +242,7 @@ export const TaskEntitySchema = z.object({
   memoId: EntityIdSchema.describe('Foreign key reference linking to source MemoEntity'),
   userId: EntityIdSchema.describe('Owner user identifier'),
   encryptedPayload: EncryptedPayloadSchema.describe(
-    'AES-256-GCM ciphertext of { title, summary, subtasks }',
+    'AES-256-GCM ciphertext of { title, summary, subtasks, location, contactPerson, amount, scheduledTime }',
   ),
   category: TaskCategorySchema.describe('Non-PII queryable category'),
   priority: TaskPrioritySchema.describe('Non-PII queryable urgency level'),
@@ -258,21 +258,6 @@ export const TaskEntitySchema = z.object({
     .describe('Model or rule version identifier (e.g. "gemini-2.5-flash-001" or "fallback-v1")'),
   createdAt: FirestoreTimestampSchema.describe('Creation timestamp'),
   updatedAt: FirestoreTimestampSchema.describe('Last update timestamp'),
-  location: z
-    .string()
-    .nullable()
-    .optional()
-    .describe('Extracted physical location, meeting venue, or city'),
-  contactPerson: z
-    .string()
-    .nullable()
-    .optional()
-    .describe('Primary person of contact or counterparty'),
-  amount: z
-    .string()
-    .nullable()
-    .optional()
-    .describe('Associated financial budget or invoice amount'),
   scheduledTime: z
     .string()
     .nullable()
@@ -290,7 +275,8 @@ export const MemoEntitySchema = z.object({
   ),
   sanitizedContentPreview: z
     .string()
-    .describe('Redacted preview safe for client-side listing (contains only synthetic tokens)'),
+    .optional()
+    .describe('Optional redacted preview (omitted at rest for zero plaintext PII)'),
   hasPII: z.boolean().describe('Flag indicating if any sensitive tokens were detected and masked'),
   maskedFieldsCount: z.number().int().nonnegative().describe('Total number of masked tokens'),
   createdAt: FirestoreTimestampSchema.describe('Creation timestamp'),

@@ -162,11 +162,13 @@ describe('Reactive State Hooks', () => {
         });
       });
       expect(result.current.decryptedPayloads['task_001_mock_id_1234567'].title).toBe('Modified Title');
+      expect(result.current.decryptedPayloads['task_001_mock_id_1234567'].location).toBe('Office 301');
+      expect(result.current.decryptedPayloads['task_001_mock_id_1234567'].contactPerson).toBe('Jane Doe');
       const updatedTask1 = result.current.tasks.find(
         (t) => t.id === 'task_001_mock_id_1234567',
       );
-      expect(updatedTask1?.location).toBe('Office 301');
-      expect(updatedTask1?.contactPerson).toBe('Jane Doe');
+      expect(updatedTask1).not.toHaveProperty('location');
+      expect(updatedTask1).not.toHaveProperty('contactPerson');
 
       // Test deleteTask
       const deleteSpy = vi.spyOn(gatewayClient, 'deleteTask').mockResolvedValue(true);

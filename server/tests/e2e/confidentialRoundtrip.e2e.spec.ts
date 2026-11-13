@@ -310,11 +310,11 @@ describe('OSCAR End-to-End Confidential Lifecycle Roundtrip UAT Suite', () => {
       expect(storedMemo?.encryptedPayload).toBeDefined();
       expect(storedMemo?.encryptedPayload.ciphertext).toBeTypeOf('string');
 
-      // Sanitized content preview in memo entity contains masked text, NEVER raw PII
-      expect(storedMemo?.sanitizedContentPreview.length).toBeLessThanOrEqual(PREVIEW_MAX_CHARS);
-      expect(storedMemo?.sanitizedContentPreview).toContain('[PERSON_1]');
-      expect(storedMemo?.sanitizedContentPreview).not.toContain(RAW_PERSON_NAME);
-      expect(storedMemo?.sanitizedContentPreview).not.toContain(RAW_EMAIL);
+      // Zero plaintext PII preview or outer metadata stored at rest (R-10)
+      expect(storedMemo).not.toHaveProperty('sanitizedContentPreview');
+      expect(storedTask).not.toHaveProperty('location');
+      expect(storedTask).not.toHaveProperty('contactPerson');
+      expect(storedTask).not.toHaveProperty('amount');
 
       // ZERO CLEARTEXT AT-REST DATABASE STORAGE INVARIANT:
       const serializedStoreJson = JSON.stringify(taskStore.getTasks());

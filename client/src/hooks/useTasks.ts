@@ -281,9 +281,6 @@ export function useTasks(initialTasks: TaskEntity[] = []) {
           if (t.id === taskId) {
             return {
               ...t,
-              location: updatedPayload.location ?? t.location,
-              contactPerson: updatedPayload.contactPerson ?? t.contactPerson,
-              amount: updatedPayload.amount ?? t.amount,
               scheduledTime: updatedPayload.scheduledTime ?? t.scheduledTime,
               scheduledDate:
                 updatedPayload.scheduledDate !== undefined
