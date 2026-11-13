@@ -123,7 +123,7 @@ export function generateICalendar(task: TaskEntity, payload?: DecryptedTaskPaylo
     payload?.title || (task as unknown as { title?: string }).title || 'OSCAR Action Item';
   const escapedTitle = escapeIcsText(titleVal);
 
-  const rawLocation = payload?.location || task.location || '';
+  const rawLocation = payload?.location || '';
   const locationVal = rawLocation ? normalizeAddressCasing(rawLocation) : '';
   const escapedLocation = escapeIcsText(locationVal);
 
@@ -135,10 +135,10 @@ export function generateICalendar(task: TaskEntity, payload?: DecryptedTaskPaylo
     descParts.push(payload.summary);
   }
 
-  const rawContact = payload?.contactPerson || task.contactPerson;
+  const rawContact = payload?.contactPerson;
   const contact = rawContact ? normalizePersonToNominative(rawContact) : null;
   const loc = locationVal || null;
-  const amt = payload?.amount || task.amount;
+  const amt = payload?.amount;
   const schedTime = payload?.scheduledTime || task.scheduledTime;
 
   const currentDesc = descParts.join('\n');

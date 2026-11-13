@@ -15,6 +15,7 @@ import {
   normalizeAddressCasing,
 } from '../utils/linguisticNormalizer';
 import { resolveRelativeDate, extractScheduledTime } from '../utils/temporalResolver';
+import { maskClientPii } from '../utils/clientPiiMasker';
 import { TEMPORAL_STOP_WORDS } from '../components/organisms/MemoEditor';
 
 export interface UseMemosOptions {
@@ -51,14 +52,7 @@ export function useMemos(options?: UseMemosOptions) {
           setIsOfflineFallback(true);
           setWarning(reason);
 
-          let sanitizedPreview = rawContent;
-          const sortedTokens = [...tokens].sort((a, b) => b.startIndex - a.startIndex);
-          for (const tok of sortedTokens) {
-            sanitizedPreview =
-              sanitizedPreview.substring(0, tok.startIndex) +
-              tok.token +
-              sanitizedPreview.substring(tok.endIndex);
-          }
+          const maskResult = maskClientPii(rawContent, tokens);
 
           const encryptedPayload: EncryptedPayload = await ClientCryptoService.encrypt({
             rawContent,
@@ -72,15 +66,15 @@ export function useMemos(options?: UseMemosOptions) {
             id: memoId,
             userId: 'usr_mock_session_active',
             encryptedPayload,
-            sanitizedContentPreview: sanitizedPreview.substring(0, 150),
-            hasPII: tokens.length > 0,
-            maskedFieldsCount: tokens.length,
+            sanitizedContentPreview: maskResult.sanitizedText.substring(0, 150),
+            hasPII: maskResult.hasPII,
+            maskedFieldsCount: maskResult.maskedFieldsCount,
             createdAt: nowIso,
             updatedAt: nowIso,
           };
 
           setMemos((prev) => [memoEntity, ...prev]);
-          options?.onTokensDetected?.(tokens);
+          options?.onTokensDetected?.(maskResult.detectedTokens);
 
           const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
           const rawClauses = rawContent
@@ -266,7 +260,9 @@ export function useMemos(options?: UseMemosOptions) {
             userId: 'usr_mock_session_active',
             encryptedPayload: encryptedTaskPayload,
             category: 'WORK',
-            priority: tokens.some((t) => t.type === 'SECRET_KEY') ? 'URGENT' : 'MEDIUM',
+            priority: maskResult.detectedTokens.some((t) => t.type === 'SECRET_KEY')
+              ? 'URGENT'
+              : 'MEDIUM',
             status: 'DRAFT', // EU AI Act human review initial state
             scheduledDate: scheduledDate ?? null,
             tags: ['voice-memo', 'shielded', 'offline-fallback'],
@@ -274,9 +270,6 @@ export function useMemos(options?: UseMemosOptions) {
             modelVersion: 'rule-based-v1',
             createdAt: nowIso,
             updatedAt: nowIso,
-            location,
-            contactPerson,
-            amount,
             scheduledTime,
           };
 
