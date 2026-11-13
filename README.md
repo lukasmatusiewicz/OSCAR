@@ -14,6 +14,15 @@
 
 ---
 
+## Current Scope (v1.0 MVP)
+
+OSCAR is currently an initial **v1.0 MVP prototype**.
+
+* **What works today:** single-user task extraction from memos, local PII masking before LLM calls, Gemini structured outputs with a deterministic offline fallback, `AES-256-GCM` encryption at rest in Firestore, and an installable PWA manifest.
+* **Long-term goal:** evolving OSCAR into a full-featured, privacy-first personal assistant capable of safely handling sensitive personal documents—including a **confidential personal knowledge base (Confidential RAG)** where users can ingest sensitive documents (e.g., medical results, contracts) and query them via Gemini without exposing PII (storing encrypted originals at rest while sending only masked context chunks to the LLM, alongside future client-side E2EE, multi-device key sync, and isolated holdout evaluation).
+
+---
+
 ## Development Workflow
 
 OSCAR is an experiment and ongoing engineering effort **towards a spec-driven, multi-agent workflow**, where specifications precede code, scoped Maker subagents work within Principle of Least Privilege (PoLP) boundaries, and independent Checkers verify deliverables before a human Supervisor reviews and merges atomic PRs:
