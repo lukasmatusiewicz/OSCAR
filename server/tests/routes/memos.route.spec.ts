@@ -556,5 +556,34 @@ describe('Memos Route Integration', () => {
       expect(taskStore.getMemos().length).toBe(0);
       expect(taskStore.getTasks().length).toBe(0);
     });
+
+    it('strips command prefix, normalizes hyphenated surname, omits outer PII, and deduplicates summary bullets', async () => {
+      const res = await inProcessApp(app)
+        .post('/api/memos')
+        .set('Origin', DEFAULT_CORS_ORIGIN)
+        .set('x-oscar-encryption-key', testKeyBase64)
+        .send({
+          content:
+            'Dodaj mi do listy spotkanie z Anną Nowak-Kowalską\n• 💰 Amount: 500 PLN\n• 💰 Amount: 500 PLN\n• ⏰ Time: 14:00\n• ⏰ Time: 14:00',
+        });
+
+      expect(res.status).toBe(201);
+      const { task, memo } = res.body;
+
+      expect(task).not.toHaveProperty('amount');
+      expect(task).not.toHaveProperty('contactPerson');
+      expect(task).not.toHaveProperty('location');
+      expect(memo).not.toHaveProperty('sanitizedContentPreview');
+
+      const decrypted = await EncryptionService.decrypt<DecryptedTaskPayload>(
+        task.encryptedPayload,
+        testKey,
+      );
+      expect(decrypted.title).toBe('Spotkanie z Anną Nowak-Kowalską');
+      expect(decrypted.contactPerson).toBe('Anna Nowak-Kowalska');
+      expect(decrypted.summary.match(/• 👤 Contact:/g)).toHaveLength(1);
+      expect(decrypted.summary.match(/• 💰 Amount:/g)).toHaveLength(1);
+      expect(decrypted.summary.match(/• ⏰ Time:/g)).toHaveLength(1);
+    });
   });
 });

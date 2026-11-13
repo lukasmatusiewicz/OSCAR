@@ -749,6 +749,8 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
       const updated = await piiStore.updateTask('task_pii_strip_0001', {
         status: 'PENDING',
         location: 'Munich Hub',
+        contactPerson: 'Bob Example',
+        amount: '9000 EUR',
       } as Partial<TaskEntity>);
 
       expect(updated).toBeDefined();

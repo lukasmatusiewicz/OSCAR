@@ -1748,5 +1748,43 @@ describe('PrivacyGuard Engine Suite', () => {
         PrivacyGuard.setPipeline(undefined);
       }
     });
+
+    it('masks full hyphenated Polish surnames and normalizes them to nominative on rehydration', () => {
+      const cases = [
+        {
+          input: 'Spotkanie z Anną Nowak-Kowalską',
+          expectedOriginal: 'Anną Nowak-Kowalską',
+          expectedNormalized: 'Anna Nowak-Kowalska',
+        },
+        {
+          input: 'spotkanie z anną nowak-kowalską',
+          expectedOriginal: 'anną nowak-kowalską',
+          expectedNormalized: 'Anna Nowak-Kowalska',
+        },
+        {
+          input: 'Spotkanie z Anną Nowak-kowalską',
+          expectedOriginal: 'Anną Nowak-kowalską',
+          expectedNormalized: 'Anna Nowak-Kowalska',
+        },
+        {
+          input: 'Spotkanie z Janem Kowalskim-Nowakiem',
+          expectedOriginal: 'Janem Kowalskim-Nowakiem',
+          expectedNormalized: 'Jan Kowalski-Nowak',
+        },
+      ];
+
+      for (const tc of cases) {
+        const masked = PrivacyGuard.mask(tc.input);
+        const personTokens = masked.tokens.filter((t) => t.type === 'PERSON');
+        expect(personTokens).toHaveLength(1);
+        expect(personTokens[0].originalValue).toBe(tc.expectedOriginal);
+
+        const rehydrated = rehydrate(
+          { contactPerson: personTokens[0].token, summary: masked.sanitizedText },
+          masked.tokens,
+        );
+        expect(rehydrated.contactPerson).toBe(tc.expectedNormalized);
+      }
+    });
   });
 });
