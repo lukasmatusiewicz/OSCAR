@@ -1488,7 +1488,8 @@ export class PrivacyGuard {
 
     const honPattern = honorificsList.join('|');
     const namePart = "(?:\\p{Lu}['’]\\p{Lu}[\\p{Ll}]+|\\p{Lu}[\\p{Ll}]+)";
-    const nameWord = `${namePart}(?:-${namePart})*`;
+    const hyphenPart = "(?:\\p{Lu}['’]\\p{Lu}[\\p{Ll}]+|\\p{Lu}[\\p{Ll}]+|[\\p{Ll}]{2,})";
+    const nameWord = `${namePart}(?:-${hyphenPart})*`;
     const nameParticle =
       '(?:de|la|le|du|des|da|das|do|dos|di|del|della|los|las|van|von|der|den|ten|ter|zu|zum|zur)';
     const multiName = `${nameWord}(?:\\s+(?:${nameParticle}\\s+){0,2}${nameWord}){0,2}`;
@@ -1584,10 +1585,10 @@ export class PrivacyGuard {
     }
 
     const lowercasePrepositionPatterns = [
-      /(?<![\p{L}\p{N}])(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]{2,}(?:\s+[a-ząćęłńóśźż]{2,}){0,2})(?!\p{L})/gu,
-      /(?<![\p{L}\p{N}])(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]{2,}(?:\s+[a-zäöüß]{2,}){0,2})(?!\p{L})/gu,
-      /(?<![\p{L}\p{N}])(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]{2,}(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]{2,}){0,2})(?!\p{L})/gu,
-      /(?<![\p{L}\p{N}])(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]{2,}(?:\s+[a-z]{2,}){0,2})(?!\p{L})/gu,
+      /(?<![\p{L}\p{N}])(?:[sS]potkanie z|[rR]ozmowa z|[zZ]|[zZ]e|[dD]la|[oO]d)\s+([a-ząćęłńóśźż]{2,}(?:-[a-ząćęłńóśźż]{2,})*(?:\s+[a-ząćęłńóśźż]{2,}(?:-[a-ząćęłńóśźż]{2,})*){0,2})(?!\p{L})/gu,
+      /(?<![\p{L}\p{N}])(?:[tT]reffen mit|[mM]it|[bB]ei|[fF]ür|[vV]on)\s+([a-zäöüß]{2,}(?:-[a-zäöüß]{2,})*(?:\s+[a-zäöüß]{2,}(?:-[a-zäöüß]{2,})*){0,2})(?!\p{L})/gu,
+      /(?<![\p{L}\p{N}])(?:[rR]endez-vous avec|[aA]vec|[pP]our|[dD]e)\s+([a-zàâçéèêëîïôûùüÿñæœ]{2,}(?:-[a-zàâçéèêëîïôûùüÿñæœ]{2,})*(?:\s+[a-zàâçéèêëîïôûùüÿñæœ]{2,}(?:-[a-zàâçéèêëîïôûùüÿñæœ]{2,})*){0,2})(?!\p{L})/gu,
+      /(?<![\p{L}\p{N}])(?:[mM]eeting with|[wW]ith|[fF]or|[fF]rom)\s+([a-z]{2,}(?:-[a-z]{2,})*(?:\s+[a-z]{2,}(?:-[a-z]{2,})*){0,2})(?!\p{L})/gu,
     ];
 
     for (const pattern of lowercasePrepositionPatterns) {

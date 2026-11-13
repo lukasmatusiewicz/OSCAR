@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { DeterministicFallbackExtractor } from '../../src/agent/DeterministicFallbackExtractor.js';
+import {
+  DeterministicFallbackExtractor,
+  stripCommandPrefixes,
+  deduplicateSummaryMetadata,
+} from '../../src/agent/DeterministicFallbackExtractor.js';
 import { ExtractedTaskSchema } from '../../src/types/contracts.js';
 
 describe('DeterministicFallbackExtractor', () => {
@@ -372,6 +376,45 @@ describe('DeterministicFallbackExtractor', () => {
         expect(DeterministicFallbackExtractor.extractScheduledTime('Wizyta godz 14:00')).toBe('14:00');
         expect(DeterministicFallbackExtractor.extractScheduledTime('Standard 12:00')).toBe('12:00');
         expect(DeterministicFallbackExtractor.extractScheduledTime('Invalid o 25')).toBeNull();
+      });
+    });
+
+    describe('Command-Prefix Stripping, Hyphenated Surnames, and Summary Deduplication', () => {
+      it('strips Polish and English command prefixes from title', () => {
+        expect(
+          DeterministicFallbackExtractor.extract('Dodaj mi do listy spotkanie z Anną Nowak-Kowalską').title,
+        ).toBe('Spotkanie z Anną Nowak-Kowalską');
+        expect(
+          DeterministicFallbackExtractor.extract('Dodaj do listy zakupy spożywcze').title,
+        ).toBe('Zakupy spożywcze');
+        expect(
+          DeterministicFallbackExtractor.extract('Przypomnij mi zapłacić fakturę').title,
+        ).toBe('Zapłacić fakturę');
+        expect(
+          DeterministicFallbackExtractor.extract('Add to my list buy groceries').title,
+        ).toBe('Buy groceries');
+        expect(
+          DeterministicFallbackExtractor.extract('Remind me to call John').title,
+        ).toBe('Call John');
+      });
+
+      it('extracts and normalizes full hyphenated surnames from raw memos', () => {
+        const task = DeterministicFallbackExtractor.extract('Spotkanie z Anną Nowak-Kowalską');
+        expect(task.contactPerson).toBe('Anna Nowak-Kowalska');
+      });
+
+      it('does not duplicate contactPerson or scheduledDate clauses into Notes bullet', () => {
+        const task = DeterministicFallbackExtractor.extract(
+          'Spotkanie z Anną Nowak-Kowalską w 2026-11-20. Anna Nowak-Kowalska. 2026-11-20.',
+        );
+        expect(task.summary).not.toContain('• 📝 Notes:');
+      });
+
+      it('covers stripCommandPrefixes and deduplicateSummaryMetadata edge cases', () => {
+        expect(stripCommandPrefixes('')).toBe('');
+        expect(stripCommandPrefixes('Hej, dodaj mi do listy kupić mleko')).toBe('Kupić mleko');
+        expect(stripCommandPrefixes('Przypomnij mi a')).toBe('Przypomnij mi a');
+        expect(deduplicateSummaryMetadata('')).toBe('');
       });
     });
   });

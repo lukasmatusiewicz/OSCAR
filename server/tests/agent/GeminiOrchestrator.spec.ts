@@ -261,5 +261,33 @@ describe('GeminiOrchestrator', () => {
 
       if (prevKey) process.env.GEMINI_API_KEY = prevKey;
     });
+
+    it('should strip command prefixes from title and deduplicate metadata bullets in summary', async () => {
+      mockGenerateContent.mockResolvedValue({
+        text: JSON.stringify({
+          title: 'Dodaj mi do listy: Opłacić fakturę dla [PERSON_1]',
+          summary:
+            'Opłacić fakturę\n• 💰 Amount: [AMOUNT_MONEY_1]\n• 💰 Amount: [AMOUNT_MONEY_1]\n• ⏰ Time: 14:00\n• ⏰ Time: 14:00\n• 📅 Date: 2026-11-20\n• 📅 Date: 2026-11-20',
+          category: 'FINANCE',
+          priority: 'HIGH',
+          scheduledDate: '2026-11-20',
+          tags: ['finance'],
+          subtasks: [{ title: 'Opłacić fakturę', completed: false }],
+          location: null,
+          contactPerson: '[PERSON_1]',
+          amount: '[AMOUNT_MONEY_1]',
+          scheduledTime: '14:00',
+        }),
+      });
+
+      const orchestrator = new GeminiOrchestrator({ genAiClient: mockGenAiClient });
+      const result = await orchestrator.extractTask('Dodaj mi do listy opłacić fakturę');
+
+      expect(result.provenance).toBe('GEMINI_FLASH');
+      expect(result.task.title).toBe('Opłacić fakturę dla [PERSON_1]');
+      expect(result.task.summary.match(/• 💰 Amount:/g)).toHaveLength(1);
+      expect(result.task.summary.match(/• ⏰ Time:/g)).toHaveLength(1);
+      expect(result.task.summary.match(/• 📅 Date:/g)).toHaveLength(1);
+    });
   });
 });
