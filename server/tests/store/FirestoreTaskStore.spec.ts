@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import crypto from 'node:crypto';
-import { getApps, deleteApp } from 'firebase-admin/app';
-import type { Firestore } from 'firebase-admin/firestore';
+import { getApps, deleteApp, initializeApp } from 'firebase-admin/app';
+import { Firestore } from 'firebase-admin/firestore';
+import { GoogleAuth } from 'google-auth-library';
 import {
   FirestoreTaskStore,
   COLLECTION_MEMOS,
@@ -360,6 +361,37 @@ describe('FirestoreTaskStore Enterprise Persistence Suite', () => {
       });
 
       expect(certStore).toBeInstanceOf(FirestoreTaskStore);
+    });
+
+    it('passes GoogleAuth instance via auth option instead of deprecated credentials option', () => {
+      const { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+      const rawPem = privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
+      const escapedPem = rawPem.replace(/\n/g, '\\n');
+
+      vi.mocked(Firestore).mockClear();
+      vi.mocked(initializeApp).mockClear();
+
+      const authStore = new FirestoreTaskStore({
+        projectId: 'oscar-google-auth-test',
+        clientEmail: 'service@oscar-google-auth-test.iam.gserviceaccount.com',
+        privateKey: escapedPem,
+      });
+
+      expect(authStore).toBeInstanceOf(FirestoreTaskStore);
+      expect(initializeApp).not.toHaveBeenCalled();
+      expect(Firestore).toHaveBeenCalledTimes(1);
+
+      const firestoreOptions = vi.mocked(Firestore).mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(firestoreOptions).toBeDefined();
+      expect(firestoreOptions.projectId).toBe('oscar-google-auth-test');
+      expect(firestoreOptions.credentials).toBeUndefined();
+      expect(firestoreOptions.auth).toBeInstanceOf(GoogleAuth);
+
+      const googleAuth = firestoreOptions.auth as GoogleAuth;
+      expect(googleAuth.jsonContent).toEqual({
+        client_email: 'service@oscar-google-auth-test.iam.gserviceaccount.com',
+        private_key: rawPem,
+      });
     });
 
     it('initializes with clientEmail and privateKey from environment variables (FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)', () => {

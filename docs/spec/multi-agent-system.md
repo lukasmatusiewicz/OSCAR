@@ -76,6 +76,7 @@ flowchart TD
 | **Privacy Guard Specialist** | Cryptographic & algorithmic specialist. Implements deterministic regex tokenization, RTL substitution, and re-hydration. | `oscar/server/src/privacy/`, `oscar/server/tests/privacy/`. | `view_file`, `write_file`, `edit_file`, `run_command` (scoped strictly to allowlisted test commands). | Cannot modify frontend components, external API routes, or merge branches. |
 | **QA & Security Auditor Agent** | Independent **Checker** role. Evaluates Maker code deliverables against specs, executes test suites, audits PII leaks, and validates Zod schemas. | **Read-Only** access to code & spec. Scoped test runner. | `view_file`, `run_command` (strictly allowlisted test commands), `send_message`. | **Strictly forbidden from editing source code or specifications**. Cannot approve PRs or merge to `main`. |
 | **Architecture & Security Critic Agent** | Independent **Auditor & Critic** role. Conducts adversarial threat modeling, boundary verification, and Continuous Specification Regression Audits. | **Read-Only** access to `docs/` and root configuration files. | `view_file`, `search_docs`, `send_message`. | **Zero write permissions across the entire workspace.** Cannot execute shell commands, install packages, or mutate repository files. |
+| **Documentation & Claims Auditor** | Independent **Checker** role for release and architectural gates. Verifies `README.md` and `docs/spec/` claims line-by-line against `src/` code, test counts, coverage thresholds, and runtime behavior per `docs/spec/release-audit-checklist.md`. | **Read-Only** access across `docs/`, `README.md`, `server/`, `client/`, and test suites. | `view_file`, `run_command` (strictly allowlisted test/coverage commands), `send_message`. | **Strictly forbidden from editing source code or specifications.** Cannot approve PRs or merge to `main`. |
 
 ---
 
@@ -121,6 +122,13 @@ ALLOWLIST = [
 ]
 ```
 All package installations (`npm install`, `yarn add`), global system modifications, daemon processes, and network requests (`curl`, `wget`) are strictly prohibited and blocked by governance policy.
+
+### 4.4 Documentation & Claims Audit Gate (Release & Architectural Shift Gate)
+Prior to **major releases** (e.g., `v1.0.0`, `v2.0.0`) or **architectural shifts** (authentication, cryptography, key management, privacy masking engine, or persistence model changes), the Master Orchestrator must dispatch the **Documentation & Claims Auditor** in accordance with `docs/spec/release-audit-checklist.md`:
+* **Line-by-Line Spec & README Parity:** Verify every claim in `README.md` and `docs/spec/` against actual `src/` implementations (including Express route status codes, Zod/OpenAPI schemas, cryptographic flows, and configuration defaults).
+* **Metrics & Threshold Verification:** Confirm all documented test counts, coverage thresholds (e.g., `>= 95%` branch coverage), and CI gates match live command outputs (`npm test`, `npm run test:coverage`, `npm run lint`, `npm run build`).
+* **Runtime Behavior Alignment:** Validate quickstart steps, startup diagnostics, and error-handling behavior against actual runtime execution rather than stale documentation.
+* **Gate Enforcement:** Any discrepancy between documentation claims and `src/` or runtime behavior is logged as a blocking finding for remediation before release sign-off.
 
 ---
 
