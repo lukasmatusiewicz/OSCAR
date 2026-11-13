@@ -20,6 +20,7 @@ const KEY_BYTE_LENGTH = 32;
 const IV_BYTE_LENGTH = 12;
 const AUTH_TAG_BYTE_LENGTH = 16;
 const HTTP_STATUS_OK = 200;
+const HTTP_STATUS_CREATED = 201;
 const HTTP_STATUS_NOT_FOUND = 404;
 const PII_CATEGORIES_COUNT = 6;
 const PREVIEW_MAX_CHARS = 150;
@@ -246,7 +247,7 @@ describe('OSCAR End-to-End Confidential Lifecycle Roundtrip UAT Suite', () => {
           title: 'Disbursement Request',
         });
 
-      expect(memoResponse.status).toBe(HTTP_STATUS_OK);
+      expect(memoResponse.status).toBe(HTTP_STATUS_CREATED);
 
       // Verify the external AI prompt was strictly masked with synthetic tokens
       expect(capturedModelPrompt).toContain('<user_memo>');
@@ -428,7 +429,7 @@ describe('OSCAR End-to-End Confidential Lifecycle Roundtrip UAT Suite', () => {
           content: RAW_CONFIDENTIAL_MEMO,
         });
 
-      expect(memoResponse.status).toBe(HTTP_STATUS_OK);
+      expect(memoResponse.status).toBe(HTTP_STATUS_CREATED);
 
       const responseBody = memoResponse.body;
       const task = responseBody.task;
