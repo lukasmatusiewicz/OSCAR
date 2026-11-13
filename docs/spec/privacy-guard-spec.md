@@ -49,20 +49,22 @@ flowchart TD
 ### 2.1 Architectural Tiers
 
 #### Tier 1: High-Entropy Deterministic & Checksum Patterns
+Before any Tier 1–3 pattern runs, `normalizeForMatching(text)` applies Unicode `NFKC` normalization, strips invisible formatting characters (`\p{Cf}`, e.g. zero-width joiners/spaces), and folds Unicode decimal digits (`\p{Nd}`) to ASCII `0–9` while maintaining exact offset alignment for Right-to-Left substitution.
+
 Tier 1 matches structured credentials and government-issued or banking identifiers where pattern entropy is high and false-positive rates are eliminated through algorithmic checksum verification:
-- **Secret & API Keys (`SECRET_KEY`, Priority Weight: 60):** Identifies OAuth Bearer tokens, GitHub personal access tokens (`ghp_`), Google AI Studio credentials (`ai...`), OpenAI API keys (`sk-...`), and generic 20+ character high-entropy key strings.
-- **Bank Account Numbers (`IBAN`, Priority Weight: 50):** Detects ISO 13616 International Bank Account Numbers across all SEPA jurisdictions (e.g., `DE`, `PL`, `FR`, `GB`, `CH`), verifying structure and optional grouping spaces with MOD-97 checksum validation.
-- **National Identification Numbers (`NATIONAL_ID`, Priority Weight: 45):**
+- **Secret & API Keys (`SECRET_KEY`, Priority Rank: 1):** Identifies AWS access keys (`AKIA`/`ASIA`), Slack tokens (`xox[baprs]-`), JWTs (`eyJ...`), OAuth Bearer tokens, GitHub personal access tokens (`ghp_`/`github_pat_`), Google API keys (`AIza...`), OpenAI/Anthropic keys (`sk-...`), and structured `key=value` / `secret: value` credential assignments.
+- **Bank Account Numbers (`IBAN`, Priority Rank: 2):** Detects alphanumeric ISO 13616 International Bank Account Numbers across SEPA and international jurisdictions (e.g., `DE`, `PL`, `FR`, `GB`, `CH`, `NL`), verifying structure and optional grouping spaces with alphanumeric MOD-97 checksum validation.
+- **National Identification Numbers (`NATIONAL_ID`, Priority Rank: 3):**
   - *Polish PESEL (11 digits):* Validated against the official statutory checksum formula:
     $$C = \left( 10 - \left( \sum_{i=1}^{10} w_i \cdot d_i \pmod{10} \right) \right) \pmod{10}$$
     using weight matrix $w = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3]$. Strings passing formatting but failing the checksum are discarded to prevent false positives.
   - *German Steuer-ID / IdNr (11 digits):* Matches 11-digit fiscal identifiers with structural validation ensuring digit non-random distribution (one digit repeated 2 or 3 times, remainder unique).
   - *US Social Security Numbers (SSN):* Matches standard `\b\d{3}-\d{2}-\d{4}\b` with non-zero group/serial validations.
-- **Health Identifiers (`HEALTH_DATA`, Priority Weight: 40):**
-  - *German Krankenversichertennummer (KVNR):* Matches 10-character health card identifiers `\b[A-Z]\d{9}\b` (1 uppercase alphanumeric character followed by 9 digits with Luhn Mod-10 checksum validation).
+- **Health Identifiers (`HEALTH_DATA`, Priority Rank: 4):**
+  - *German Krankenversichertennummer (KVNR):* Matches 10-character health card identifiers `\b[A-Z]\d{9}\b` (1 uppercase letter followed by 9 digits).
   - Governed under **GDPR Article 9 ("Processing of special categories of personal data")**: zero transmission to third-party LLMs.
-- **Email Addresses (`EMAIL`, Priority Weight: 35):** Comprehensive RFC 5322 standard matching for personal and enterprise mailboxes.
-- **Phone Numbers (`PHONE`, Priority Weight: 30):** International E.164 formats (`+49...`, `0048...`) and national telephone variants with area code parentheses, hyphens, and whitespace separators.
+- **Email Addresses (`EMAIL`, Priority Rank: 5):** Comprehensive RFC 5322 standard matching for personal and enterprise mailboxes.
+- **Phone Numbers (`PHONE`, Priority Rank: 6):** International E.164 formats (`+49...`, `0048...`) and national telephone variants with area code parentheses, hyphens, and whitespace separators.
 
 #### Tier 2: Deterministic Linguistic & Morphological NER (with Optional `maskAsync` ML Extension Point)
 Tier 2 runs synchronously and deterministically in-memory within the Node.js process using **algorithmic + regex NER** and **multilingual (PL/DE/EN) morphological lemmatization** (`LinguisticNormalizer`), with **zero network calls**. An optional Tier-2 ML extension point (`maskAsync`) is exposed for future local NER model integration (currently unused in production routes):
@@ -90,25 +92,25 @@ Tier 3 serves as an adaptive safety net for unstandardized identifiers, policy n
   - English: *card*, *policy*, *number*, *insurance*, *member*, *coverage*, *contract*, *id*
 - **Categorization:** Candidate strings in insurance or medical contexts are classified as `HEALTH_DATA` (Weight: 40); strings in citizen, identity, or account contexts are classified as `NATIONAL_ID` (Weight: 45).
 
-### 2.2 Priority Hierarchy & Weighting System
+### 2.2 Priority Hierarchy & Ranking System (`CATEGORY_PRIORITY` 1..9 Ascending)
 
-When candidate spans overlap, Privacy Guard resolves conflicts deterministically using the explicit descending weight hierarchy:
+When candidate spans overlap, Privacy Guard resolves conflicts deterministically using the ascending priority rank (`1` = highest priority, `9` = lowest priority):
 
-$$\text{Weight}(\text{SECRET\_KEY}: 60) > \text{Weight}(\text{IBAN}: 50) > \text{Weight}(\text{NATIONAL\_ID}: 45) > \text{Weight}(\text{HEALTH\_DATA}: 40) > \text{Weight}(\text{EMAIL}: 35) > \text{Weight}(\text{PHONE}: 30) > \text{Weight}(\text{AMOUNT\_MONEY}: 25) > \text{Weight}(\text{PERSON}: 20) > \text{Weight}(\text{ADDRESS}: 15)$$
+$$\text{Rank}(\text{SECRET\_KEY}: 1) < \text{Rank}(\text{IBAN}: 2) < \text{Rank}(\text{NATIONAL\_ID}: 3) < \text{Rank}(\text{HEALTH\_DATA}: 4) < \text{Rank}(\text{EMAIL}: 5) < \text{Rank}(\text{PHONE}: 6) < \text{Rank}(\text{AMOUNT\_MONEY}: 7) < \text{Rank}(\text{PERSON}: 8) < \text{Rank}(\text{ADDRESS}: 9)$$
 
 All regular expressions adhere strictly to ECMAScript standard syntax. Explicit flags (`giu` or `gu`) are compiled programmatically—inline `(?i)` flag syntax is strictly forbidden to prevent fatal `SyntaxError` exceptions at runtime.
 
-| Weight | PII Category | Token Identifier | RegExp Pattern (ECMAScript Subset) | Flags | Example Matches |
+| Rank | PII Category | Token Identifier | RegExp / Detection Scope (ECMAScript Subset) | Flags | Example Matches |
 | :---: | :--- | :--- | :--- | :--- | :--- |
-| **60** | **SECRET_KEY** | `[SECRET_KEY_N]` | `\b(?:bearer\s+[a-z0-9_\-\.]{20,}\|ghp_[a-z0-9]{36}\|ai[a-z0-9_\-]{30,}\|sk-[a-z0-9]{32,})\b` | `giu` | `ghp_1234567890abcdef1234567890abcdef1234`, `Bearer eyJhbGciOi...` |
-| **50** | **IBAN** | `[IBAN_N]` | `\b[A-Z]{2}[0-9]{2}(?:[ ]?[0-9]{4}){4,7}(?:[ ]?[0-9]{1,4})?\b` | `gu` | `DE89 3704 0044 0532 0130 00`, `PL61109010140000071219812874` |
-| **45** | **NATIONAL_ID** | `[NATIONAL_ID_N]` | `\b\d{11}\b\|\b\d{3}-\d{2}-\d{4}\b` (with PESEL checksum / Steuer-ID validation) | `gu` | `90010112345` (valid PESEL), `03245678912` (Steuer-ID), `123-45-6789` (SSN) |
-| **40** | **HEALTH_DATA** | `[HEALTH_DATA_N]` | `\b[A-Z]\d{9}\b` (KVNR Luhn check) \| Context card ID proximity | `gu` | `A123456789` (German KVNR), `polisa 83726194` |
-| **35** | **EMAIL** | `[EMAIL_N]` | `\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b` | `giu` | `contact@example.com`, `user@domain.co.uk` |
-| **30** | **PHONE** | `[PHONE_N]` | `(?:(?:\+|00)\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}\b` | `gu` | `+49 170 1234567`, `(030) 9876-5432`, `+1-800-555-0199` |
-| **25** | **AMOUNT_MONEY** | `[AMOUNT_MONEY_N]` | `(?:\$|€|£|\b(?:PLN|EUR|USD|CHF|zł))\s?\d+(?:[.,\s]\d+)*(?:\s?(?:k|tys\.?|mln|milionów|mld))?\|\b\d+(?:[.,\s]\d+)*(?:\s?(?:k|tys\.?|mln|milionów|mld))?\s?(?:€|\$|£|\b(?:PLN|EUR|USD|CHF|zł)\b)` | `giu` | `15000 EUR`, `$450.00`, `50k zł`, `1.5 mln EUR`, `25 tys. PLN` |
-| **20** | **PERSON** | `[PERSON_N]` | `(?:\b(?:Herr|Frau|Mr\.|Ms\.|Mrs\.|Dr\.|Prof\.|Pan|Pani|M\.|Mme\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)\|(?:(?<=\b(?:with\|meeting\|call\|for\|from\|by\|to\|contact\|assigned to\|z\|ze\|spotkanie z\|dla\|od\|mit\|treffen mit\|für\|von\|avec\|pour\|de)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)` | `gu` | `Mr. John Doe`, `meeting Alice Newman`, `call Jürgen Müller`, `z Janem Kowalskim`, `mit Hans Schmidt` |
-| **15** | **ADDRESS** | `[ADDRESS_N]` | `(?:\b(?:ul\.|ulica|al\.|aleja|pl\.|plac|rue|avenue|bd|boulevard|chemin|St\.|Street|Ave|Avenue|Rd|Road|Blvd|Straße|Strasse|Str\.|Weg|Platz|Gasse)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}?\p{Ll}+)*(?:\s+\d+[a-zA-Z]?(?:[/-]\d+)?)?)\|\b(?:New York|Kassel|Berlin|Paris|Warsaw|London|Zurich|Tokyo|Frankfurt|Munich|Vienna|Geneva|Brussels|Amsterdam|Krakow|Wrocław|Poznań|Gdańsk)\b` | `giu` | `ul. Marszałkowska 126`, `Friedrichstraße 43`, `rue de Rivoli 14`, `New York`, `Kassel`, `Berlin` |
+| **1** | **SECRET_KEY** | `[SECRET_KEY_N]` | AWS (`AKIA`/`ASIA`), Slack (`xox[baprs]-`), JWT (`eyJ...`), Bearer, GitHub PAT (`ghp_`/`github_pat_`), Google (`AIza`), OpenAI/Anthropic (`sk-`), and `key=value` assignments | `giu` | `Bearer eyJhbGciOi...`, `api_key=demo_secret_1234567890` |
+| **2** | **IBAN** | `[IBAN_N]` | `\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,4})?\b` (alphanumeric MOD-97 check) | `giu` | `DE89 3704 0044 0532 0130 00`, `GB29 NWBK 6016 1331 9268 19` |
+| **3** | **NATIONAL_ID** | `[NATIONAL_ID_N]` | `\b\d{11}\b\|\b\d{3}-\d{2}-\d{4}\b` (with PESEL checksum / Steuer-ID / SSN validation) | `gu` | `90010112345` (valid PESEL), `03245678912` (Steuer-ID), `123-45-6789` (SSN) |
+| **4** | **HEALTH_DATA** | `[HEALTH_DATA_N]` | `\b[A-Z]\d{9}\b` (German KVNR) \| Context card ID proximity | `gu` | `A123456789` (German KVNR), `polisa 83726194` |
+| **5** | **EMAIL** | `[EMAIL_N]` | `\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b` | `giu` | `contact@example.com`, `user@domain.co.uk` |
+| **6** | **PHONE** | `[PHONE_N]` | `(?:(?:\+|00)\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}\b` | `gu` | `+49 170 1234567`, `(030) 9876-5432`, `+1-800-555-0199` |
+| **7** | **AMOUNT_MONEY** | `[AMOUNT_MONEY_N]` | `(?:\$\|€\|£\|\b(?:PLN\|EUR\|USD\|CHF\|zł))\s?\d+(?:[.,\s]\d+)*(?:\s?(?:k\|tys\.?\|mln\|milionów\|mld))?\|\b\d+(?:[.,\s]\d+)*(?:\s?(?:k\|tys\.?\|mln\|milionów\|mld))?\s?(?:€\|\$\|£\|\b(?:PLN\|EUR\|USD\|CHF\|zł)\b)` | `giu` | `15000 EUR`, `$450.00`, `50k zł`, `1.5 mln EUR`, `25 tys. PLN` |
+| **8** | **PERSON** | `[PERSON_N]` | `(?:\b(?:Herr\|Frau\|Mr\.\|Ms\.\|Mrs\.\|Dr\.\|Prof\.\|Pan\|Pani\|M\.\|Mme\.)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)\|(?:(?<=\b(?:with\|meeting\|call\|for\|from\|by\|to\|contact\|assigned to\|z\|ze\|spotkanie z\|dla\|od\|mit\|treffen mit\|für\|von\|avec\|pour\|de)\s+)\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)+)` | `gu` | `Mr. John Doe`, `meeting Alice Newman`, `call Jürgen Müller`, `z Janem Kowalskim`, `mit Hans Schmidt` |
+| **9** | **ADDRESS** | `[ADDRESS_N]` | `(?:\b(?:ul\.\|ulica\|al\.\|aleja\|pl\.\|plac\|rue\|avenue\|bd\|boulevard\|chemin\|St\.\|Street\|Ave\|Avenue\|Rd\|Road\|Blvd\|Straße\|Strasse\|Str\.\|Weg\|Platz\|Gasse)\s+\p{Lu}\p{Ll}+(?:\s+\p{Lu}?\p{Ll}+)*(?:\s+\d+[a-zA-Z]?(?:[/-]\d+)?)?)\|\b(?:New York\|Kassel\|Berlin\|Paris\|Warsaw\|London\|Zurich\|Tokyo\|Frankfurt\|Munich\|Vienna\|Geneva\|Brussels\|Amsterdam\|Krakow\|Wrocław\|Poznań\|Gdańsk)\b` | `giu` | `ul. Marszałkowska 126`, `Friedrichstraße 43`, `rue de Rivoli 14`, `New York`, `Kassel`, `Berlin` |
 
 > [!NOTE]
 > **Markdown Table Syntax Note:** Alternation pipes within the regex table are escaped with a backslash (`\|`) to prevent breaking Markdown table delimiters. In TypeScript code, use unescaped standard alternation pipes (`|`).
@@ -150,15 +152,15 @@ interface RawMatch {
 }
 
 export const CATEGORY_PRIORITY: Record<PIIType, number> = {
-  SECRET_KEY: 60,
-  IBAN: 50,
-  NATIONAL_ID: 45,
-  HEALTH_DATA: 40,
-  EMAIL: 35,
-  PHONE: 30,
-  AMOUNT_MONEY: 25,
-  PERSON: 20,
-  ADDRESS: 15,
+  SECRET_KEY: 1,
+  IBAN: 2,
+  NATIONAL_ID: 3,
+  HEALTH_DATA: 4,
+  EMAIL: 5,
+  PHONE: 6,
+  AMOUNT_MONEY: 7,
+  PERSON: 8,
+  ADDRESS: 9,
 };
 
 export class PrivacyGuard {
@@ -218,7 +220,7 @@ export class PrivacyGuard {
 
   /**
    * Priority-weighted overlap resolution:
-   * Sorts matches primarily by weight descending (60: SECRET_KEY down to 15: ADDRESS),
+   * Sorts matches primarily by priority rank ascending (1: SECRET_KEY down to 9: ADDRESS),
    * secondarily by startIndex ascending, tertiarily by span length descending.
    * Iterates through candidates and greedily accepts candidate spans that do not
    * intersect any already-accepted span (candidate.startIndex < accepted.endIndex && candidate.endIndex > accepted.startIndex).
@@ -227,9 +229,9 @@ export class PrivacyGuard {
   public static resolveOverlaps(matches: RawMatch[]): RawMatch[] {
     if (matches.length <= 1) return matches;
 
-    // Sort: 1) Priority weight descending (60 to 15), 2) startIndex ascending, 3) span length descending
+    // Sort: 1) Priority rank ascending (1 to 9), 2) startIndex ascending, 3) span length descending
     const candidates = [...matches].sort((a, b) => {
-      const prioDiff = CATEGORY_PRIORITY[b.type] - CATEGORY_PRIORITY[a.type];
+      const prioDiff = CATEGORY_PRIORITY[a.type] - CATEGORY_PRIORITY[b.type];
       if (prioDiff !== 0) return prioDiff;
       if (a.startIndex !== b.startIndex) return a.startIndex - b.startIndex;
       return (b.endIndex - b.startIndex) - (a.endIndex - a.startIndex);
@@ -261,7 +263,11 @@ export class PrivacyGuard {
       types.includes('HEALTH_DATA')
     ) return 'HIGH';
     if (count >= 3) return 'HIGH';
-    if (count === 2) return 'MEDIUM';
+    if (
+      count === 2 ||
+      types.includes('AMOUNT_MONEY') ||
+      types.includes('ADDRESS')
+    ) return 'MEDIUM';
     return 'LOW';
   }
 
@@ -299,6 +305,8 @@ export const TOKEN_PATTERN =
 
 /**
  * Recursively re-hydrates tokens in a parsed JSON structure using atomic single-pass regex replacement.
+ * Applies Unicode NFKC normalization on token keys before lookup so visually equivalent token strings
+ * resolve deterministically, while preserving original non-token text intact.
  * Accepts either an ephemeral Map<string, string> or an array of PIITokenMap records (e.g. from SanitizationResult.tokens).
  *
  * @param target Data structure returned from Gemini inference
@@ -308,15 +316,16 @@ export function rehydrate<T>(
   target: T,
   tokenMapOrTokens: Map<string, string> | PIITokenMap[]
 ): T {
-  const tokenMap: Map<string, string> = Array.isArray(tokenMapOrTokens)
-    ? new Map(tokenMapOrTokens.map((t) => [t.token, t.originalValue]))
-    : tokenMapOrTokens;
+  const rawEntries: Iterable<[string, string]> = Array.isArray(tokenMapOrTokens)
+    ? tokenMapOrTokens.map((t) => [t.token.normalize('NFKC'), t.originalValue])
+    : Array.from(tokenMapOrTokens.entries()).map(([k, v]) => [k.normalize('NFKC'), v]);
+  const tokenMap = new Map<string, string>(rawEntries);
 
-  // Base case 1: String primitive — atomic single-pass substitution
+  // Base case 1: String primitive — atomic single-pass substitution with NFKC key normalization
   if (typeof target === 'string') {
     const pattern = new RegExp(TOKEN_PATTERN.source, TOKEN_PATTERN.flags);
     return target.replace(pattern, (match) => {
-      return tokenMap.get(match) ?? match;
+      return tokenMap.get(match.normalize('NFKC')) ?? match;
     }) as unknown as T;
   }
 

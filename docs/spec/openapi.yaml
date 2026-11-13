@@ -156,6 +156,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
+        '422':
+          description: Decryption failed (DECRYPTION_FAILED) due to wrong/rotated session key or tampered ciphertext
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
         '500':
           description: Internal server error
           content:
@@ -368,7 +374,7 @@ components:
         token:
           type: string
           pattern: '^\[[A-Z_]+_\d+\]$'
-          description: Synthetic token identifier matching bracketed format, e.g. [EMAIL_0]
+          description: Synthetic token identifier matching bracketed format, e.g. [EMAIL_1]
         type:
           $ref: '#/components/schemas/PIIType'
         originalValue:
@@ -385,6 +391,20 @@ components:
           description: 0-based character end index in source text
       description: Ephemeral token substitution mapping for safe AI processing and post-rehydration
 
+    MaskedTokenSummary:
+      type: object
+      required:
+        - token
+        - type
+      properties:
+        token:
+          type: string
+          pattern: '^\[[A-Z_]+_\d+\]$'
+          description: Synthetic token identifier matching bracketed format, e.g. [EMAIL_1]
+        type:
+          $ref: '#/components/schemas/PIIType'
+      description: Non-PII summary of a masked token (excludes originalValue and character offsets)
+
     MemoPIIStats:
       type: object
       required:
@@ -399,8 +419,8 @@ components:
         maskedTokens:
           type: array
           items:
-            $ref: '#/components/schemas/PIITokenMap'
-          description: Ephemeral token replacement records
+            $ref: '#/components/schemas/MaskedTokenSummary'
+          description: Ephemeral token replacement summary records (zero cleartext PII)
         riskLevel:
           $ref: '#/components/schemas/RiskLevel'
       description: Sanitization and privacy telemetry metrics
@@ -915,6 +935,10 @@ components:
           type: string
           example: An unexpected internal error occurred while processing the request
           description: Sanitized internal error description (zero PII, zero stack trace)
+        code:
+          type: string
+          example: DECRYPTION_FAILED
+          description: Optional machine-readable error code (e.g. DECRYPTION_FAILED)
       description: Structured internal server error response
 
     NotFoundError:

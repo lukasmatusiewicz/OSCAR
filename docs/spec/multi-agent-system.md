@@ -130,6 +130,20 @@ Prior to **major releases** (e.g., `v1.0.0`, `v2.0.0`) or **architectural shifts
 * **Runtime Behavior Alignment:** Validate quickstart steps, startup diagnostics, and error-handling behavior against actual runtime execution rather than stale documentation.
 * **Gate Enforcement:** Any discrepancy between documentation claims and `src/` or runtime behavior is logged as a blocking finding for remediation before release sign-off.
 
+### 4.5 Pre-Edit Verification Gate (README & Spec Auditors)
+To prevent documentation drift, hallucinated metrics, or stale architectural claims from entering `README.md` or `docs/spec/*` while keeping routine maintenance pragmatic, a scoped **Pre-Edit Verification Gate** applies to documentation tasks:
+* **Mandatory (Major Edits & Milestones):** An independent, critical **README Auditor** or **Spec Auditor** MUST run first in **read-only** mode before **major restructures, new architectural/security claims, or release milestones**:
+  * **README Auditor:** Runs against `src/`, `tests/`, `package.json`, `.github/workflows/ci.yml`, and `manifest.webmanifest` to produce a verified baseline report (exact test counts, coverage percentages, routes, UI components, and environment variables) that the Maker must treat as authoritative.
+  * **Spec Auditor:** Runs against `src/` and governance files (`docs/spec/`) to identify all schema, route, error-code, and algorithm deltas between runtime code and specifications prior to any edits.
+* **Not Required (Trivial Fixes):** Skip the pre-edit auditor for trivial fixes—such as typos, updating a single test count, or adding screenshot links—that do not introduce new architectural or security claims.
+* **Gate Enforcement:** For any task meeting the mandatory criteria above, no Maker agent may author or update `README.md` or `docs/spec/*` without a completed Pre-Edit Verification Gate audit report from the corresponding Auditor.
+
+### 4.6 Documentation Tone & Engineering Humility Standard
+To keep project documentation grounded in verifiable engineering facts, all Makers (including the `Documentation & Spec Worker`) and the `Documentation & Claims Auditor` must enforce the following tone rules across `README.md` and `docs/spec/`:
+* **No Marketing Hype or Overstated Maturity Claims:** Use plain, factual, modest engineering language. Avoid promotional phrasing or overstated maturity claims such as `"enterprise-grade"`, `"Executive Summary"`, `"revolutionary"`, `"unbreakable"`, `"Dark Factory achieved"`, `"battle-tested"`, `"zero-trust"`, or similar superlatives.
+* **Explicit Separation of Current Scope vs. Future Goals:** State current scope, operational constraints, and known limitations plainly. Documentation must clearly distinguish **what works today** (verified behavior, measured test counts, and implemented controls) from **what remains a future goal** (e.g., multi-tenant authentication, client-side E2EE / passphrase-derived keys, Service Worker asset caching, or an isolated holdout test harness).
+* **Audit Enforcement:** The `Documentation & Claims Auditor` flags any unverified maturity claim, promotional exaggeration, or blurred boundary between implemented features and roadmap items as a finding for remediation.
+
 ---
 
 ## 5. Constitutional Guardrails & Autonomous Rule Enforcement (Anti-Sycophancy)
@@ -181,8 +195,9 @@ Execution begins only after the Supervisor responds with explicit confirmation (
 
 ### 7.3 8-Pillar Engineering Craftsmanship & Code Hygiene Gate (Mandatory QA Sign-Off Matrix)
 
-1. **Git & History Hygiene (Atomic Commits):**
-   - Strictly granular, bisectable commits following Conventional Commits (`feat(...)`, `test(...)`, `refactor(...)`). Monolithic single-commit phase squashes are strictly rejected.
+1. **Git & History Hygiene (Atomic Commits & PoLP Scope Check):**
+   - Strictly granular, bisectable commits following Conventional Commits (`feat(...)`, `test(...)`, `refactor(...)`, `docs(...)`, `chore(...)`). Monolithic single-commit phase squashes are strictly rejected.
+   - **Pre-Commit PoLP Scope Check:** Before staging or committing changes, every agent MUST run `git diff --name-only` (and `git status --short` for untracked files) to verify that 100% of modified/added paths fall strictly within the agent's authorized PoLP file boundaries. Any out-of-scope file modification must be reverted or escalated immediately.
 2. **Modularity & Single Responsibility (Architectural Purity):**
    - Strict Atomic Design in frontend: `atoms/` and `molecules/` must remain pure presentational components without embedded side-effects or network calls. Business and state logic must reside strictly in custom hooks (`hooks/`).
 3. **Type Strictness & Hygiene (Zero Dead Code):**
