@@ -223,9 +223,9 @@ describe('PR 5: Key-Loss UX, Timeouts/Errors, Offline Simulation & F-12', () => 
 
       render(<App />);
 
-      // F-12: PrivacyAuditPanel + MemoEditor PrivacyShieldBadge (not duplicated in Header), with "No PII Detected" (no "Zero Risk")
+      // F-12: PrivacyAuditPanel PrivacyShieldBadge only (not duplicated in Header or MemoEditor), with "No PII Detected" (no "Zero Risk")
       expect(screen.queryByText(/zero risk/i)).not.toBeInTheDocument();
-      expect(screen.getAllByText(/no pii detected/i)).toHaveLength(2);
+      expect(screen.getAllByText(/no pii detected/i)).toHaveLength(1);
       const auditPanel = screen.getByRole('complementary', {
         name: /privacy and security audit panel/i,
       });
