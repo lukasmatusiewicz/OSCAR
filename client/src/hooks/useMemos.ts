@@ -62,10 +62,6 @@ export function useMemos(options?: UseMemosOptions) {
         }
 
         const runOfflineFallback = async (reason: string): Promise<MemoEntity> => {
-          // Graceful fallback to offline deterministic mode (EU AI Act Article 13)
-          setIsOfflineFallback(true);
-          setWarning(reason);
-
           const maskResult = maskClientPii(rawContent, tokens);
 
           const encryptedPayload: EncryptedPayload = await ClientCryptoService.encrypt({
@@ -86,9 +82,6 @@ export function useMemos(options?: UseMemosOptions) {
             createdAt: nowIso,
             updatedAt: nowIso,
           };
-
-          setMemos((prev) => [memoEntity, ...prev]);
-          options?.onTokensDetected?.(maskResult.detectedTokens);
 
           const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
           const rawClauses = rawContent
@@ -287,6 +280,11 @@ export function useMemos(options?: UseMemosOptions) {
             scheduledTime,
           };
 
+          // Graceful fallback to offline deterministic mode (EU AI Act Article 13)
+          setIsOfflineFallback(true);
+          setWarning(reason);
+          setMemos((prev) => [memoEntity, ...prev]);
+          options?.onTokensDetected?.(maskResult.detectedTokens);
           options?.onTaskCreated?.(taskEntity, decryptedTaskPayload, { isLocalOnly: true });
           logger.info('useMemos', `Offline fallback state active: generated local task (task ID: ${taskId})`);
 

@@ -44,12 +44,14 @@ const makePayload = (overrides: Partial<DecryptedTaskPayload> = {}): DecryptedTa
 
 describe('PR 11: Badge Deduplication, Offline Banner Reset, Local-Only Guard & Category Edit', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     ClientCryptoService.initializeSessionKey();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     ClientCryptoService.logout();
+    window.sessionStorage.clear();
   });
 
   it('renders PrivacyShieldBadge ("No PII Detected") only inside PrivacyAuditPanel and not in MemoEditor', async () => {
@@ -94,7 +96,9 @@ describe('PR 11: Badge Deduplication, Offline Banner Reset, Local-Only Guard & C
     await waitFor(() => {
       expect(screen.getByTestId('memo-offline-warning')).toBeInTheDocument();
     });
-    expect(screen.getByText(/schedule quarterly review meeting tomorrow/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /schedule quarterly review meeting tomorrow/i }),
+    ).toBeInTheDocument();
 
     // Toggle Simulate Offline OFF -> banner clears immediately
     fireEvent.click(toggle);
@@ -104,7 +108,8 @@ describe('PR 11: Badge Deduplication, Offline Banner Reset, Local-Only Guard & C
     });
 
     // Edit the local-only task (title + category) -> no PATCH/sync warning
-    fireEvent.click(screen.getByRole('button', { name: /edit draft/i }));
+    const editDraftBtn = await screen.findByRole('button', { name: /edit draft/i });
+    fireEvent.click(editDraftBtn);
     fireEvent.change(screen.getByLabelText(/^title$/i), {
       target: { value: 'Updated offline review' },
     });
