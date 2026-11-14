@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { PIIType, RiskLevel } from '../../types/contracts';
 import { Button } from '../atoms/Button';
 import { PrivacyShieldBadge } from '../atoms/PrivacyShieldBadge';
@@ -29,6 +29,41 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
   className = '',
 }) => {
   const piiTypes: PIIType[] = ['SECRET_KEY', 'IBAN', 'EMAIL', 'PHONE', 'AMOUNT_MONEY', 'PERSON'];
+  const [isConfirmingLogout, setIsConfirmingLogout] = useState(false);
+  const warningId = useId();
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const wasConfirmingRef = useRef(false);
+
+  useEffect(() => {
+    if (!metrics.hasActiveKey && isConfirmingLogout) {
+      setIsConfirmingLogout(false);
+    }
+  }, [metrics.hasActiveKey, isConfirmingLogout]);
+
+  useEffect(() => {
+    if (isConfirmingLogout && metrics.hasActiveKey) {
+      wasConfirmingRef.current = true;
+      controlsRef.current
+        ?.querySelector<HTMLButtonElement>('[data-testid="cancel-lock-key-btn"]')
+        ?.focus();
+    } else if (wasConfirmingRef.current && !isConfirmingLogout) {
+      wasConfirmingRef.current = false;
+      if (metrics.hasActiveKey) {
+        controlsRef.current
+          ?.querySelector<HTMLButtonElement>('[data-testid="logout-zero-key-btn"]')
+          ?.focus();
+      }
+    }
+  }, [isConfirmingLogout, metrics.hasActiveKey]);
+
+  const handleConfirmLockAndZero = () => {
+    setIsConfirmingLogout(false);
+    onLogoutAndZeroKey();
+  };
+
+  const handleCancelLockAndZero = () => {
+    setIsConfirmingLogout(false);
+  };
 
   return (
     <aside
@@ -206,6 +241,7 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
 
       {/* Session & Demo Controls */}
       <div
+        ref={controlsRef}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -213,6 +249,8 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
           marginTop: 'auto',
           paddingTop: '0.65rem',
           borderTop: '1px solid #e2e8f0',
+          minWidth: 0,
+          width: '100%',
         }}
       >
         {onToggleSimulateOffline && (
@@ -260,16 +298,91 @@ export const PrivacyAuditPanel: React.FC<PrivacyAuditPanelProps> = ({
         )}
 
         {metrics.hasActiveKey ? (
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={onLogoutAndZeroKey}
-            aria-label="Zero Session Key & Logout"
-          >
-            🧹 Zero Session Key & Logout
-          </Button>
+          isConfirmingLogout ? (
+            <div
+              role="alertdialog"
+              aria-label="Confirm session key lock"
+              aria-describedby={warningId}
+              data-testid="lock-confirm-dialog"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  handleCancelLockAndZero();
+                }
+              }}
+              style={{
+                padding: '0.75rem',
+                borderRadius: '8px',
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.65rem',
+                minWidth: 0,
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            >
+              <p
+                id={warningId}
+                style={{
+                  margin: 0,
+                  fontSize: '0.75rem',
+                  lineHeight: 1.45,
+                  fontWeight: 500,
+                  color: '#991b1b',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                Warning: Clearing the session key is irreversible. Current tasks encrypted with
+                this key will become undecryptable.
+              </p>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                  justifyContent: 'flex-end',
+                  width: '100%',
+                }}
+              >
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-testid="cancel-lock-key-btn"
+                  onClick={handleCancelLockAndZero}
+                  style={{ flex: '1 1 auto' }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  data-testid="confirm-lock-key-btn"
+                  onClick={handleConfirmLockAndZero}
+                  style={{ flex: '1 1 auto' }}
+                >
+                  Confirm Lock &amp; Zero
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              data-testid="logout-zero-key-btn"
+              onClick={() => setIsConfirmingLogout(true)}
+              aria-label="Zero Session Key & Logout"
+            >
+              🧹 Zero Session Key & Logout
+            </Button>
+          )
         ) : (
           <Button
+            type="button"
             variant="primary"
             size="sm"
             onClick={onInitializeKey}
