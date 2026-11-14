@@ -138,24 +138,26 @@ export const App: React.FC = () => {
 
       {/* Primary View Switcher Bar */}
       <div className="oscar-view-switcher-bar" data-testid="view-switcher-bar">
-        <nav aria-label="Primary navigation" className="oscar-nav-switcher">
-          <button
-            type="button"
-            aria-current={activeTab === 'dashboard' ? 'page' : undefined}
-            onClick={() => setActiveTab('dashboard')}
-            className={`oscar-nav-pill${activeTab === 'dashboard' ? ' oscar-nav-pill--active' : ''}`}
-          >
-            Dashboard
-          </button>
-          <button
-            type="button"
-            aria-current={activeTab === 'board' ? 'page' : undefined}
-            onClick={() => setActiveTab('board')}
-            className={`oscar-nav-pill${activeTab === 'board' ? ' oscar-nav-pill--active' : ''}`}
-          >
-            Task Board
-          </button>
-        </nav>
+        <div className="oscar-view-switcher-inner" data-testid="view-switcher-inner">
+          <nav aria-label="Primary navigation" className="oscar-nav-switcher">
+            <button
+              type="button"
+              aria-current={activeTab === 'dashboard' ? 'page' : undefined}
+              onClick={() => setActiveTab('dashboard')}
+              className={`oscar-nav-pill${activeTab === 'dashboard' ? ' oscar-nav-pill--active' : ''}`}
+            >
+              Dashboard
+            </button>
+            <button
+              type="button"
+              aria-current={activeTab === 'board' ? 'page' : undefined}
+              onClick={() => setActiveTab('board')}
+              className={`oscar-nav-pill${activeTab === 'board' ? ' oscar-nav-pill--active' : ''}`}
+            >
+              Task Board
+            </button>
+          </nav>
+        </div>
       </div>
 
       {/* Main Content Area */}

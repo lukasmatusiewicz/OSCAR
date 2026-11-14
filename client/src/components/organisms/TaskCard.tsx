@@ -150,19 +150,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <article
       data-testid={`task-card-${task.id}`}
-      className={`oscar-task-card ${className}`.trim()}
+      className={`oscar-task-card${isDraft ? ' oscar-task-card--draft' : ''} ${className}`.trim()}
       style={{
         backgroundColor: '#ffffff',
         borderRadius: '12px',
-        border: `1px solid ${isDraft ? '#f59e0b' : '#e2e8f0'}`,
         padding: '1.25rem',
-        boxShadow: isDraft
-          ? '0 0 0 1px #f59e0b, 0 2px 4px rgba(245, 158, 11, 0.1)'
-          : '0 1px 3px rgba(0,0,0,0.05)',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.875rem',
-        transition: 'all 0.2s ease',
         opacity: isCompleted ? 0.75 : 1,
         minWidth: 0,
         wordBreak: 'break-word',
@@ -270,6 +265,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <Button
               size="sm"
               variant="secondary"
+              className="oscar-btn"
               onClick={() => setIsEditing(true)}
               aria-label="Edit Draft"
             >
@@ -278,6 +274,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <Button
               size="sm"
               variant="primary"
+              className="oscar-btn"
               onClick={() => onStatusChange?.(task.id, 'PENDING')}
               aria-label="Confirm Task"
             >
@@ -286,6 +283,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <Button
               size="sm"
               variant="ghost"
+              className="oscar-btn"
               onClick={() => onStatusChange?.(task.id, 'CANCELLED')}
               aria-label="Dismiss Task"
             >
@@ -471,6 +469,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     size="sm"
                     variant="ghost"
                     type="button"
+                    className="oscar-btn"
                     onClick={() => {
                       setEditSubtasks(editSubtasks.filter((_, i) => i !== idx));
                     }}
@@ -487,6 +486,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               size="sm"
               variant="secondary"
               type="button"
+              className="oscar-btn"
               onClick={() => setEditSubtasks([...editSubtasks, { title: '', completed: false }])}
               aria-label="+ Add Item"
               style={{ alignSelf: 'flex-start', marginTop: '0.25rem' }}
@@ -508,12 +508,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               width: '100%',
             }}
           >
-            <Button size="sm" variant="ghost" onClick={handleCancelEdit} aria-label="Cancel">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="oscar-btn"
+              onClick={handleCancelEdit}
+              aria-label="Cancel"
+            >
               Cancel
             </Button>
             <Button
               size="sm"
               variant="primary"
+              className="oscar-btn"
               onClick={handleSaveEdit}
               aria-label="Confirm & Save Task"
             >
@@ -795,10 +802,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <Button
             size="sm"
             variant="secondary"
+            className="oscar-btn"
             onClick={() => downloadICalendarFile(task, decryptedPayload || undefined)}
             aria-label="Add to Calendar (.ics)"
             style={{
-              transition: 'all 0.2s ease',
               fontSize: '0.75rem',
               fontWeight: 600,
             }}
@@ -812,10 +819,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 <Button
                   size="sm"
                   variant="secondary"
+                  className="oscar-btn"
                   onClick={() => setIsEditing(true)}
                   aria-label="Edit Task"
                   style={{
-                    transition: 'all 0.2s ease',
                     fontSize: '0.75rem',
                     fontWeight: 600,
                   }}
@@ -827,9 +834,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 <Button
                   size="sm"
                   variant="secondary"
+                  className="oscar-btn"
                   onClick={() => onStatusChange?.(task.id, 'COMPLETED')}
                   style={{
-                    transition: 'all 0.2s ease',
                     fontSize: '0.75rem',
                     fontWeight: 600,
                   }}
@@ -840,9 +847,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 <Button
                   size="sm"
                   variant="ghost"
+                  className="oscar-btn"
                   onClick={() => onStatusChange?.(task.id, 'PENDING')}
                   style={{
-                    transition: 'all 0.2s ease',
                     fontSize: '0.75rem',
                     fontWeight: 600,
                   }}
@@ -856,10 +863,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <Button
             size="sm"
             variant="danger"
+            className="oscar-btn"
             onClick={() => onDelete?.(task.id)}
             aria-label="Delete Task"
             style={{
-              transition: 'all 0.2s ease',
               fontSize: '0.75rem',
               fontWeight: 600,
             }}
