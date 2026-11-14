@@ -6,10 +6,13 @@ import { TaskEntity, DecryptedTaskPayload } from '../../src/types/contracts';
 
 describe('Dashboard View', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
+    ClientCryptoService.logout();
     ClientCryptoService.initializeSessionKey();
   });
 
   afterEach(() => {
+    window.sessionStorage.clear();
     ClientCryptoService.logout();
   });
 
@@ -101,16 +104,37 @@ describe('Dashboard View', () => {
     });
   });
 
-  it('zeroes key memory and shows alert without duplicate key button when logout button is pressed', async () => {
+  it('zeroes key memory and clears sessionStorage only after lock confirmation in Dashboard', async () => {
     render(<Dashboard initialTasks={mockTasks} initialDecrypted={mockDecrypted} />);
 
-    const logoutBtn = screen.getByRole('button', { name: /zero session key & logout/i });
+    const logoutBtn = screen.getByTestId('logout-zero-key-btn');
     fireEvent.click(logoutBtn);
+
+    expect(screen.getByTestId('lock-confirm-dialog')).toBeInTheDocument();
+    expect(ClientCryptoService.hasSessionKey()).toBe(true);
+    expect(window.sessionStorage.getItem('oscar_session_key')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('confirm-lock-key-btn'));
 
     expect(screen.getByText(/ephemeral key memory cleared/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /init session key/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /generate session key/i })).not.toBeInTheDocument();
     expect(ClientCryptoService.hasSessionKey()).toBe(false);
+    expect(window.sessionStorage.getItem('oscar_session_key')).toBeNull();
+  });
+
+  it('preserves active session key and decrypted tasks when lock confirmation is cancelled', () => {
+    render(<Dashboard initialTasks={mockTasks} initialDecrypted={mockDecrypted} />);
+
+    const storedBefore = window.sessionStorage.getItem('oscar_session_key');
+    fireEvent.click(screen.getByTestId('logout-zero-key-btn'));
+    expect(screen.getByTestId('lock-confirm-dialog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('cancel-lock-key-btn'));
+    expect(screen.queryByTestId('lock-confirm-dialog')).not.toBeInTheDocument();
+    expect(ClientCryptoService.hasSessionKey()).toBe(true);
+    expect(window.sessionStorage.getItem('oscar_session_key')).toBe(storedBefore);
+    expect(screen.getByText('Sprint Planning Refinement')).toBeInTheDocument();
   });
 
   it('applies responsive layout classes and container properties for desktop and mobile viewports', () => {

@@ -7,12 +7,14 @@ import { TaskEntity } from '../src/types/contracts';
 
 describe('App Root Component', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     ClientCryptoService.logout();
     vi.spyOn(gatewayClient, 'fetchTasks').mockResolvedValue([]);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    window.sessionStorage.clear();
     ClientCryptoService.logout();
   });
 
@@ -114,7 +116,7 @@ describe('App Root Component', () => {
     expect(screen.getByText(/new confidential voice\/text memo/i)).toBeInTheDocument();
   });
 
-  it('locks session and zeroes key when lock button is clicked in PrivacyAuditPanel', async () => {
+  it('locks session and zeroes key only after lock confirmation in PrivacyAuditPanel', async () => {
     render(<App />);
     await waitFor(() => {
       expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
@@ -123,16 +125,32 @@ describe('App Root Component', () => {
     const auditPanel = screen.getByRole('complementary', {
       name: /privacy and security audit panel/i,
     });
-    const lockBtn = within(auditPanel).getByRole('button', {
-      name: /zero session key & logout/i,
-    });
+    const lockBtn = within(auditPanel).getByTestId('logout-zero-key-btn');
     fireEvent.click(lockBtn);
 
+    // Confirmation dialog opens without zeroing key immediately
+    const confirmDialog = within(auditPanel).getByTestId('lock-confirm-dialog');
+    expect(confirmDialog).toHaveAttribute('role', 'alertdialog');
+    expect(confirmDialog).toHaveTextContent(/irreversible/i);
+    expect(ClientCryptoService.hasSessionKey()).toBe(true);
+
+    // Cancelling preserves the key
+    fireEvent.click(within(auditPanel).getByTestId('cancel-lock-key-btn'));
+    expect(within(auditPanel).queryByTestId('lock-confirm-dialog')).not.toBeInTheDocument();
+    expect(ClientCryptoService.hasSessionKey()).toBe(true);
+    expect(window.sessionStorage.getItem('oscar_session_key')).toBeTruthy();
+
+    // Confirming zeroes both RAM and sessionStorage
+    fireEvent.click(within(auditPanel).getByTestId('logout-zero-key-btn'));
+    fireEvent.click(within(auditPanel).getByTestId('confirm-lock-key-btn'));
+
     expect(ClientCryptoService.hasSessionKey()).toBe(false);
+    expect(window.sessionStorage.getItem('oscar_session_key')).toBeNull();
     const initBtn = within(auditPanel).getByRole('button', { name: /init session key/i });
     expect(initBtn).toBeInTheDocument();
     fireEvent.click(initBtn);
     expect(ClientCryptoService.hasSessionKey()).toBe(true);
+    expect(window.sessionStorage.getItem('oscar_session_key')).toBeTruthy();
   });
 
   it('persists created tasks across tabs and displays them in Task Board', async () => {
@@ -167,8 +185,9 @@ describe('App Root Component', () => {
     const dashBtn = screen.getByRole('button', { name: /^dashboard$/i });
     fireEvent.click(dashBtn);
 
-    const lockBtn = screen.getByRole('button', { name: /zero session key & logout/i });
+    const lockBtn = screen.getByTestId('logout-zero-key-btn');
     fireEvent.click(lockBtn);
+    fireEvent.click(screen.getByTestId('confirm-lock-key-btn'));
 
     fireEvent.click(screen.getByRole('button', { name: /^task board$/i }));
 
@@ -258,5 +277,54 @@ describe('App Root Component', () => {
     expect(callOrder.indexOf('initializeSessionKey')).toBeLessThan(
       callOrder.indexOf('fetchTasks'),
     );
+  });
+
+  it('restores session key from sessionStorage across same-tab F5 reload and decrypts persisted tasks', async () => {
+    ClientCryptoService.initializeSessionKey();
+    const persistedKeyBase64 = window.sessionStorage.getItem('oscar_session_key');
+    expect(persistedKeyBase64).toBeTruthy();
+
+    const encryptedPayload = await ClientCryptoService.encrypt({
+      title: 'Survived Tab Reload Task',
+      summary: 'Decrypted automatically via sessionStorage key after F5',
+      subtasks: [{ title: 'Verify seamless F5 decryption', completed: false }],
+    });
+
+    // Simulate same-tab F5 reload: RAM KEY_STORE wiped without calling logout(), sessionStorage preserved
+    (ClientCryptoService as unknown as { KEY_STORE: Uint8Array | null }).KEY_STORE = null;
+    expect(ClientCryptoService.hasSessionKey()).toBe(false);
+    expect(window.sessionStorage.getItem('oscar_session_key')).toBe(persistedKeyBase64);
+
+    const persistedTask: TaskEntity = {
+      id: 'task_f5_restored_001',
+      memoId: 'memo_f5_restored_001',
+      userId: 'usr_default_session_01',
+      encryptedPayload,
+      category: 'WORK',
+      priority: 'HIGH',
+      status: 'PENDING',
+      scheduledDate: null,
+      tags: ['f5-restored'],
+      provenance: 'GEMINI_FLASH',
+      modelVersion: 'gemini-2.5-flash-001',
+      createdAt: '2026-11-14T00:00:00.000Z',
+      updatedAt: '2026-11-14T00:00:00.000Z',
+    };
+
+    vi.spyOn(gatewayClient, 'fetchTasks').mockImplementation(async () => {
+      expect(ClientCryptoService.hasSessionKey()).toBe(true);
+      expect(ClientCryptoService.exportKeyForHeader()).toBe(persistedKeyBase64);
+      return [persistedTask];
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Survived Tab Reload Task')).toBeInTheDocument();
+    });
+    expect(screen.getByText('#f5-restored')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/cannot decrypt: encrypted with a previous session key/i),
+    ).not.toBeInTheDocument();
   });
 });
