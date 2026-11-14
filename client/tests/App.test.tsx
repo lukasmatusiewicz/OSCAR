@@ -26,10 +26,14 @@ describe('App Root Component', () => {
     expect(screen.getByText(/🎙️ oscar/i)).toBeInTheDocument();
     const header = screen.getByRole('banner');
     const switcherBar = screen.getByTestId('view-switcher-bar');
+    const switcherInner = screen.getByTestId('view-switcher-inner');
     const nav = screen.getByRole('navigation', { name: /primary navigation/i });
+    expect(switcherBar).toHaveClass('oscar-view-switcher-bar');
+    expect(switcherInner).toHaveClass('oscar-view-switcher-inner');
     expect(nav).toBeInTheDocument();
     expect(nav).toHaveClass('oscar-nav-switcher');
-    expect(switcherBar).toContainElement(nav);
+    expect(switcherBar).toContainElement(switcherInner);
+    expect(switcherInner).toContainElement(nav);
     expect(header).not.toContainElement(nav);
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
@@ -95,21 +99,36 @@ describe('App Root Component', () => {
       expect(gatewayClient.fetchTasks).toHaveBeenCalledTimes(1);
     });
 
+    const switcherBar = screen.getByTestId('view-switcher-bar');
+    const switcherInner = screen.getByTestId('view-switcher-inner');
+    const nav = screen.getByRole('navigation', { name: /primary navigation/i });
+    expect(switcherBar).toHaveClass('oscar-view-switcher-bar');
+    expect(switcherInner).toHaveClass('oscar-view-switcher-inner');
+    expect(nav).toHaveClass('oscar-nav-switcher');
+
     const boardBtn = screen.getByRole('button', { name: /^task board$/i });
+    const dashBtn = screen.getByRole('button', { name: /^dashboard$/i });
+    expect(dashBtn).toHaveClass('oscar-nav-pill', 'oscar-nav-pill--active');
+    expect(dashBtn).toHaveAttribute('aria-current', 'page');
+    expect(boardBtn).toHaveClass('oscar-nav-pill');
+    expect(boardBtn).not.toHaveClass('oscar-nav-pill--active');
+    expect(boardBtn).not.toHaveAttribute('aria-current');
+
     fireEvent.click(boardBtn);
 
     expect(boardBtn).toHaveAttribute('aria-current', 'page');
-    expect(boardBtn).toHaveClass('oscar-nav-pill--active');
-    const dashBtn = screen.getByRole('button', { name: /^dashboard$/i });
+    expect(boardBtn).toHaveClass('oscar-nav-pill', 'oscar-nav-pill--active');
     expect(dashBtn).not.toHaveAttribute('aria-current');
+    expect(dashBtn).toHaveClass('oscar-nav-pill');
     expect(dashBtn).not.toHaveClass('oscar-nav-pill--active');
     expect(screen.getByTestId('taskboard-column-draft')).toBeInTheDocument();
 
     fireEvent.click(dashBtn);
 
     expect(dashBtn).toHaveAttribute('aria-current', 'page');
-    expect(dashBtn).toHaveClass('oscar-nav-pill--active');
+    expect(dashBtn).toHaveClass('oscar-nav-pill', 'oscar-nav-pill--active');
     expect(boardBtn).not.toHaveAttribute('aria-current');
+    expect(boardBtn).toHaveClass('oscar-nav-pill');
     expect(boardBtn).not.toHaveClass('oscar-nav-pill--active');
     expect(screen.getByText(/new confidential voice\/text memo/i)).toBeInTheDocument();
   });
