@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   ClientCryptoService,
   clientCryptoService,
@@ -9,10 +9,13 @@ import {
 
 describe('ClientCryptoService', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     ClientCryptoService.logout();
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
+    window.sessionStorage.clear();
     ClientCryptoService.logout();
   });
 
@@ -94,6 +97,87 @@ describe('ClientCryptoService', () => {
       expect(typeof headerVal).toBe('string');
       expect(Buffer.from(headerVal, 'base64').byteLength).toBe(32);
       expect(Array.from(Buffer.from(headerVal, 'base64'))).toEqual(Array.from(key));
+    });
+  });
+
+  describe('sessionStorage Tab-Reload Key Persistence', () => {
+    it('persists generated key to sessionStorage and restores identical key across simulated page reloads', async () => {
+      const initialKey = ClientCryptoService.initializeSessionKey();
+      const storedBase64 = window.sessionStorage.getItem('oscar_session_key');
+      expect(storedBase64).toBeTruthy();
+      expect(storedBase64).toBe(ClientCryptoService.exportKeyForHeader());
+
+      const encrypted = await ClientCryptoService.encrypt({ secret: 'persisted across F5' });
+
+      // Simulate browser tab F5 reload: RAM KEY_STORE wiped without calling logout()
+      (ClientCryptoService as unknown as { KEY_STORE: Uint8Array | null }).KEY_STORE = null;
+      expect(ClientCryptoService.hasSessionKey()).toBe(false);
+
+      const restoredKey = ClientCryptoService.initializeSessionKey();
+      expect(Array.from(restoredKey)).toEqual(Array.from(initialKey));
+      expect(ClientCryptoService.hasSessionKey()).toBe(true);
+
+      const decrypted = await ClientCryptoService.decrypt<{ secret: string }>(encrypted);
+      expect(decrypted.secret).toBe('persisted across F5');
+    });
+
+    it('persists an explicitly provided key to sessionStorage', () => {
+      const explicitKey = ClientCryptoService.generateKey();
+      ClientCryptoService.initializeSessionKey(explicitKey);
+
+      const storedBase64 = window.sessionStorage.getItem('oscar_session_key');
+      expect(storedBase64).toBe(Buffer.from(explicitKey).toString('base64'));
+    });
+
+    it('removes oscar_session_key from sessionStorage on logout and generates a new key afterward', () => {
+      const firstKey = ClientCryptoService.initializeSessionKey();
+      expect(window.sessionStorage.getItem('oscar_session_key')).toBeTruthy();
+
+      ClientCryptoService.logout();
+      expect(window.sessionStorage.getItem('oscar_session_key')).toBeNull();
+      expect(ClientCryptoService.hasSessionKey()).toBe(false);
+
+      const secondKey = ClientCryptoService.initializeSessionKey();
+      expect(Array.from(secondKey)).not.toEqual(Array.from(firstKey));
+      expect(window.sessionStorage.getItem('oscar_session_key')).toBeTruthy();
+    });
+
+    it('discards corrupt or wrong-length sessionStorage key and replaces it with a fresh valid key', () => {
+      window.sessionStorage.setItem('oscar_session_key', 'corrupt-invalid-key!');
+      const freshKey = ClientCryptoService.initializeSessionKey();
+      expect(freshKey.byteLength).toBe(32);
+      expect(freshKey.some((b) => b !== 0)).toBe(true);
+      expect(window.sessionStorage.getItem('oscar_session_key')).toBe(
+        Buffer.from(freshKey).toString('base64'),
+      );
+
+      // All-zero Base64 key should also be discarded
+      (ClientCryptoService as unknown as { KEY_STORE: Uint8Array | null }).KEY_STORE = null;
+      window.sessionStorage.setItem(
+        'oscar_session_key',
+        Buffer.from(new Uint8Array(32)).toString('base64'),
+      );
+      const nonZeroKey = ClientCryptoService.initializeSessionKey();
+      expect(nonZeroKey.some((b) => b !== 0)).toBe(true);
+    });
+
+    it('safely handles environments where sessionStorage throws SecurityError', () => {
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new DOMException('Blocked', 'SecurityError');
+      });
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('Blocked', 'SecurityError');
+      });
+      vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+        throw new DOMException('Blocked', 'SecurityError');
+      });
+
+      const key = ClientCryptoService.initializeSessionKey();
+      expect(key.byteLength).toBe(32);
+      expect(ClientCryptoService.hasSessionKey()).toBe(true);
+
+      expect(() => ClientCryptoService.logout()).not.toThrow();
+      expect(ClientCryptoService.hasSessionKey()).toBe(false);
     });
   });
 
