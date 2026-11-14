@@ -71,11 +71,64 @@ export class ClientCryptoService {
   private static readonly KEY_LENGTH_BYTES = 32; // 256 bits
   private static readonly IV_LENGTH_BYTES = 12; // 96 bits
   private static readonly TAG_LENGTH_BITS = 128; // 16 bytes
+  private static readonly SESSION_STORAGE_KEY = 'oscar_session_key';
 
   /**
    * Ephemeral session key store in memory.
    */
   private static KEY_STORE: Uint8Array | null = null;
+
+  /**
+   * Persists the active session key in tab-scoped sessionStorage across reloads.
+   */
+  private static saveKeyToSessionStorage(key: Uint8Array): void {
+    try {
+      if (typeof window === 'undefined' || !window.sessionStorage) {
+        return;
+      }
+      window.sessionStorage.setItem(this.SESSION_STORAGE_KEY, toBase64(key));
+    } catch {
+      // Safely ignore environments where sessionStorage is unavailable or restricted
+    }
+  }
+
+  /**
+   * Restores and validates a persisted session key from tab-scoped sessionStorage.
+   */
+  private static loadKeyFromSessionStorage(): Uint8Array | null {
+    try {
+      if (typeof window === 'undefined' || !window.sessionStorage) {
+        return null;
+      }
+      const stored = window.sessionStorage.getItem(this.SESSION_STORAGE_KEY);
+      if (!stored) {
+        return null;
+      }
+      const normalized = this.normalizeKey(stored);
+      if (!normalized.some((byte) => byte !== 0)) {
+        this.clearKeyFromSessionStorage();
+        return null;
+      }
+      return new Uint8Array(normalized);
+    } catch {
+      this.clearKeyFromSessionStorage();
+      return null;
+    }
+  }
+
+  /**
+   * Removes any persisted session key from tab-scoped sessionStorage.
+   */
+  private static clearKeyFromSessionStorage(): void {
+    try {
+      if (typeof window === 'undefined' || !window.sessionStorage) {
+        return;
+      }
+      window.sessionStorage.removeItem(this.SESSION_STORAGE_KEY);
+    } catch {
+      // Safely ignore environments where sessionStorage is unavailable or restricted
+    }
+  }
 
   /**
    * Generates a cryptographically secure random 256-bit (32-byte) key.
@@ -155,19 +208,30 @@ export class ClientCryptoService {
 
   /**
    * Initializes or loads the active session key into KEY_STORE.
-   * If no key is provided, generates a fresh random 256-bit key.
+   * If no key is provided, restores from sessionStorage across tab reloads
+   * or generates a fresh random 256-bit key.
    */
   public static initializeSessionKey(existingKey?: Uint8Array | string): Uint8Array {
     if (this.KEY_STORE) {
       this.zeroKey(this.KEY_STORE);
+      this.KEY_STORE = null;
     }
-    if (existingKey) {
+    if (existingKey !== undefined) {
       const normalized = this.normalizeKey(existingKey);
       // Copy to prevent external tampering
       this.KEY_STORE = new Uint8Array(normalized);
-    } else {
-      this.KEY_STORE = this.generateKey();
+      this.saveKeyToSessionStorage(this.KEY_STORE);
+      return new Uint8Array(this.KEY_STORE);
     }
+
+    const restored = this.loadKeyFromSessionStorage();
+    if (restored !== null) {
+      this.KEY_STORE = restored;
+      return new Uint8Array(this.KEY_STORE);
+    }
+
+    this.KEY_STORE = this.generateKey();
+    this.saveKeyToSessionStorage(this.KEY_STORE);
     return new Uint8Array(this.KEY_STORE);
   }
 
@@ -197,13 +261,15 @@ export class ClientCryptoService {
   }
 
   /**
-   * Session logout: zeroes out the key memory buffer and clears KEY_STORE.
+   * Session logout: zeroes out the key memory buffer, clears KEY_STORE,
+   * and removes the persisted key from sessionStorage.
    */
   public static logout(): void {
     if (this.KEY_STORE) {
       this.zeroKey(this.KEY_STORE);
       this.KEY_STORE = null;
     }
+    this.clearKeyFromSessionStorage();
   }
 
   /**
