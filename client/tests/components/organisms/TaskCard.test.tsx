@@ -519,5 +519,54 @@ describe('TaskCard', () => {
         gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
       });
     });
+
+    it('applies oscar-task-card and oscar-btn classes across task states and edit mode', () => {
+      const { unmount } = render(
+        <TaskCard
+          task={mockTask}
+          decryptedPayload={mockDecrypted}
+          className="custom-card-class"
+        />
+      );
+
+      const draftCard = screen.getByTestId(`task-card-${mockTask.id}`);
+      expect(draftCard).toHaveClass('oscar-task-card', 'oscar-task-card--draft', 'custom-card-class');
+
+      // Draft human oversight & footer action buttons include .oscar-btn
+      expect(screen.getByRole('button', { name: /edit draft/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /confirm task/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /dismiss task/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /add to calendar \(\.ics\)/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /delete task/i })).toHaveClass('oscar-btn');
+
+      // Enter draft edit mode and verify edit action buttons include .oscar-btn
+      fireEvent.click(screen.getByRole('button', { name: /edit draft/i }));
+      expect(screen.getByRole('button', { name: /remove subtask 1/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /\+ add item/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /cancel/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /confirm & save task/i })).toHaveClass('oscar-btn');
+      unmount();
+
+      // Confirmed PENDING state
+      const pendingTask: TaskEntity = { ...mockTask, status: 'PENDING' };
+      const { unmount: unmountPending } = render(
+        <TaskCard task={pendingTask} decryptedPayload={mockDecrypted} />
+      );
+      const pendingCard = screen.getByTestId(`task-card-${pendingTask.id}`);
+      expect(pendingCard).toHaveClass('oscar-task-card');
+      expect(pendingCard).not.toHaveClass('oscar-task-card--draft');
+      expect(screen.getByRole('button', { name: /add to calendar \(\.ics\)/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /edit task/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /✓ mark done/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /delete task/i })).toHaveClass('oscar-btn');
+      unmountPending();
+
+      // COMPLETED state
+      const completedTask: TaskEntity = { ...mockTask, status: 'COMPLETED' };
+      render(<TaskCard task={completedTask} decryptedPayload={mockDecrypted} />);
+      expect(screen.getByRole('button', { name: /↺ reopen/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /add to calendar \(\.ics\)/i })).toHaveClass('oscar-btn');
+      expect(screen.getByRole('button', { name: /delete task/i })).toHaveClass('oscar-btn');
+    });
   });
 });

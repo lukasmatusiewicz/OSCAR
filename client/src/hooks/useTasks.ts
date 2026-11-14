@@ -137,7 +137,12 @@ export function useTasks(initialTasks: TaskEntity[] = [], hasActiveKey?: boolean
     try {
       const remoteTasks = await gatewayClient.fetchTasks();
       if (isMountedRef.current) {
-        setTasks(remoteTasks);
+        setTasks((prev) => {
+          const localOnlyTasks = prev.filter(
+            (t) => localOnlyIdsRef.current[t.id] && !remoteTasks.some((r) => r.id === t.id),
+          );
+          return [...localOnlyTasks, ...remoteTasks];
+        });
       }
     } catch (err: unknown) {
       if (isMountedRef.current) {
