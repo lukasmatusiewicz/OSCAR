@@ -1,4 +1,4 @@
-import type { MaskedTokenSummary, PIITokenMap, PIIType } from '../types/contracts';
+import type { MaskedTokenSummary, PIITokenMap, PIIType } from '@oscar/shared';
 
 /**
  * Result of deterministic client-side PII masking for offline fallback.

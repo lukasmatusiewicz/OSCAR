@@ -8,7 +8,13 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@oscar/shared": ["../shared/src/index.ts"],
+      "@oscar/shared/*": ["../shared/src/*"],
+      "zod": ["./node_modules/zod/index.d.ts"]
+    }
   },
-  "include": ["src/**/*", "tests/**/*"]
+  "include": ["src/**/*", "tests/**/*", "../shared/src/**/*"]
 }

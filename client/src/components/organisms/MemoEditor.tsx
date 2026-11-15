@@ -1,13 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { PIITokenMap, PIIType, RiskLevel } from '../../types/contracts';
-import { Button } from '../atoms/Button';
-import { Input } from '../atoms/Input';
-import { TokenPreviewBadge } from '../molecules/TokenPreviewBadge';
 import {
+  PIITokenMap,
+  PIIType,
+  RiskLevel,
   MOBILE_E_NAMES,
   MASCULINE_GENITIVE_FIRST_NAMES,
   FEMININE_GENITIVE_FIRST_NAMES,
-} from '../../utils/linguisticNormalizer';
+  TEMPORAL_STOP_WORDS,
+} from '@oscar/shared';
+import { Button } from '../atoms/Button';
+import { Input } from '../atoms/Input';
+import { TokenPreviewBadge } from '../molecules/TokenPreviewBadge';
 
 export interface MemoEditorProps {
   onSubmit: (content: string, tokens: PIITokenMap[]) => Promise<unknown> | unknown;
@@ -140,97 +143,6 @@ const addressRegex = new RegExp(
   `(?:${germanCompoundStreetPattern}|${streetPattern1}|${streetPattern2}|${streetPattern4}|${streetPattern3}|${cityPattern})`,
   'gu',
 );
-
-export const TEMPORAL_STOP_WORDS = new Set([
-  // Polish
-  'dzisiaj',
-  'jutro',
-  'pojutrze',
-  'wczoraj',
-  'przedwczoraj',
-  'rano',
-  'wieczorem',
-  'południe',
-  'poludnie',
-  'noc',
-  'nocy',
-  'poniedziałek',
-  'poniedzialek',
-  'wtorek',
-  'środa',
-  'sroda',
-  'środę',
-  'srode',
-  'czwartek',
-  'piątek',
-  'piatek',
-  'sobota',
-  'sobotę',
-  'sobote',
-  'niedziela',
-  'niedzielę',
-  'niedziele',
-  'tydzień',
-  'tydzien',
-  'miesiąc',
-  'miesiac',
-  'rok',
-  'godzina',
-  'godzinie',
-  'godz',
-  'o',
-  // German
-  'heute',
-  'morgen',
-  'übermorgen',
-  'ubermorgen',
-  'gestern',
-  'vorgestern',
-  'früh',
-  'fruh',
-  'abend',
-  'abends',
-  'mittag',
-  'mittags',
-  'nacht',
-  'montag',
-  'dienstag',
-  'mittwoch',
-  'donnerstag',
-  'freitag',
-  'samstag',
-  'sonnabend',
-  'sonntag',
-  'woche',
-  'monat',
-  'jahr',
-  'stunde',
-  'uhr',
-  'um',
-  'am',
-  // English
-  'today',
-  'tomorrow',
-  'yesterday',
-  'morning',
-  'evening',
-  'noon',
-  'afternoon',
-  'night',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-  'week',
-  'month',
-  'year',
-  'hour',
-  'at',
-  'on',
-]);
 
 const EXCLUDED_PERSON_WORDS = new Set([
   ...TEMPORAL_STOP_WORDS,

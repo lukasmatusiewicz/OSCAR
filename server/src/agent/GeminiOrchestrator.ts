@@ -4,7 +4,7 @@ import {
   ExtractedTaskSchema,
   AIProvenance,
   validateContract,
-} from '../types/contracts.js';
+} from '@oscar/shared';
 import { RateLimiter } from '../gateway/RateLimiter.js';
 import {
   DeterministicFallbackExtractor,

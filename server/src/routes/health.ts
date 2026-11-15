@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { HealthResponse } from '../types/contracts.js';
+import { HealthResponse } from '@oscar/shared';
 
 /**
  * Creates the health check router.

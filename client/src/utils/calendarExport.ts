@@ -1,8 +1,9 @@
-import { TaskEntity, DecryptedTaskPayload } from '../types/contracts';
 import {
+  TaskEntity,
+  DecryptedTaskPayload,
   normalizePersonToNominative,
   normalizeAddressCasing,
-} from './linguisticNormalizer';
+} from '@oscar/shared';
 
 /**
  * Escapes characters for RFC 5545 iCalendar TEXT properties.

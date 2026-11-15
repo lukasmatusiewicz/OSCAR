@@ -1,6 +1,13 @@
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@oscar/shared': path.resolve(__dirname, '../shared/src'),
+      zod: path.resolve(__dirname, './node_modules/zod'),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',

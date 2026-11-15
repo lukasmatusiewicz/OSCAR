@@ -7,12 +7,10 @@ import {
   PrivacyAuditLog,
   DecryptedTaskPayload,
   DecryptedTaskPayloadSchema,
-} from '../types/contracts.js';
-import { PrivacyGuard } from '../privacy/PrivacyGuard.js';
-import {
   normalizePersonToNominative,
   normalizeAddressCasing,
-} from '../privacy/LinguisticNormalizer.js';
+} from '@oscar/shared';
+import { PrivacyGuard } from '../privacy/PrivacyGuard.js';
 import { GeminiOrchestrator } from '../agent/GeminiOrchestrator.js';
 import {
   stripCommandPrefixes,

@@ -5,7 +5,7 @@ import {
   TaskEntity,
   TaskPriority,
   TaskStatus,
-} from '../../types/contracts';
+} from '@oscar/shared';
 import { Button } from '../atoms/Button';
 import { SearchBox } from '../molecules/SearchBox';
 import { TaskCard } from './TaskCard';

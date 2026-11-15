@@ -1,8 +1,15 @@
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@oscar/shared': path.resolve(__dirname, '../shared/src'),
+      zod: path.resolve(__dirname, './node_modules/zod'),
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

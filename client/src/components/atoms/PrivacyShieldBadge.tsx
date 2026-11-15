@@ -1,5 +1,5 @@
 import React from 'react';
-import { RiskLevel } from '../../types/contracts';
+import { RiskLevel } from '@oscar/shared';
 
 export interface PrivacyShieldBadgeProps {
   riskLevel?: RiskLevel;

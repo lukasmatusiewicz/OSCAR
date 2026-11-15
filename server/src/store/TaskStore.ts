@@ -1,4 +1,4 @@
-import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
+import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '@oscar/shared';
 import type { ITaskRepository } from './ITaskRepository.js';
 
 export type { ITaskRepository } from './ITaskRepository.js';

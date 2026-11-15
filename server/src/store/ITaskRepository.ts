@@ -1,4 +1,4 @@
-import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
+import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '@oscar/shared';
 
 /**
  * Universal repository contract for task, memo, and privacy audit log persistence.

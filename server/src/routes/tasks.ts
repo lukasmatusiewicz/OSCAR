@@ -5,7 +5,7 @@ import {
   TaskEntity,
   DecryptedTaskPayload,
   DecryptedTaskPayloadSchema,
-} from '../types/contracts.js';
+} from '@oscar/shared';
 import { EncryptionService } from '../security/EncryptionService.js';
 import { getEncryptionKeyFromRequest } from '../security/requestKey.js';
 import type { ITaskRepository } from '../store/ITaskRepository.js';
