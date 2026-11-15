@@ -22,71 +22,90 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: |
             server/package-lock.json
             client/package-lock.json
 
-      - name: Server Install & Lint/Typecheck
-        run: cd server && npm ci && npx tsc --noEmit && npm run lint
+      - name: Server Install, Build & Lint
+        run: |
+          npm --prefix server ci
+          npm --prefix server run build
+          npm --prefix server run lint
 
-      - name: Client Install & Lint/Typecheck
-        run: cd client && npm ci && npx tsc --noEmit && npm run lint
+      - name: Client Install, Build & Lint
+        run: |
+          npm --prefix client ci
+          npm --prefix client run build
+          npm --prefix client run lint
 
   test-server:
-    name: Server Vitest Suite (344+ Tests)
+    name: Server Vitest Suite
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
 
       - name: Server Vitest Suite with Coverage
-        run: cd server && npm ci && npx vitest run --coverage
+        run: |
+          npm --prefix server ci
+          npm --prefix server run test:coverage
 
   test-client:
-    name: Client Vitest Suite (218+ Tests)
+    name: Client Vitest Suite
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
       - name: Client Vitest Suite with Coverage
-        run: cd client && npm ci && npx vitest run --coverage
+        run: |
+          npm --prefix client ci
+          npm --prefix client run test:coverage
 
   build-verification:
-    name: Client Production Build Gate
+    name: Production Build Gate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
           cache: 'npm'
-          cache-dependency-path: client/package-lock.json
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Server Production Build
+        run: |
+          npm --prefix server ci
+          npm --prefix server run build
 
       - name: Client Production Build
-        run: cd client && npm ci && npm run build
+        run: |
+          npm --prefix client ci
+          npm --prefix client run build
