@@ -675,6 +675,15 @@ export const NAME_PARTICLES = new Set([
   'zur',
 ]);
 
+function filterNonParticleWords(candidateWords: string[]): string[] {
+  return candidateWords
+    .filter(
+      (rawWord, idx) => !(idx < candidateWords.length - 1 && /^(?:st|ste)\.$/i.test(rawWord)),
+    )
+    .map((w) => w.toLowerCase().replace(/[.,]/g, ''))
+    .filter((w) => !NAME_PARTICLES.has(w));
+}
+
 /**
  * Folds any Unicode decimal digit (\p{Nd}) to ASCII '0'-'9'.
  */
@@ -1406,7 +1415,7 @@ export class PrivacyGuard {
     const hyphenPart = "(?:\\p{Lu}['’]\\p{Lu}[\\p{Ll}]+|\\p{Lu}[\\p{Ll}]+|[\\p{Ll}]{2,})";
     const nameWord = `${namePart}(?:-${hyphenPart})*`;
     const nameParticle =
-      '(?:de|la|le|du|des|da|das|do|dos|di|del|della|los|las|van|von|der|den|ten|ter|zu|zum|zur)';
+      '(?:de|la|le|du|des|da|das|do|dos|di|del|della|los|las|van|von|der|den|ten|ter|zu|zum|zur|St\\.|Ste\\.)';
     const multiName = `${nameWord}(?:\\s+(?:${nameParticle}\\s+){0,2}${nameWord}){0,2}`;
     const pairName = `${nameWord}(?:\\s+(?:${nameParticle}\\s+){0,2}${nameWord}){1,2}`;
 
@@ -1437,9 +1446,7 @@ export class PrivacyGuard {
       if (m.index !== undefined) {
         const candidateWords = m[0].split(/\s+/);
         const lowerVal = m[0].toLowerCase();
-        const nonParticleWords = candidateWords
-          .map((w) => w.toLowerCase().replace(/[.,]/g, ''))
-          .filter((w) => !NAME_PARTICLES.has(w));
+        const nonParticleWords = filterNonParticleWords(candidateWords);
         const isExcluded =
           INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
           nonParticleWords.some((w) => EXCLUDED_NAME_WORDS.has(w) || TEMPORAL_STOP_WORDS.has(w));
@@ -1473,7 +1480,8 @@ export class PrivacyGuard {
         const candidateVal = candidateWords.join(' ');
         const lowerVal = candidateVal.toLowerCase();
         const words = candidateWords.map((w) => w.toLowerCase().replace(/[.,]/g, ''));
-        const nonParticleWords = words.length > 1 ? words.filter((w) => !NAME_PARTICLES.has(w)) : words;
+        const nonParticleWords =
+          candidateWords.length > 1 ? filterNonParticleWords(candidateWords) : words;
         const isCityOrExcluded =
           INTERNATIONAL_CITIES.some((c) => c.toLowerCase() === lowerVal) ||
           EXCLUDED_NAME_WORDS.has(lowerVal) ||

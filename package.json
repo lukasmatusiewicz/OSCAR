@@ -12,6 +12,7 @@
     "test": "npm --prefix server test && npm --prefix client test",
     "test:coverage": "npm --prefix server run test:coverage && npm --prefix client run test:coverage",
     "test:e2e": "npm --prefix server run test:e2e",
+    "eval:holdout": "npm --prefix server exec -- vitest run --config .eval-harness/vitest.config.ts",
     "lint": "npm --prefix server run lint && npm --prefix client run lint"
   },
   "devDependencies": {
