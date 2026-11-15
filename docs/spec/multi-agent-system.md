@@ -77,6 +77,7 @@ flowchart TD
 | **QA & Security Auditor Agent** | Independent **Checker** role. Evaluates Maker code deliverables against specs, executes test suites, audits PII leaks, and validates Zod schemas. | **Read-Only** access to code & spec. Scoped test runner. | `view_file`, `run_command` (strictly allowlisted test commands), `send_message`. | **Strictly forbidden from editing source code or specifications**. Cannot approve PRs or merge to `main`. |
 | **Architecture & Security Critic Agent** | Independent **Auditor & Critic** role. Conducts adversarial threat modeling, boundary verification, and Continuous Specification Regression Audits. | **Read-Only** access to `docs/` and root configuration files. | `view_file`, `search_docs`, `send_message`. | **Zero write permissions across the entire workspace.** Cannot execute shell commands, install packages, or mutate repository files. |
 | **Documentation & Claims Auditor** | Independent **Checker** role for release and architectural gates. Verifies `README.md` and `docs/spec/` claims line-by-line against `src/` code, test counts, coverage thresholds, and runtime behavior per `docs/spec/release-audit-checklist.md`. | **Read-Only** access across `docs/`, `README.md`, `server/`, `client/`, and test suites. | `view_file`, `run_command` (strictly allowlisted test/coverage commands), `send_message`. | **Strictly forbidden from editing source code or specifications.** Cannot approve PRs or merge to `main`. |
+| **Adversarial Holdout Evaluator** | Independent **Evaluator** role. Authors isolated falsification and boundary tests against `docs/spec/` contracts to stress-test runtime modules without mirroring Maker test paths. | Read access to `docs/spec/` and exported APIs; write access scoped strictly to `oscar/.eval-harness/`. | `view_file`, `write_file`, `edit_file`, `run_command` (`npm run eval:holdout`), `send_message`. | **Strictly forbidden from modifying `server/src/`, `client/src/`, `shared/src/`, `server/tests/`, or `client/tests/`.** Cannot approve PRs or merge to `main`. |
 
 ---
 
@@ -113,6 +114,7 @@ For agents authorized to execute shell commands (`QA & Security Auditor Agent`, 
 ALLOWLIST = [
   "npm test",
   "npm run test",
+  "npm run eval:holdout",
   "npx vitest run",
   "npx vitest run --coverage",
   "git status",
@@ -141,8 +143,18 @@ To prevent documentation drift, hallucinated metrics, or stale architectural cla
 ### 4.6 Documentation Tone & Engineering Humility Standard
 To keep project documentation grounded in verifiable engineering facts, all Makers (including the `Documentation & Spec Worker`) and the `Documentation & Claims Auditor` must enforce the following tone rules across `README.md` and `docs/spec/`:
 * **No Marketing Hype or Overstated Maturity Claims:** Use plain, factual, modest engineering language. Avoid promotional phrasing or overstated maturity claims such as `"enterprise-grade"`, `"Executive Summary"`, `"revolutionary"`, `"unbreakable"`, `"Dark Factory achieved"`, `"battle-tested"`, `"zero-trust"`, or similar superlatives.
-* **Explicit Separation of Current Scope vs. Future Goals:** State current scope, operational constraints, and known limitations plainly. Documentation must clearly distinguish **what works today** (verified behavior, measured test counts, and implemented controls) from **what remains a future goal** (e.g., multi-tenant authentication, client-side E2EE / passphrase-derived keys, Service Worker asset caching, or an isolated holdout test harness).
+* **Explicit Separation of Current Scope vs. Future Goals:** State current scope, operational constraints, and known limitations plainly. Documentation must clearly distinguish **what works today** (verified behavior, measured test counts, and implemented controls) from **what remains a future goal** (e.g., multi-tenant authentication, client-side E2EE / passphrase-derived keys, Service Worker asset caching, or Confidential RAG).
 * **Audit Enforcement:** The `Documentation & Claims Auditor` flags any unverified maturity claim, promotional exaggeration, or blurred boundary between implemented features and roadmap items as a finding for remediation.
+
+### 4.7 Isolated Adversarial Holdout Evaluation (`.eval-harness/`)
+To counter test-gaming and shared blind spots between implementation and Maker-authored unit tests, OSCAR maintains an isolated holdout test suite under `.eval-harness/`:
+* **Anti-Test-Gaming Principle:** Holdout tests are derived directly from `docs/spec/` contracts (`privacy-guard-spec.md`, `contracts.md`, and `architecture.md`) to probe evasion cases, boundary inputs, and failure modes independently of Maker unit tests.
+* **Physical Isolation:** `.eval-harness/` is excluded from `server/tests/`, `client/tests/`, `server/tsconfig.json`, `client/tsconfig.json`, and Vite build graphs so holdout tests do not inflate standard unit test counts or coverage metrics.
+* **Holdout Suites:**
+  * `privacyGuard.holdout.spec.ts`: Zero-width/format (`\p{Cf}`) evasion, Unicode NFKC/NFD normalization, fullwidth ASCII, declined/hyphenated PL/DE/EN names, MOD-97 IBAN and PESEL/SSN checksum falsification, and runtime-assembled credential patterns.
+  * `cryptoAndStorage.holdout.spec.ts`: AES-256-GCM ciphertext, authTag, and IV tampering, wrong-key and invalid-key rejection, ephemeral key zeroing on normal and error paths, and zero-plaintext-at-rest enforcement in `TaskEntitySchema` and `FirestoreTaskStore`.
+  * `fallbackAndTemporal.holdout.spec.ts`: Multilingual command-prefix stripping, PII token retention, metadata bullet deduplication, leap-year/year-boundary `resolveRelativeDate()` checks, `extractScheduledTime()` currency/percentage traps, and `TEMPORAL_STOP_WORDS` boundaries.
+* **Execution:** Run the isolated holdout suite from the repository root via `npm run eval:holdout`.
 
 ---
 

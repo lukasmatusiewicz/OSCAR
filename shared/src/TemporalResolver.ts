@@ -306,7 +306,7 @@ export function extractScheduledTime(text: string): string | null {
 
   // 1. Prefixed time pattern (o, um, at, godz., godz, godzina, godzinie, o godz.)
   const prefixedRegex =
-    /(?:\b(?:tomorrow|jutro|morgen|today|dzisiaj|heute)\s+)?\b(?:(?:o\s+)?godz(?:ina|inie|\.)?|o|um|at)\s+(\d{1,2})(?::(\d{2})(?::\d{2})?)?(?:\s*(am|pm))?(?!\s*(?:[€$£¥]|zł|złotych|pln|eur|euro|usd|chf|gbp|%|proc|dni|dnia|godzin|minut|sekund|lat|kg|km\b|m\b))/iu;
+    /(?:\b(?:tomorrow|jutro|morgen|today|dzisiaj|heute)\s+)?\b(?:(?:o\s+)?godz(?:ina|inie|\.)?|o|um|at)\s+(\d{1,2})(?::(\d{2})(?::\d{2})?)?(?:\s*(am|pm))?(?!\d|:|\s*(?:[€$£¥]|zł|złotych|pln|eur|euro|usd|chf|gbp|%|proc|dni|dnia|godzin|minut|sekund|lat|kg|km\b|m\b))/iu;
 
   const prefixMatch = text.match(prefixedRegex);
   if (prefixMatch) {
