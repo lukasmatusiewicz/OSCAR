@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TaskList } from '../../../src/components/organisms/TaskList';
-import { TaskEntity, DecryptedTaskPayload } from '../../../src/types/contracts';
+import { TaskEntity, DecryptedTaskPayload } from '@oscar/shared';
 
 describe('TaskList', () => {
   const tasks: TaskEntity[] = [

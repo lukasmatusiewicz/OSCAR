@@ -13,7 +13,7 @@ import {
   DecryptedTaskPayload,
   TaskEntity,
   DecryptedTaskPayloadSchema,
-} from '../../src/types/contracts.js';
+} from '@oscar/shared';
 
 // Architectural Named Constants (Eliminating Magic Numbers per Section 7.3 Pillar 6)
 const HTTP_STATUS_OK = 200;

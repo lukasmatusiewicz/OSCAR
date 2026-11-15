@@ -13,7 +13,7 @@ import {
   ExtractedTask,
   TaskEntity,
   MemoEntity,
-} from '../../src/types/contracts.js';
+} from '@oscar/shared';
 
 // Architectural Named Constants (Eliminating Magic Numbers)
 const KEY_BYTE_LENGTH = 32;

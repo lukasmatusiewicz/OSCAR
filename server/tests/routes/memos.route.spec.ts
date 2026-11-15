@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createApp, DEFAULT_CORS_ORIGIN } from '../../src/app.js';
 import { TaskStore } from '../../src/store/TaskStore.js';
 import { EncryptionService } from '../../src/security/EncryptionService.js';
-import { DecryptedTaskPayload } from '../../src/types/contracts.js';
+import { DecryptedTaskPayload } from '@oscar/shared';
 import { errorHandler } from '../../src/middleware/errorHandler.js';
 import { GeminiOrchestrator } from '../../src/agent/GeminiOrchestrator.js';
 import { inProcessApp } from '../helpers/inProcessApp.js';

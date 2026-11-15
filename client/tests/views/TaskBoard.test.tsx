@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TaskBoard } from '../../src/views/TaskBoard';
-import { TaskEntity, DecryptedTaskPayload } from '../../src/types/contracts';
+import { TaskEntity, DecryptedTaskPayload } from '@oscar/shared';
 
 describe('TaskBoard View', () => {
   const mockTasks: TaskEntity[] = [

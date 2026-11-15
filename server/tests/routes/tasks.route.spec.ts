@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createApp } from '../../src/app.js';
 import { TaskStore } from '../../src/store/TaskStore.js';
 import { EncryptionService } from '../../src/security/EncryptionService.js';
-import { DecryptedTaskPayload } from '../../src/types/contracts.js';
+import { DecryptedTaskPayload } from '@oscar/shared';
 import { inProcessApp } from '../helpers/inProcessApp.js';
 import { logger } from '../../src/utils/logger.js';
 

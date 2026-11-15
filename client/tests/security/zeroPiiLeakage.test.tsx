@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { TokenPreviewBadge } from '../../src/components/molecules/TokenPreviewBadge';
 import { TaskCard } from '../../src/components/organisms/TaskCard';
 import { ClientCryptoService } from '../../src/services/ClientCryptoService';
-import { TaskEntity } from '../../src/types/contracts';
+import { TaskEntity } from '@oscar/shared';
 
 describe('Zero DOM PII Leakage & Client Enclave Security', () => {
   beforeEach(() => {

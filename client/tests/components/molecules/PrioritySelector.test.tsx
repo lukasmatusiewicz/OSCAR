@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PrioritySelector } from '../../../src/components/molecules/PrioritySelector';
-import { TaskPriority } from '../../../src/types/contracts';
+import { TaskPriority } from '@oscar/shared';
 
 describe('PrioritySelector', () => {
   it('renders radio options in interactive mode and updates selection', () => {

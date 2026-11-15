@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { CategoryBadge } from '../../../src/components/molecules/CategoryBadge';
-import { TaskCategory } from '../../../src/types/contracts';
+import { TaskCategory } from '@oscar/shared';
 
 describe('CategoryBadge', () => {
   it('renders correct label and styling for every taxonomy category', () => {

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Dashboard } from '../../src/views/Dashboard';
 import { ClientCryptoService } from '../../src/services/ClientCryptoService';
-import { TaskEntity, DecryptedTaskPayload } from '../../src/types/contracts';
+import { TaskEntity, DecryptedTaskPayload } from '@oscar/shared';
 
 describe('Dashboard View', () => {
   beforeEach(() => {

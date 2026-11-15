@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizePersonToNominative,
   normalizeAddressCasing,
-} from '../../src/privacy/LinguisticNormalizer.js';
+} from '@oscar/shared';
 
 describe('LinguisticNormalizer Suite', () => {
   describe('normalizePersonToNominative', () => {
@@ -87,6 +87,7 @@ describe('LinguisticNormalizer Suite', () => {
       it('converts other feminine genitive names and surnames', () => {
         expect(normalizePersonToNominative('Hanny')).toBe('Hanna');
         expect(normalizePersonToNominative('Katarzyny')).toBe('Katarzyna');
+        expect(normalizePersonToNominative('Dominiki')).toBe('Dominika');
         expect(normalizePersonToNominative('Kowalskiej')).toBe('Kowalska');
         expect(normalizePersonToNominative('Nowickiej')).toBe('Nowicka');
         expect(normalizePersonToNominative('Czarnej')).toBe('Czarna');
@@ -156,6 +157,7 @@ describe('LinguisticNormalizer Suite', () => {
         expect(normalizeAddressCasing('ul. marszałkowska 10')).toBe('ul. Marszałkowska 10');
         expect(normalizeAddressCasing('al. jerozolimskie 5')).toBe('al. Jerozolimskie 5');
         expect(normalizeAddressCasing('plac zbawiciela 1')).toBe('plac Zbawiciela 1');
+        expect(normalizeAddressCasing('10, ul. marszałkowska')).toBe('10, ul. Marszałkowska');
       });
     });
 
@@ -187,6 +189,7 @@ describe('LinguisticNormalizer Suite', () => {
         expect(normalizeAddressCasing('warszawie')).toBe('Warszawa');
         expect(normalizeAddressCasing('krakowie')).toBe('Kraków');
         expect(normalizeAddressCasing('berlin')).toBe('Berlin');
+        expect(normalizeAddressCasing('münchen')).toBe('München');
         expect(normalizeAddressCasing('paris')).toBe('Paris');
         expect(normalizeAddressCasing('new york')).toBe('New York');
       });

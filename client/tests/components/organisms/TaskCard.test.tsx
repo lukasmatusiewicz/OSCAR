@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TaskCard } from '../../../src/components/organisms/TaskCard';
-import { TaskEntity, DecryptedTaskPayload, TaskStatus } from '../../../src/types/contracts';
+import { TaskEntity, DecryptedTaskPayload, TaskStatus } from '@oscar/shared';
 import * as calendarExport from '../../../src/utils/calendarExport';
 
 describe('TaskCard', () => {

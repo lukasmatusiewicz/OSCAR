@@ -14,7 +14,7 @@ import {
   MemoEntity,
   PrivacyAuditLog,
   EncryptedPayload,
-} from '../../src/types/contracts.js';
+} from '@oscar/shared';
 import { createApp } from '../../src/app.js';
 import { inProcessApp } from '../helpers/inProcessApp.js';
 import { EncryptionService } from '../../src/security/EncryptionService.js';

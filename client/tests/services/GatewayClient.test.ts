@@ -6,7 +6,7 @@ import {
   HEADER_ENCRYPTION_KEY,
 } from '../../src/services/GatewayClient';
 import { ClientCryptoService } from '../../src/services/ClientCryptoService';
-import { CreateMemoResponse, TaskEntity } from '../../src/types/contracts';
+import { CreateMemoResponse, TaskEntity } from '@oscar/shared';
 
 describe('GatewayClient', () => {
   let mockFetch: ReturnType<typeof vi.fn>;

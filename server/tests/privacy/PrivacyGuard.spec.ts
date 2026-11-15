@@ -9,13 +9,13 @@ import {
   isGermanSteuerId,
   isValidSsn,
 } from '../../src/privacy/PrivacyGuard.js';
-import { normalizePersonToNominative } from '../../src/privacy/LinguisticNormalizer.js';
 import {
+  normalizePersonToNominative,
   SanitizationResultSchema,
   PIITokenMap,
   PIIType,
-  SanitizationResult
-} from '../../src/types/contracts.js';
+  SanitizationResult,
+} from '@oscar/shared';
 
 describe('PrivacyGuard Engine Suite', () => {
   // =========================================================================

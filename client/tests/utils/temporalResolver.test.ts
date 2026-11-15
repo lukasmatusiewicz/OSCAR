@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveRelativeDate, extractScheduledTime } from '../../src/utils/temporalResolver';
+import { resolveRelativeDate, extractScheduledTime } from '@oscar/shared';
 
 describe('client temporalResolver Unit Suite', () => {
   // Reference date: Monday, November 9, 2026 at 12:00:00 (midday local)

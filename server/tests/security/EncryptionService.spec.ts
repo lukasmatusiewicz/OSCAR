@@ -4,7 +4,7 @@ import {
   DecryptionError,
   InvalidKeyError
 } from '../../src/security/EncryptionService.js';
-import { EncryptedPayloadSchema } from '../../src/types/contracts.js';
+import { EncryptedPayloadSchema } from '@oscar/shared';
 
 describe('EncryptionService', () => {
   it('should encrypt and decrypt a JSON payload preserving roundtrip invariance', async () => {

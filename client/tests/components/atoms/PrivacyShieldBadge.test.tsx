@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PrivacyShieldBadge } from '../../../src/components/atoms/PrivacyShieldBadge';
-import { RiskLevel } from '../../../src/types/contracts';
+import { RiskLevel } from '@oscar/shared';
 
 describe('PrivacyShieldBadge', () => {
   it('renders shield with risk level label and token count', () => {
