@@ -7,7 +7,7 @@ import { GatewayClient } from '../../src/services/GatewayClient';
 import { ClientCryptoService } from '../../src/services/ClientCryptoService';
 import { gatewayClient } from '../../src/services/GatewayClient';
 import { App } from '../../src/App';
-import { TaskEntity } from '../../src/types/contracts';
+import { TaskEntity } from '@oscar/shared';
 
 const makeTask = (id: string, overrides: Partial<TaskEntity> = {}): TaskEntity => ({
   id,

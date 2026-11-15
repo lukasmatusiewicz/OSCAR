@@ -5,7 +5,7 @@ import {
   TaskEntity,
   TaskPriority,
   TaskStatus,
-} from '../../types/contracts';
+} from '@oscar/shared';
 import { Badge } from '../atoms/Badge';
 import { Button } from '../atoms/Button';
 import { Input } from '../atoms/Input';

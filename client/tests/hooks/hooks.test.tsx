@@ -5,7 +5,7 @@ import { useTasks } from '../../src/hooks/useTasks';
 import { useMemos } from '../../src/hooks/useMemos';
 import { ClientCryptoService } from '../../src/services/ClientCryptoService';
 import { gatewayClient } from '../../src/services/GatewayClient';
-import { TaskEntity, MemoEntitySchema, DecryptedTaskPayload, PIITokenMap } from '../../src/types/contracts';
+import { TaskEntity, MemoEntitySchema, DecryptedTaskPayload, PIITokenMap } from '@oscar/shared';
 
 describe('Reactive State Hooks', () => {
   beforeEach(() => {

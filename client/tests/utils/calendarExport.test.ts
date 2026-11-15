@@ -6,7 +6,7 @@ import {
   formatUtcToIcs,
   resolveStartAndEndDates,
 } from '../../src/utils/calendarExport';
-import { TaskEntity, DecryptedTaskPayload } from '../../src/types/contracts';
+import { TaskEntity, DecryptedTaskPayload } from '@oscar/shared';
 
 describe('calendarExport utility suite', () => {
   const baseTask: TaskEntity = {

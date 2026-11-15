@@ -13,7 +13,7 @@ import {
   TaskStatus,
   PIIType,
   RiskLevel,
-} from '../types/contracts';
+} from '@oscar/shared';
 
 export interface DashboardProps {
   initialTasks?: TaskEntity[];

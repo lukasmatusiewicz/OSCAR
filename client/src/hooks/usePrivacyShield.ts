@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { PIIType, RiskLevel } from '../types/contracts';
+import { PIIType, RiskLevel } from '@oscar/shared';
 import { ClientCryptoService } from '../services/ClientCryptoService';
 
 export interface PrivacyShieldState {

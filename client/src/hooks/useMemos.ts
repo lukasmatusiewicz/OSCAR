@@ -6,17 +6,16 @@ import {
   PIITokenMap,
   TaskEntity,
   DecryptedTaskPayload,
-} from '../types/contracts';
+  normalizePersonToNominative,
+  normalizeAddressCasing,
+  resolveRelativeDate,
+  extractScheduledTime,
+  TEMPORAL_STOP_WORDS,
+} from '@oscar/shared';
 import { ClientCryptoService } from '../services/ClientCryptoService';
 import { gatewayClient } from '../services/GatewayClient';
 import { logger } from '../utils/logger';
-import {
-  normalizePersonToNominative,
-  normalizeAddressCasing,
-} from '../utils/linguisticNormalizer';
-import { resolveRelativeDate, extractScheduledTime } from '../utils/temporalResolver';
 import { maskClientPii } from '../utils/clientPiiMasker';
-import { TEMPORAL_STOP_WORDS } from '../components/organisms/MemoEditor';
 
 export interface UseMemosOptions {
   simulateOffline?: boolean;

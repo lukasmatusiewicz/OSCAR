@@ -5,7 +5,7 @@ import {
   TaskEntity,
   TaskPriority,
   TaskStatus,
-} from '../types/contracts';
+} from '@oscar/shared';
 import { ClientCryptoService } from '../services/ClientCryptoService';
 import { gatewayClient } from '../services/GatewayClient';
 import { logger } from '../utils/logger';

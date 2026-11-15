@@ -1,5 +1,5 @@
 import React from 'react';
-import { TaskCategory } from '../../types/contracts';
+import { TaskCategory } from '@oscar/shared';
 import { Badge } from '../atoms/Badge';
 
 export interface CategoryBadgeProps {

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { resolveRelativeDate } from '../../src/agent/TemporalResolver.js';
+import {
+  resolveRelativeDate,
+  extractScheduledTime,
+  TEMPORAL_STOP_WORDS,
+} from '@oscar/shared';
 
 describe('TemporalResolver Agent Unit Suite', () => {
   // Reference date: Monday, November 9, 2026 at 12:00:00 (midday local)
@@ -134,6 +138,40 @@ describe('TemporalResolver Agent Unit Suite', () => {
       const expectedStr = `${year}-${month}-${day}`;
 
       expect(resolveRelativeDate('tomorrow')).toBe(expectedStr);
+    });
+  });
+
+  describe('extractScheduledTime', () => {
+    it('normalizes prefixed, single-hour, meridiem, and 24-hour times', () => {
+      expect(extractScheduledTime('Spotkanie o 12')).toBe('12:00');
+      expect(extractScheduledTime('Kawa o 9 rano')).toBe('09:00');
+      expect(extractScheduledTime('Treffen um 14')).toBe('14:00');
+      expect(extractScheduledTime('Sync at 3pm')).toBe('15:00');
+      expect(extractScheduledTime('Breakfast at 9 am')).toBe('09:00');
+      expect(extractScheduledTime('Lunch o 12:30')).toBe('12:30');
+      expect(extractScheduledTime('Wizyta godz. 12')).toBe('12:00');
+      expect(extractScheduledTime('Standard 12:00')).toBe('12:00');
+      expect(extractScheduledTime('Midnight at 12am')).toBe('00:00');
+      expect(extractScheduledTime('Noon at 12pm')).toBe('12:00');
+    });
+
+    it('rejects currency/unit amounts and out-of-range times', () => {
+      expect(extractScheduledTime('Invalid o 25')).toBeNull();
+      expect(extractScheduledTime('Zapłać 12 PLN')).toBeNull();
+      expect(extractScheduledTime('')).toBeNull();
+      expect(extractScheduledTime(null as unknown as string)).toBeNull();
+    });
+  });
+
+  describe('TEMPORAL_STOP_WORDS', () => {
+    it('contains multilingual temporal keywords in lowercase', () => {
+      expect(TEMPORAL_STOP_WORDS.has('jutro')).toBe(true);
+      expect(TEMPORAL_STOP_WORDS.has('morgen')).toBe(true);
+      expect(TEMPORAL_STOP_WORDS.has('tomorrow')).toBe(true);
+      expect(TEMPORAL_STOP_WORDS.has('poniedziałek')).toBe(true);
+      expect(TEMPORAL_STOP_WORDS.has('montag')).toBe(true);
+      expect(TEMPORAL_STOP_WORDS.has('monday')).toBe(true);
+      expect(TEMPORAL_STOP_WORDS.has('kowalski')).toBe(false);
     });
   });
 });

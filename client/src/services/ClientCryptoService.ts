@@ -1,4 +1,4 @@
-import { EncryptedPayload, EncryptedPayloadSchema } from '../types/contracts';
+import { EncryptedPayload, EncryptedPayloadSchema } from '@oscar/shared';
 import { logger } from '../utils/logger';
 
 export class InvalidKeyError extends Error {

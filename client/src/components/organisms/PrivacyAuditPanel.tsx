@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { PIIType, RiskLevel } from '../../types/contracts';
+import { PIIType, RiskLevel } from '@oscar/shared';
 import { Button } from '../atoms/Button';
 import { PrivacyShieldBadge } from '../atoms/PrivacyShieldBadge';
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { TokenPreviewBadge } from '../../../src/components/molecules/TokenPreviewBadge';
-import { PIIType } from '../../../src/types/contracts';
+import { PIIType } from '@oscar/shared';
 
 describe('TokenPreviewBadge', () => {
   it('renders masked token representation without leaking cleartext', () => {

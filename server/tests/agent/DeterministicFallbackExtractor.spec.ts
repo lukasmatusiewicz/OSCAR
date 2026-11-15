@@ -4,7 +4,7 @@ import {
   stripCommandPrefixes,
   deduplicateSummaryMetadata,
 } from '../../src/agent/DeterministicFallbackExtractor.js';
-import { ExtractedTaskSchema } from '../../src/types/contracts.js';
+import { ExtractedTaskSchema } from '@oscar/shared';
 
 describe('DeterministicFallbackExtractor', () => {
   it('should parse a simple work memo into a valid ExtractedTask conforming to schema', () => {

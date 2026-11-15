@@ -6,7 +6,7 @@ import {
   DocumentData,
 } from 'firebase-admin/firestore';
 import { GoogleAuth } from 'google-auth-library';
-import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '../types/contracts.js';
+import type { TaskEntity, MemoEntity, PrivacyAuditLog } from '@oscar/shared';
 import type { ITaskRepository } from './ITaskRepository.js';
 import { logger } from '../utils/logger.js';
 

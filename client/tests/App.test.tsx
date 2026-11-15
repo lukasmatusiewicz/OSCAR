@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, act, within } from '@testing-librar
 import { App } from '../src/App';
 import { ClientCryptoService } from '../src/services/ClientCryptoService';
 import { gatewayClient } from '../src/services/GatewayClient';
-import { TaskEntity } from '../src/types/contracts';
+import { TaskEntity } from '@oscar/shared';
 
 describe('App Root Component', () => {
   beforeEach(() => {

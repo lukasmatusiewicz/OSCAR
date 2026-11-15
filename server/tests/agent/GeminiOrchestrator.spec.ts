@@ -6,7 +6,7 @@ import {
   SYSTEM_INSTRUCTION
 } from '../../src/agent/GeminiOrchestrator.js';
 import { RateLimiter } from '../../src/gateway/RateLimiter.js';
-import { ExtractedTaskSchema } from '../../src/types/contracts.js';
+import { ExtractedTaskSchema } from '@oscar/shared';
 
 describe('GeminiOrchestrator', () => {
   let mockGenerateContent: ReturnType<typeof vi.fn>;

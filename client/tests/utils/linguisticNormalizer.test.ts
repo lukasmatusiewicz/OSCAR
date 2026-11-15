@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizePersonToNominative,
   normalizeAddressCasing,
-} from '../../src/utils/linguisticNormalizer';
+} from '@oscar/shared';
 
 describe('linguisticNormalizer (Client Unit Tests)', () => {
   describe('normalizePersonToNominative', () => {

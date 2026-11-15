@@ -1,5 +1,5 @@
 import React from 'react';
-import { PIIType } from '../../types/contracts';
+import { PIIType } from '@oscar/shared';
 
 export interface TokenPreviewBadgeProps {
   token: string;

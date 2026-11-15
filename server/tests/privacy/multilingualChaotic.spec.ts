@@ -4,7 +4,7 @@ import {
   SanitizationResultSchema,
   PIIType,
   SanitizationResult,
-} from '../../src/types/contracts.js';
+} from '@oscar/shared';
 
 /**
  * Validates that no raw PII substring from the original detected tokens remains in the sanitized text.

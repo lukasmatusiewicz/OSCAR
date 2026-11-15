@@ -1,4 +1,4 @@
-import { EncryptedPayload, EncryptedPayloadSchema } from '../types/contracts.js';
+import { EncryptedPayload, EncryptedPayloadSchema } from '@oscar/shared';
 
 export class InvalidKeyError extends Error {
   constructor(message = 'Invalid AES-256 key: key must be exactly 32 bytes (256 bits)') {

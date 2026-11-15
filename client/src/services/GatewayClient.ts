@@ -11,7 +11,7 @@ import {
   TaskEntitySchema,
   UpdateTaskInput,
   UpdateTaskInputSchema,
-} from '../types/contracts';
+} from '@oscar/shared';
 import { ClientCryptoService } from './ClientCryptoService';
 import { logger } from '../utils/logger';
 import { z } from 'zod';

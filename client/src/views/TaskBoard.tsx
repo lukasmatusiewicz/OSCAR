@@ -5,7 +5,7 @@ import {
   TaskEntity,
   TaskPriority,
   TaskStatus,
-} from '../types/contracts';
+} from '@oscar/shared';
 import { TaskCard } from '../components/organisms/TaskCard';
 
 export interface TaskBoardProps {

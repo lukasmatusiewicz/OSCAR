@@ -1,5 +1,5 @@
 import React from 'react';
-import { TaskPriority } from '../../types/contracts';
+import { TaskPriority } from '@oscar/shared';
 
 export interface PrioritySelectorProps {
   value: TaskPriority;

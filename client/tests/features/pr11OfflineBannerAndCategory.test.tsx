@@ -6,7 +6,7 @@ import { TaskCard } from '../../src/components/organisms/TaskCard';
 import { useTasks } from '../../src/hooks/useTasks';
 import { gatewayClient } from '../../src/services/GatewayClient';
 import { ClientCryptoService } from '../../src/services/ClientCryptoService';
-import { DecryptedTaskPayload, TaskEntity } from '../../src/types/contracts';
+import { DecryptedTaskPayload, TaskEntity } from '@oscar/shared';
 
 const makeTask = (id: string, overrides: Partial<TaskEntity> = {}): TaskEntity => ({
   id,
